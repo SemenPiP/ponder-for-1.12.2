@@ -1,0 +1,402 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            name = 'GTNH Maven'
+            url = 'https://nexus.gtnewhorizons.com/repository/public/'
+        }
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.gtnewhorizons:retrofuturagradle:1.4.9'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+}
+
+apply plugin: 'com.gtnewhorizons.retrofuturagradle'
+
+version = '1.0.2'
+group = 'net.createmod.ponder'
+
+def modVersion = '1.0.2-mc1.12.2'
+
+base {
+    archivesName.set('Ponder-1.12.2')
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+    withSourcesJar()
+}
+
+minecraft {
+    mcVersion.set('1.12.2')
+    mcpMappingChannel.set('stable')
+    mcpMappingVersion.set('39')
+    username.set('Developer')
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'CleanroomMC'
+        url = 'https://maven.cleanroommc.com'
+        content {
+            includeGroup 'zone.rong'
+            includeGroup 'com.cleanroommc'
+            includeGroup 'io.github.llamalad7'
+        }
+    }
+}
+
+def mixinBooterVersion = '11.2'
+def mixinBooter = "zone.rong:mixinbooter:${mixinBooterVersion}"
+
+dependencies {
+    implementation(mixinBooter) {
+        transitive = false
+    }
+    annotationProcessor mixinBooter
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+sourceSets {
+    exampleAddon {
+        java.srcDir 'examples/addon/src/main/java'
+        resources.srcDir 'examples/addon/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    clientHarness {
+        java.srcDir 'verification/client-harness/src/main/java'
+        resources.srcDir 'verification/client-harness/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+modUtils.enableMixins(mixinBooter, 'mixins.ponder.refmap.json')
+
+processResources {
+    inputs.property 'version', modVersion
+    inputs.property 'mcversion', '1.12.2'
+    inputs.property 'mixinBooterVersion', mixinBooterVersion
+
+    filesMatching('mcmod.info') {
+        expand 'version': modVersion,
+            'mcversion': '1.12.2',
+            'mixinBooterVersion': mixinBooterVersion
+    }
+}
+
+jar {
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    exclude 'assets/ponder/ponder/debug/**'
+    manifest {
+        attributes([
+            'FMLAT': 'ponder_at.cfg',
+            'FMLCorePlugin': 'net.createmod.ponder.mixin.PonderMixinLoader',
+            'ForceLoadAsMod': 'true',
+            'FMLCorePluginContainsFMLMod': 'true',
+            'Specification-Title': 'Ponder',
+            'Specification-Vendor': 'The Create Team',
+            'Specification-Version': '1',
+            'Implementation-Title': 'Ponder for Minecraft 1.12.2',
+            'Implementation-Version': modVersion,
+            'Implementation-Vendor': 'The Create Team',
+            'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+tasks.named('sourcesJar', Jar) {
+    exclude 'assets/ponder/ponder/debug/**'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
+}
+
+tasks.register('apiJar', Jar) {
+    archiveClassifier.set('api')
+    from sourceSets.main.output
+    include 'net/createmod/ponder/api/**'
+    include 'net/createmod/catnip/**'
+    include 'net/createmod/ponder/Ponder.class'
+    include 'net/createmod/ponder/foundation/PonderIndex.class'
+}
+
+tasks.register('exampleAddonJar', Jar) {
+    dependsOn tasks.named('exampleAddonClasses')
+    archiveBaseName.set('Ponder-Example-Addon-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    from sourceSets.exampleAddon.output
+}
+
+tasks.register('clientHarnessJar', Jar) {
+    dependsOn tasks.named('clientHarnessClasses')
+    archiveBaseName.set('Ponder-Client-Harness-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    from sourceSets.clientHarness.output
+}
+
+tasks.register('installClientHarness', Copy) {
+    dependsOn tasks.named('clientHarnessJar')
+    from tasks.named('clientHarnessJar', Jar).flatMap { it.archiveFile }
+    into layout.projectDirectory.dir('run/mods')
+}
+
+def mainReobfJar = tasks.named('reobfJar', com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar)
+mainReobfJar.configure {
+    archiveBaseName.set('Ponder-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('libs'))
+}
+def reobfExampleAddonJar = tasks.register('reobfExampleAddonJar',
+    com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
+    def inputJar = tasks.named('exampleAddonJar', Jar)
+    dependsOn inputJar, mainReobfJar
+    setInputJarFromTask(inputJar)
+    mcVersion.set(mainReobfJar.flatMap { it.mcVersion })
+    srg.set(mainReobfJar.flatMap { it.srg })
+    fieldCsv.set(mainReobfJar.flatMap { it.fieldCsv })
+    methodCsv.set(mainReobfJar.flatMap { it.methodCsv })
+    exceptorCfg.set(mainReobfJar.flatMap { it.exceptorCfg })
+    recompMcJar.set(mainReobfJar.flatMap { it.recompMcJar })
+    extraSrgEntries.set(mainReobfJar.flatMap { it.extraSrgEntries })
+    extraSrgFiles.from(mainReobfJar.map { it.extraSrgFiles })
+    referenceClasspath.from(mainReobfJar.map { it.referenceClasspath })
+    archiveBaseName.set('Ponder-Example-Addon-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('libs'))
+}
+
+tasks.register('verifyJava8Bytecode') {
+    dependsOn tasks.named('classes')
+    doLast {
+        fileTree(layout.buildDirectory.dir('classes/java/main')).matching { include '**/*.class' }.each { file ->
+            file.withInputStream { input ->
+                byte[] header = new byte[8]
+                if (input.read(header) != 8 || (header[6] & 0xff) != 0 || (header[7] & 0xff) != 52) {
+                    throw new GradleException("Non-Java-8 bytecode: ${file}")
+                }
+            }
+        }
+    }
+}
+
+tasks.register('verifyReleaseContents') {
+    dependsOn mainReobfJar, reobfExampleAddonJar, tasks.named('apiJar'), tasks.named('sourcesJar')
+    doLast {
+        File release = mainReobfJar.get().archiveFile.get().asFile
+        File example = reobfExampleAddonJar.get().archiveFile.get().asFile
+        File api = tasks.named('apiJar').get().archiveFile.get().asFile
+        File sources = tasks.named('sourcesJar').get().archiveFile.get().asFile
+
+        if (zipTree(release).matching { include 'mixins.ponder.refmap.json' }.isEmpty()) {
+            throw new GradleException('Release jar is missing mixins.ponder.refmap.json')
+        }
+        List<String> requiredDemoStructures = [
+            'assets/ponder/ponder/demo/basics.nbt',
+            'assets/ponder/ponder/demo/storage.nbt',
+            'assets/ponder/ponder/demo/smelting.nbt',
+            'assets/ponder/ponder/demo/piston.nbt',
+            'assets/ponder/ponder/demo/redstone.nbt',
+            'assets/ponder/ponder/demo/render_layers.nbt',
+            'assets/ponder/ponder/demo/fluids.nbt',
+            'assets/ponder/ponder/demo/rail.nbt'
+        ]
+        java.util.jar.JarFile releaseJar = new java.util.jar.JarFile(release)
+        try {
+            def attributes = releaseJar.manifest.mainAttributes
+            if (attributes.getValue('FMLCorePlugin') != 'net.createmod.ponder.mixin.PonderMixinLoader'
+                || !'true'.equalsIgnoreCase(attributes.getValue('ForceLoadAsMod'))
+                || !'true'.equalsIgnoreCase(attributes.getValue('FMLCorePluginContainsFMLMod'))) {
+                throw new GradleException('Release manifest is missing the MixinBooter Forge discovery attributes')
+            }
+            requiredDemoStructures.each { path ->
+                java.util.jar.JarEntry entry = releaseJar.getJarEntry(path)
+                if (entry == null || entry.directory || entry.size <= 0) {
+                    throw new GradleException("Release jar is missing required demo structure ${path}")
+                }
+            }
+        } finally {
+            releaseJar.close()
+        }
+        String expectedMixinDependency = "required-after:mixinbooter@[${mixinBooterVersion}]"
+        File mcmodInfo = zipTree(release).matching { include 'mcmod.info' }.singleFile
+        if (!mcmodInfo.getText('UTF-8').contains(expectedMixinDependency)) {
+            throw new GradleException("Release mcmod.info is missing ${expectedMixinDependency}")
+        }
+        File ponderModClass = zipTree(release).matching {
+            include 'net/createmod/ponder/PonderMod.class'
+        }.singleFile
+        if (!new String(ponderModClass.bytes, 'ISO-8859-1').contains(expectedMixinDependency)) {
+            throw new GradleException("Release @Mod metadata is missing ${expectedMixinDependency}")
+        }
+        File refmap = zipTree(release).matching { include 'mixins.ponder.refmap.json' }.singleFile
+        Map refmapJson = new groovy.json.JsonSlurper().parse(refmap) as Map
+        Map mappings = refmapJson.mappings instanceof Map ? refmapJson.mappings as Map : [:]
+        ['net/createmod/ponder/mixin/BufferBuilderAccessor',
+         'net/createmod/ponder/mixin/GuiContainerAccessor',
+         'net/createmod/ponder/mixin/MinecraftResizeMixin',
+         'net/createmod/ponder/mixin/ParticleManagerAccessor'].each { mixin ->
+            Map mixinMappings = mappings[mixin] instanceof Map ? mappings[mixin] as Map : [:]
+            if (mixinMappings.isEmpty() || mixinMappings.values().any {
+                    String value = String.valueOf(it)
+                    !value.contains('field_') && !value.contains('func_')
+                }) {
+                throw new GradleException("Release refmap has incomplete SRG mappings for ${mixin}")
+            }
+        }
+
+        [release, example, api].each { archive ->
+            zipTree(archive).matching { include '**/*.class' }.files.each { classFile ->
+                classFile.withInputStream { input ->
+                    byte[] header = new byte[8]
+                    if (input.read(header) != 8 || (header[6] & 0xff) != 0 || (header[7] & 0xff) != 52) {
+                        throw new GradleException("Non-Java-8 bytecode in ${archive.name}: ${classFile.name}")
+                    }
+                }
+            }
+        }
+
+        List<String> forbiddenPrefixes = [
+            'zone/rong/mixinbooter/',
+            'org/spongepowered/asm/',
+            'com/llamalad7/mixinextras/',
+            'com/cleanroommc/',
+            'com/jozufozu/flywheel/',
+            'dev/engine_room/flywheel/',
+            'org/joml/',
+            'org/lwjgl/glfw/',
+            'net/fabricmc/',
+            'net/neoforged/'
+        ]
+        [release, example, api, sources].each { archive ->
+            zipTree(archive).visit { details ->
+                if (!details.directory && details.path.startsWith('assets/ponder/ponder/debug/')) {
+                    throw new GradleException("Development debug structure in ${archive.name}: ${details.path}")
+                }
+                if (!details.directory && forbiddenPrefixes.any { details.path.startsWith(it) }) {
+                    throw new GradleException("Forbidden embedded dependency in ${archive.name}: ${details.path}")
+                }
+            }
+        }
+
+        [release, example, api].each { archive ->
+            zipTree(archive).matching { include '**/*.class' }.files.each { file ->
+                String constants = new String(file.bytes, 'ISO-8859-1')
+                ['com/jozufozu/flywheel/', 'dev/engine_room/flywheel/', 'org/joml/',
+                 'org/lwjgl/glfw/', 'net/fabricmc/', 'net/neoforged/'].each { reference ->
+                    if (constants.contains(reference)) {
+                        throw new GradleException("Forbidden runtime reference ${reference} in ${archive.name}!/${file.name}")
+                    }
+                }
+            }
+        }
+
+        Map<File, Map<String, List<String>>> mcpMembers = [
+            (release): [
+                'net/createmod/ponder/foundation/content/BasePonderPlugin.class':
+                    ['CRAFTING_TABLE', 'getDefaultState']
+            ],
+            (example): [
+                'com/example/ponderaddon/ExamplePonderPlugin.class':
+                    ['PISTON', 'AIR', 'getDefaultState', 'setGlowing']
+            ]
+        ]
+        mcpMembers.each { archive, entries ->
+            entries.each { path, forbiddenMembers ->
+                File classFile = zipTree(archive).matching { include path }.singleFile
+                String constants = new String(classFile.bytes, 'ISO-8859-1')
+                forbiddenMembers.each { member ->
+                    if (constants.contains(member)) {
+                        throw new GradleException("Non-reobfuscated member ${member} in ${archive.name}!/${path}")
+                    }
+                }
+            }
+        }
+
+        zipTree(api).visit { details ->
+            if (details.directory || details.path == 'META-INF/MANIFEST.MF') return
+            if (!(details.path.startsWith('net/createmod/ponder/api/')
+                || details.path.startsWith('net/createmod/catnip/')
+                || details.path == 'net/createmod/ponder/Ponder.class'
+                || details.path == 'net/createmod/ponder/foundation/PonderIndex.class')) {
+                throw new GradleException("Non-API entry in API classifier: ${details.path}")
+            }
+        }
+    }
+}
+
+tasks.register('verifyReleaseReport', Exec) {
+    dependsOn tasks.named('verifyReleaseContents')
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file('tools/verify-release.ps1').asFile.absolutePath
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyJava8Bytecode')
+    dependsOn tasks.named('verifyReleaseReport')
+}
+
+tasks.named('assemble') {
+    dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
+}
+
+artifacts {
+    archives tasks.named('apiJar')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact mainReobfJar
+            artifact tasks.named('sourcesJar')
+            artifact tasks.named('apiJar')
+            artifactId = 'Ponder-1.12.2'
+            version = modVersion
+            pom.withXml {
+                def dependencies = asNode().appendNode('dependencies')
+                def dependency = dependencies.appendNode('dependency')
+                dependency.appendNode('groupId', 'zone.rong')
+                dependency.appendNode('artifactId', 'mixinbooter')
+                dependency.appendNode('version', mixinBooterVersion)
+                dependency.appendNode('scope', 'provided')
+            }
+        }
+    }
+}
+
+tasks.withType(org.gradle.api.publish.maven.tasks.PublishToMavenRepository).configureEach {
+    dependsOn tasks.named('verifyReleaseReport')
+}
+tasks.withType(org.gradle.api.publish.maven.tasks.PublishToMavenLocal).configureEach {
+    dependsOn tasks.named('verifyReleaseReport')
+}

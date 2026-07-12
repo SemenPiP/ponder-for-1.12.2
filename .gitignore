@@ -1,0 +1,19 @@
+.gradle/
+build/
+run/
+out/
+.idea/
+*.iml
+*.ipr
+*.iws
+eclipse/
+*.launch
+logs/
+crash-reports/
+*.log
+*.log.gz
+
+# Local Forge/CatServer runtimes and verification evidence.
+verification/*
+!verification/client-harness/
+!verification/client-harness/**

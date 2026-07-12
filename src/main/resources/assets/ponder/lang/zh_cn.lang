@@ -1,0 +1,84 @@
+#PARSE_ESCAPES
+ponder.ui.hold_to_ponder=按住 [%1$s] 开始思索
+ponder.ui.subject=情景主题
+ponder.ui.pondering=思索……
+ponder.ui.pondering_tag=思索……
+ponder.ui.identify_mode=显示方块名称已启用\n按 [%1$s] 继续思索
+ponder.ui.associated=关联词条
+ponder.ui.close=思索结束
+ponder.ui.identify=显示方块名称
+ponder.ui.next=下一个情景
+ponder.ui.next_up=接下来：
+ponder.ui.previous=上一个情景
+ponder.ui.replay=重放
+ponder.ui.think_back=回想
+ponder.ui.slow_text=舒适阅读
+ponder.ui.exit=退出
+ponder.ui.welcome=欢迎来到思索界面
+ponder.ui.categories=%1$s中包含的条目
+ponder.ui.index_description=点击一个图标来查看相关的物品和方块
+ponder.ui.index_title=思索索引
+ponder.ponder.shared.sneak_and=潜行 +
+ponder.ponder.shared.ctrl_and=Ctrl +
+key.ponder.ponder=思索
+
+# 内置思索分类与场景
+ponder.ponder.shared.demo.controls=拖动鼠标旋转视角，滚动滚轮缩放
+ponder.ponder.tag.basics=思索基础
+ponder.ponder.tag.basics.description=了解思索教程的场景控制与基本构成。
+ponder.ponder.tag.storage=存储
+ponder.ponder.tag.storage.description=查看容器物品栏、物品实体与方块实体数据。
+ponder.ponder.tag.mechanics=机械
+ponder.ponder.tag.mechanics.description=逐步观察明确编排的移动、加工与运输过程。
+ponder.ponder.tag.redstone=红石
+ponder.ponder.tag.redstone.description=逐步观察充能状态与红石信号变化。
+ponder.ponder.tag.rendering=渲染
+ponder.ponder.tag.rendering.description=比较不同渲染层与透明流体的显示效果。
+
+ponder.ponder.ponder_basics.header=Minecraft 1.12.2 思索基础
+ponder.ponder.ponder_basics.text_1=思索场景可以逐层展示预先准备好的结构。
+ponder.ponder.ponder_basics.text_2=方块可以成为独立区段，在不改变原始结构的情况下移动和旋转。
+ponder.ponder.ponder_basics.text_3=提示框、粒子和虚拟实体能够突出讲解中的每个重点。
+ponder.ponder.ponder_basics.text_4=关键帧保证重放和跳转结果一致，让每一步都能再次检查。
+
+ponder.ponder.chest_storage.header=使用箱子存储物品
+ponder.ponder.chest_storage.text_1=在世界中右键点击箱子，可以打开它的 27 个物品栏槽位。
+ponder.ponder.chest_storage.text_2=场景脚本可以修改物品栏槽位，并在方块上方显示对应的物品实体。
+ponder.ponder.chest_storage.text_3=脚本也可以明确修改方块实体 NBT，例如箱子的自定义名称。
+ponder.ponder.chest_storage.text_4=重放场景时，物品栏和 NBT 修改都会从结构初始状态恢复。
+
+ponder.ponder.furnace_smelting.header=使用熔炉烧炼
+ponder.ponder.furnace_smelting.text_1=熔炉将输入物品与燃料结合，产出烧炼后的物品。
+ponder.ponder.furnace_smelting.text_2=演示会明确点亮熔炉，并填入原料槽和燃料槽。
+ponder.ponder.furnace_smelting.text_3=这里的烧炼进度由脚本编排，以得到清晰的时间线；虚拟世界不会模拟真实配方运行。
+ponder.ponder.furnace_smelting.text_4=脚本进度完成后，铁锭会出现在产物槽中。
+
+ponder.ponder.piston_movement.header=使用活塞移动方块
+ponder.ponder.piston_movement.text_1=这个活塞朝东，前方是一个黏液块和一格移动空间。
+ponder.ponder.piston_movement.text_2=黏液块会成为独立区段，并移动到标出的目标位置。
+ponder.ponder.piston_movement.text_3=独立区段还可以围绕固定的稳定锚点旋转。
+ponder.ponder.piston_movement.text_4=脚本会明确收回活塞并隐藏移动区段，重放时再恢复初始场景。
+
+ponder.ponder.redstone_lamp_power.header=点亮红石灯
+ponder.ponder.redstone_lamp_power.text_1=红石块为通向红石灯的红石线提供能量。
+ponder.ponder.redstone_lamp_power.text_2=场景将两段红石线明确设为 15 级能量，并用粒子标出信号路径。
+ponder.ponder.redstone_lamp_power.text_3=随后红石灯被明确替换为点亮状态，演示不依赖相邻方块更新。
+ponder.ponder.redstone_lamp_power.text_4=最后红石线和红石灯恢复为未充能状态，完整展示状态转换。
+
+ponder.ponder.glass_render_layers.header=了解方块渲染层
+ponder.ponder.glass_render_layers.text_1=实体方块在实体渲染层写入所有可见像素。
+ponder.ponder.glass_render_layers.text_2=裁切方块会丢弃透明像素，形成边缘清晰的细节。
+ponder.ponder.glass_render_layers.text_3=Mipmap 裁切方块使用过滤纹理，同时保留透明空隙。
+ponder.ponder.glass_render_layers.text_4=染色玻璃使用透明渲染层，将表面与后方几何体混合显示。
+
+ponder.ponder.water_handling.header=在场景中处理水
+ponder.ponder.water_handling.text_1=中央方块是完整水源，两侧方块显示较低的流动等级。
+ponder.ponder.water_handling.text_2=收起水源时，脚本会明确清除水源和两侧流动水方块。
+ponder.ponder.water_handling.text_3=用水桶放置水后，脚本会恢复水源与两个明确指定的流动等级。
+ponder.ponder.water_handling.text_4=透明玻璃边缘既能限制水流，也能看见水面后方的方块。
+
+ponder.ponder.rail_minecart.header=让矿车沿铁轨移动
+ponder.ponder.rail_minecart.text_1=这条铁轨先向南延伸，在弯道转向后继续向东。
+ponder.ponder.rail_minecart.text_2=虚拟矿车会在起点创建，并沿轨道移动到拐角。
+ponder.ponder.rail_minecart.text_3=矿车在弯道处转向，然后沿最后一段直轨向东移动。
+ponder.ponder.rail_minecart.text_4=动画元素可以平滑隐藏，重放场景时矿车会重新出现在起点。

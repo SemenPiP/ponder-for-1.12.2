@@ -1,0 +1,18 @@
+[
+  {
+    "modid": "ponder",
+    "name": "Ponder",
+    "description": "Visual in-game documentation, independently rewritten for Minecraft 1.12.2.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://github.com/Creators-of-Create/Ponder",
+    "authorList": ["simibubi", "Pepper", "zelophed"],
+    "credits": "Independent Minecraft 1.12.2 rewrite based on the official MIT-licensed Ponder project.",
+    "logoFile": "assets/ponder/logo.png",
+    "screenshots": [],
+    "dependencies": [
+      "required-after:forge@[14.23.5.2847,)",
+      "required-after:mixinbooter@[${mixinBooterVersion}]"
+    ]
+  }
+]
