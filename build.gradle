@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.0.2'
+version = '1.0.3'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.0.2-mc1.12.2'
+def modVersion = '1.0.3-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -58,14 +58,22 @@ repositories {
     }
 }
 
-def mixinBooterVersion = '11.2'
+def mixinBooterVersion = providers.gradleProperty('mixinBooterVersion').getOrElse('11.2')
+def mixinBooterRuntimeRange = '[9.1,)'
+def mixinBooterProcessorVersion = '11.2'
+def knownMixinBooterHashes = [
+    '11.2': '48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E'
+]
 def mixinBooter = "zone.rong:mixinbooter:${mixinBooterVersion}"
+def mixinBooterProcessor = "zone.rong:mixinbooter:${mixinBooterProcessorVersion}"
 
 dependencies {
     implementation(mixinBooter) {
         transitive = false
     }
-    annotationProcessor mixinBooter
+    // Older MixinBooter releases expose the same runtime loader API but do not
+    // carry the complete ASM classpath required by their annotation processor.
+    annotationProcessor mixinBooterProcessor
 
     testImplementation 'junit:junit:4.13.2'
 }
@@ -85,17 +93,18 @@ sourceSets {
     }
 }
 
-modUtils.enableMixins(mixinBooter, 'mixins.ponder.refmap.json')
+modUtils.enableMixins(mixinBooterProcessor, 'mixins.ponder.refmap.json')
 
 processResources {
     inputs.property 'version', modVersion
     inputs.property 'mcversion', '1.12.2'
     inputs.property 'mixinBooterVersion', mixinBooterVersion
+    inputs.property 'mixinBooterRuntimeRange', mixinBooterRuntimeRange
 
     filesMatching('mcmod.info') {
         expand 'version': modVersion,
             'mcversion': '1.12.2',
-            'mixinBooterVersion': mixinBooterVersion
+            'mixinBooterRuntimeRange': mixinBooterRuntimeRange
     }
 }
 
@@ -246,7 +255,7 @@ tasks.register('verifyReleaseContents') {
         } finally {
             releaseJar.close()
         }
-        String expectedMixinDependency = "required-after:mixinbooter@[${mixinBooterVersion}]"
+        String expectedMixinDependency = "required-after:mixinbooter@${mixinBooterRuntimeRange}"
         File mcmodInfo = zipTree(release).matching { include 'mcmod.info' }.singleFile
         if (!mcmodInfo.getText('UTF-8').contains(expectedMixinDependency)) {
             throw new GradleException("Release mcmod.info is missing ${expectedMixinDependency}")
@@ -358,7 +367,9 @@ tasks.register('verifyReleaseReport', Exec) {
     workingDir layout.projectDirectory
     def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
     commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-        '-File', layout.projectDirectory.file('tools/verify-release.ps1').asFile.absolutePath
+        '-File', layout.projectDirectory.file('tools/verify-release.ps1').asFile.absolutePath,
+        '-MixinBooterVersion', mixinBooterVersion,
+        '-ExpectedMixinBooterHash', knownMixinBooterHashes.getOrDefault(mixinBooterVersion, '')
 }
 
 tasks.named('check') {
@@ -387,7 +398,7 @@ publishing {
                 def dependency = dependencies.appendNode('dependency')
                 dependency.appendNode('groupId', 'zone.rong')
                 dependency.appendNode('artifactId', 'mixinbooter')
-                dependency.appendNode('version', mixinBooterVersion)
+                dependency.appendNode('version', mixinBooterRuntimeRange)
                 dependency.appendNode('scope', 'provided')
             }
         }

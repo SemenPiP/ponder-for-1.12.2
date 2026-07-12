@@ -1,5 +1,7 @@
 param(
-    [string]$ProjectRoot = ""
+    [string]$ProjectRoot = "",
+    [string]$MixinBooterVersion = "11.2",
+    [string]$ExpectedMixinBooterHash = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -148,10 +150,10 @@ function Get-McpMemberSet([string]$MappingPath) {
 
 $libs = Join-Path $ProjectRoot "build\libs"
 $artifacts = [ordered]@{
-    Ponder = Join-Path $libs "Ponder-1.12.2-1.0.2.jar"
-    Sources = Join-Path $libs "Ponder-1.12.2-1.0.2-sources.jar"
-    API = Join-Path $libs "Ponder-1.12.2-1.0.2-api.jar"
-    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.0.2.jar"
+    Ponder = Join-Path $libs "Ponder-1.12.2-1.0.3.jar"
+    Sources = Join-Path $libs "Ponder-1.12.2-1.0.3-sources.jar"
+    API = Join-Path $libs "Ponder-1.12.2-1.0.3-api.jar"
+    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.0.3.jar"
 }
 foreach ($artifact in $artifacts.Values) {
     if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
@@ -353,26 +355,27 @@ if ($null -eq $refmapText) {
 }
 
 if ($languageCount -lt 34) { $errors.Add("expected at least 34 language files, found $languageCount") }
-if ($null -eq $mcmodText -or !$mcmodText.Contains("required-after:mixinbooter@[11.2]")) {
-    $errors.Add("mcmod.info does not require exact MixinBooter 11.2")
+$mixinBooterRuntimeDependency = "required-after:mixinbooter@[9.1,)"
+if ($null -eq $mcmodText -or !$mcmodText.Contains($mixinBooterRuntimeDependency)) {
+    $errors.Add("mcmod.info does not declare supported MixinBooter range [9.1,)")
 }
-if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.0.2-mc1.12.2"')) {
-    $errors.Add("Ponder mcmod.info does not declare version 1.0.2-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.0.3-mc1.12.2"')) {
+    $errors.Add("Ponder mcmod.info does not declare version 1.0.3-mc1.12.2")
 }
-if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.0.2-mc1.12.2")) {
-    $errors.Add("Ponder.VERSION is not 1.0.2-mc1.12.2")
+if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.0.3-mc1.12.2")) {
+    $errors.Add("Ponder.VERSION is not 1.0.3-mc1.12.2")
 }
 if ($null -eq $ponderModConstants -or
-    !$ponderModConstants.Contains("required-after:mixinbooter@[11.2]")) {
-    $errors.Add("PonderMod @Mod metadata does not require exact MixinBooter 11.2")
+    !$ponderModConstants.Contains($mixinBooterRuntimeDependency)) {
+    $errors.Add("PonderMod @Mod metadata does not declare supported MixinBooter range [9.1,)")
 }
-if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.0.2"') -or
-    !$exampleMcmodText.Contains("required-after:ponder@[1.0.2-mc1.12.2]")) {
-    $errors.Add("example mcmod.info does not declare 1.0.2 and require Ponder 1.0.2-mc1.12.2")
+if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.0.3"') -or
+    !$exampleMcmodText.Contains("required-after:ponder@[1.0.3-mc1.12.2]")) {
+    $errors.Add("example mcmod.info does not declare 1.0.3 and require Ponder 1.0.3-mc1.12.2")
 }
-if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.0.2") -or
-    !$exampleAddonConstants.Contains("required-after:ponder@[1.0.2-mc1.12.2]")) {
-    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.0.2")
+if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.0.3") -or
+    !$exampleAddonConstants.Contains("required-after:ponder@[1.0.3-mc1.12.2]")) {
+    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.0.3")
 }
 if ($null -eq $packMetadata) {
     $errors.Add("pack.mcmeta is missing")
@@ -387,8 +390,6 @@ if ($null -eq $packMetadata) {
     }
 }
 
-$mixinBooterVersion = "11.2"
-$expectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
 $gradleHome = if ([string]::IsNullOrWhiteSpace($env:GRADLE_USER_HOME)) {
     Join-Path $env:USERPROFILE ".gradle"
 } else {
@@ -402,8 +403,9 @@ if ($null -eq $mixinBooterArtifact) {
     $errors.Add("MixinBooter $mixinBooterVersion is unavailable in the Gradle dependency cache")
 } else {
     $mixinBooterHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $mixinBooterArtifact.FullName).Hash
-    if ($mixinBooterHash -ne $expectedMixinBooterHash) {
-        $errors.Add("MixinBooter $mixinBooterVersion hash mismatch: $mixinBooterHash")
+    if (![string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and
+        $mixinBooterHash -ne $ExpectedMixinBooterHash) {
+        $errors.Add("MixinBooter $MixinBooterVersion hash mismatch: $mixinBooterHash")
     }
 }
 
@@ -432,7 +434,8 @@ $lines = @(
     "- Generated: $([DateTime]::UtcNow.ToString('u')) UTC",
     "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example))",
     "- Language files: $languageCount",
-    "- MixinBooter version: $mixinBooterVersion",
+    "- Supported MixinBooter range: [9.1,)",
+    "- Build MixinBooter version: $MixinBooterVersion",
     "- MixinBooter SHA256: $mixinBooterHash",
     "- Ponder SHA256: $($hashes.Ponder)",
     "- API SHA256: $($hashes.API)",

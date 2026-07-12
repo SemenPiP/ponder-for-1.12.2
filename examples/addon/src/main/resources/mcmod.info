@@ -2,11 +2,11 @@
   {
     "modid": "ponder_example",
     "name": "Ponder Example Addon",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "mcversion": "1.12.2",
     "dependencies": [
       "required-after:forge@[14.23.5.2847,)",
-      "required-after:ponder@[1.0.2-mc1.12.2]"
+      "required-after:ponder@[1.0.3-mc1.12.2]"
     ]
   }
 ]

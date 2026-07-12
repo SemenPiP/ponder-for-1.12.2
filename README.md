@@ -12,12 +12,10 @@ not establish client rendering or full CatServer compatibility.
 
 ## Current verification status
 
-Version 1.0.2 retains the 1.0.1 depth-buffer fix and eight built-in vanilla
-demonstrations, stabilizes scripted item entities, and reveals ordinary base
-plates and sections one block at a time. Every built-in scene now runs for
-exactly 32 seconds.
-Historical 1.0.0/MixinBooter 11.5 reports remain historical and do not qualify
-the current 1.0.2 artifact.
+Version 1.0.3 retains the 1.0.2 scene, replay, and rendering fixes while
+removing the exact MixinBooter 11.2 runtime lock. Runtime metadata now accepts
+MixinBooter 9.1 and newer. Every built-in scene still runs for exactly 32
+seconds. Historical reports do not qualify the current 1.0.3 artifact.
 
 This workspace cannot create a usable hardware OpenGL context for visual
 judgement or real mouse, fullscreen and GUI-scale testing. Standard Forge
@@ -31,18 +29,25 @@ this round. Server-only results are recorded separately in
 - Minecraft 1.12.2
 - Forge 14.23.5.2847 or newer
 - Java 8
-- MixinBooter 11.2 (exact version)
+- MixinBooter 9.1 or newer
 
-Install `Ponder-1.12.2-1.0.2.jar` and the separate MixinBooter 11.2 jar in the
+Install `Ponder-1.12.2-1.0.3.jar` and a separate supported MixinBooter jar in the
 same `mods` directory. MixinBooter is deliberately not embedded.
 
 Do not install the `-api`, `-sources`, or `-dev` jars as runtime mods. The API
 jar is a deobfuscated compile-time dependency for addon development. The
-supported MixinBooter 11.2 artifact has SHA-256
+default build and server qualification baseline remains MixinBooter 11.2, whose artifact has SHA-256
 `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E`.
-The build resolves it from the
+The default build resolves it from the
 [CleanroomMC Maven artifact](https://maven.cleanroommc.com/zone/rong/mixinbooter/11.2/mixinbooter-11.2.jar);
 verify the hash before installing a manually downloaded copy.
+
+Use `gradlew.bat build -PmixinBooterVersion=10.7` to compile and verify against
+another available MixinBooter runtime API. Refmap generation keeps the 11.2
+annotation processor because older releases do not carry its complete build-time
+ASM classpath. Runtime metadata accepts MixinBooter 9.1 and newer; compatibility
+claims should still name the versions that completed the Forge, CatServer, and
+client acceptance matrix.
 
 ## Build
 
@@ -59,10 +64,10 @@ produces the reobfuscated artifacts. Before any release compatibility claim,
 the same artifacts must also pass the standard Forge and CatServer gates in
 [docs/TESTING.md](docs/TESTING.md).
 
-`build/libs/Ponder-1.12.2-1.0.2.jar` is the reobfuscated runtime artifact.
+`build/libs/Ponder-1.12.2-1.0.3.jar` is the reobfuscated runtime artifact.
 Developer jars are isolated under `build/devlibs` and must not be installed on
 a production server. `reobfExampleAddonJar` builds the separately installable
-example as `build/libs/Ponder-Example-Addon-1.12.2-1.0.2.jar`.
+example as `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`.
 
 ## Built-in demonstrations
 
@@ -72,6 +77,8 @@ Use `/ponder <component id>` with `minecraft:crafting_table`, `minecraft:chest`,
 `/ponder index` for the component index and `/ponder tags` for categories.
 The built-in scenes first reveal the 5x5 floor and then the upper structure.
 Scripted books keep a fixed position while retaining their slow item rotation.
+In a container screen, hover a registered item and hold the displayed Ponder
+key to open its scene. The default is `W` and can be rebound in Controls.
 
 ## Addon development
 

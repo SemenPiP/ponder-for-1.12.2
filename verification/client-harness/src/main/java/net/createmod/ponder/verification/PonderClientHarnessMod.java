@@ -21,9 +21,9 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 @Mod(
     modid = PonderClientHarnessMod.MOD_ID,
     name = "Ponder Client Acceptance Harness",
-    version = "1.0.2",
+    version = "1.0.3",
     acceptedMinecraftVersions = "[1.12.2]",
-    dependencies = "required-after:forge@[14.23.5.2847,);required-after:mixinbooter@[11.2];after:ponder",
+    dependencies = "required-after:forge@[14.23.5.2847,);required-after:mixinbooter@[9.1,);after:ponder",
     acceptableRemoteVersions = "*",
     clientSideOnly = true
 )

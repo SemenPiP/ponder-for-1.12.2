@@ -1,6 +1,8 @@
 param(
     [string]$ForgeDirectory = "",
     [string]$MixinBooterJar = "",
+    [string]$MixinBooterVersion = "11.2",
+    [string]$ExpectedMixinBooterHash = "",
     [string]$JavaExecutable = "",
     [int]$TimeoutSeconds = 600,
     [int]$ServerPort = 25566
@@ -25,11 +27,12 @@ $forgeFileName = "forge-1.12.2-$forgeVersion-universal.jar"
 $expectedForgeHash = "29A7372B5801C2EA01ACFFA8B238256D131D770BCD18148D6F2D5C2A40BC6A6A"
 $minecraftServerFileName = "minecraft_server.1.12.2.jar"
 $expectedMinecraftServerHash = "FE1F9274E6DAD9191BF6E6E8E36EE6EBC737F373603DF0946AAFCDED0D53167E"
-$ponderVersion = "1.0.2-mc1.12.2"
-$ponderFileName = "Ponder-1.12.2-1.0.2.jar"
+$ponderVersion = "1.0.3-mc1.12.2"
+$ponderFileName = "Ponder-1.12.2-1.0.3.jar"
 $ponderJar = Join-Path $buildRoot "libs\$ponderFileName"
-$mixinBooterVersion = "11.2"
-$expectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
+if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and $MixinBooterVersion -eq "11.2") {
+    $ExpectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
+}
 $mixinBooterUri = "https://maven.cleanroommc.com/zone/rong/mixinbooter/$mixinBooterVersion/mixinbooter-$mixinBooterVersion.jar"
 
 $null = New-Item -ItemType Directory -Path $testRoot -Force
@@ -88,11 +91,11 @@ function Get-VerifiedMixinBooter {
 
     foreach ($candidate in $candidates) {
         $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $candidate).Hash
-        if ($hash -eq $expectedMixinBooterHash) {
+        if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -or $hash -eq $ExpectedMixinBooterHash) {
             return [PSCustomObject]@{ Path = $candidate; Hash = $hash; Source = "local" }
         }
         if (![string]::IsNullOrWhiteSpace($PreferredPath)) {
-            throw "MixinBooter SHA256 mismatch. Expected $expectedMixinBooterHash, found $hash at $candidate"
+            throw "MixinBooter SHA256 mismatch. Expected $ExpectedMixinBooterHash, found $hash at $candidate"
         }
     }
 
@@ -101,8 +104,9 @@ function Get-VerifiedMixinBooter {
     $download = Join-Path $dependencyRoot "mixinbooter-$mixinBooterVersion.jar"
     $null = Invoke-WebRequest -UseBasicParsing -Uri $mixinBooterUri -OutFile $download
     $downloadHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $download).Hash
-    if ($downloadHash -ne $expectedMixinBooterHash) {
-        throw "Downloaded MixinBooter SHA256 mismatch. Expected $expectedMixinBooterHash, found $downloadHash"
+    if (![string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and
+        $downloadHash -ne $ExpectedMixinBooterHash) {
+        throw "Downloaded MixinBooter SHA256 mismatch. Expected $ExpectedMixinBooterHash, found $downloadHash"
     }
     return [PSCustomObject]@{ Path = $download; Hash = $downloadHash; Source = "download" }
 }
@@ -612,7 +616,7 @@ try {
     }
 
     if (!(Test-Path -LiteralPath $ponderJar -PathType Leaf)) {
-        throw "Build the final 1.0.2 reobf artifact before this test. Required: $ponderJar"
+        throw "Build the final 1.0.3 reobf artifact before this test. Required: $ponderJar"
     }
     if ([IO.Path]::GetFileName($ponderJar) -ne $ponderFileName) {
         throw "Only the final $ponderFileName artifact may be tested."

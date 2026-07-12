@@ -1,7 +1,6 @@
 package net.createmod.ponder.metadata;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -18,18 +17,17 @@ import net.createmod.ponder.mixin.PonderMixinLoader;
 import net.minecraftforge.fml.common.Mod;
 
 public class MixinBooterMetadataTest {
-    private static final String EXACT_DEPENDENCY = "required-after:mixinbooter@[11.2]";
+    private static final String SUPPORTED_DEPENDENCY = "required-after:mixinbooter@[9.1,)";
 
     @Test
-    public void modAnnotationRequiresExactMixinBooterVersion() {
+    public void modAnnotationAllowsSupportedMixinBooterVersions() {
         Mod annotation = PonderMod.class.getAnnotation(Mod.class);
         assertNotNull(annotation);
-        assertTrue(annotation.dependencies().contains(EXACT_DEPENDENCY));
-        assertFalse(annotation.dependencies().contains("mixinbooter@[11.5]"));
+        assertTrue(annotation.dependencies().contains(SUPPORTED_DEPENDENCY));
     }
 
     @Test
-    public void processedModInfoRequiresExactMixinBooterVersion() throws Exception {
+    public void processedModInfoAllowsSupportedMixinBooterVersions() throws Exception {
         Enumeration<URL> resources = getClass().getClassLoader().getResources("mcmod.info");
         String ponderMetadata = null;
         while (resources.hasMoreElements()) {
@@ -40,8 +38,7 @@ public class MixinBooterMetadataTest {
             }
         }
         assertNotNull("processed Ponder mcmod.info is missing", ponderMetadata);
-        assertTrue(ponderMetadata.contains(EXACT_DEPENDENCY));
-        assertFalse(ponderMetadata.contains("mixinbooter@[11.5]"));
+        assertTrue(ponderMetadata.contains(SUPPORTED_DEPENDENCY));
     }
 
     @Test

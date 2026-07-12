@@ -12,7 +12,7 @@
     "screenshots": [],
     "dependencies": [
       "required-after:forge@[14.23.5.2847,)",
-      "required-after:mixinbooter@[${mixinBooterVersion}]"
+      "required-after:mixinbooter@${mixinBooterRuntimeRange}"
     ]
   }
 ]

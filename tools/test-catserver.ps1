@@ -1,6 +1,8 @@
 param(
     [string]$CatServerJar = "",
     [string]$MixinBooterJar = "",
+    [string]$MixinBooterVersion = "11.2",
+    [string]$ExpectedMixinBooterHash = "",
     [string]$LibrariesDirectory = "",
     [int]$TimeoutSeconds = 600,
     [switch]$WaitForClient,
@@ -20,8 +22,9 @@ $report = Join-Path $reportRoot "catserver-verification-$runId.md"
 $demoFlag = Join-Path $testRoot "client-demo-ok.flag"
 
 $expectedCatServerHash = "EAF575310ACBB48D535212CFB88D93DE69F90F2A81879A26F88457713A25952E"
-$mixinBooterVersion = "11.2"
-$expectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
+if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and $MixinBooterVersion -eq "11.2") {
+    $ExpectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
+}
 $mixinBooterUri = "https://maven.cleanroommc.com/zone/rong/mixinbooter/$mixinBooterVersion/mixinbooter-$mixinBooterVersion.jar"
 
 $null = New-Item -ItemType Directory -Path $testRoot -Force
@@ -88,11 +91,11 @@ function Get-VerifiedMixinBooter {
 
     foreach ($candidate in $candidates) {
         $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $candidate).Hash
-        if ($hash -eq $expectedMixinBooterHash) {
+        if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -or $hash -eq $ExpectedMixinBooterHash) {
             return [PSCustomObject]@{ Path = $candidate; Hash = $hash; Source = "local" }
         }
         if (![string]::IsNullOrWhiteSpace($PreferredPath)) {
-            throw "MixinBooter SHA256 mismatch. Expected $expectedMixinBooterHash, found $hash at $candidate"
+            throw "MixinBooter SHA256 mismatch. Expected $ExpectedMixinBooterHash, found $hash at $candidate"
         }
     }
 
@@ -101,8 +104,9 @@ function Get-VerifiedMixinBooter {
     $download = Join-Path $dependencyRoot "mixinbooter-$mixinBooterVersion.jar"
     $null = Invoke-WebRequest -UseBasicParsing -Uri $mixinBooterUri -OutFile $download
     $downloadHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $download).Hash
-    if ($downloadHash -ne $expectedMixinBooterHash) {
-        throw "Downloaded MixinBooter SHA256 mismatch. Expected $expectedMixinBooterHash, found $downloadHash"
+    if (![string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and
+        $downloadHash -ne $ExpectedMixinBooterHash) {
+        throw "Downloaded MixinBooter SHA256 mismatch. Expected $ExpectedMixinBooterHash, found $downloadHash"
     }
     return [PSCustomObject]@{ Path = $download; Hash = $downloadHash; Source = "download" }
 }
@@ -513,8 +517,8 @@ try {
         throw "The CatServer jar is not the supported SHA256 $expectedCatServerHash build. Found $catServerHash"
     }
 
-    $releaseJar = Join-Path $buildRoot "libs\Ponder-1.12.2-1.0.2.jar"
-    $exampleJar = Join-Path $buildRoot "libs\Ponder-Example-Addon-1.12.2-1.0.2.jar"
+    $releaseJar = Join-Path $buildRoot "libs\Ponder-1.12.2-1.0.3.jar"
+    $exampleJar = Join-Path $buildRoot "libs\Ponder-Example-Addon-1.12.2-1.0.3.jar"
     foreach ($artifact in @($releaseJar, $exampleJar)) {
         if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
             throw "Build all release and example artifacts before this test: $artifact"

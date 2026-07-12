@@ -10,10 +10,11 @@
 | Minecraft | 1.12.2 |
 | Java | 64 位 Java 8，源码与 class major version 均为 52 |
 | Forge 编译/最低运行基线 | 14.23.5.2847；声明兼容 2847 及以上 |
-| MixinBooter | 精确版本 11.2，SHA-256 `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E` |
+| MixinBooter | 运行范围 9.1 及以上；默认认证基线 11.2，SHA-256 `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E` |
 | CatServer | 仅限 SHA-256 `EAF575310ACBB48D535212CFB88D93DE69F90F2A81879A26F88457713A25952E` |
 
-MixinBooter 必须作为独立 jar 安装，不能嵌入 Ponder。Forge、MixinBooter 和 CatServer 的普通签名
+MixinBooter 必须作为独立 jar 安装，不能嵌入 Ponder。每个要正式声明兼容的 MixinBooter 版本都应
+单独执行本文件的服务端与客户端门槛。Forge、MixinBooter 和 CatServer 的普通签名
 警告不是通过依据；任何 mixin 应用失败、缺类、客户端类在专服加载或模组生命周期异常都必须判失败。
 
 ## 自动化构建门槛
@@ -29,10 +30,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 `build` 已依赖 reobf 主包、reobf 示例 addon、API jar、sources jar 和发布内容检查。不要用
 `jar` 任务的 `build/devlibs/*-dev.jar` 代替发布成品。成功后应存在：
 
-- `build/libs/Ponder-1.12.2-1.0.2.jar`
-- `build/libs/Ponder-Example-Addon-1.12.2-1.0.2.jar`
-- `build/libs/Ponder-1.12.2-1.0.2-api.jar`
-- `build/libs/Ponder-1.12.2-1.0.2-sources.jar`
+- `build/libs/Ponder-1.12.2-1.0.3.jar`
+- `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`
+- `build/libs/Ponder-1.12.2-1.0.3-api.jar`
+- `build/libs/Ponder-1.12.2-1.0.3-sources.jar`
 
 Gradle 门槛检查以下内容：
 
@@ -53,22 +54,32 @@ Gradle 门槛检查以下内容：
 
 ## 当前验证状态
 
-`1.0.2` 在 1.0.1 深度缓冲修复和八个内置场景基础上，稳定物品实体并增加普通区段逐方块滑入。
-历史 `1.0.0`/`1.0.1` 的哈希和报告不转移到当前版本；以下结果均绑定到本次干净构建：
+`1.0.3` 在 1.0.2 基础上取消 MixinBooter 11.2 精确锁定，并允许构建与验收脚本选择目标版本。
+历史版本的哈希和报告不转移到当前版本；以下结果必须绑定到新的 1.0.3 成品：
 
 | 门槛 | 状态 | 证据或原因 |
 | --- | --- | --- |
-| 单元测试 | PASS | 33 份测试套件 XML，共 92 项；0 failures、0 errors、0 skipped |
-| 最终 `clean test build compileClientHarnessJava` 与发布报告 | PASS | 仅四个 `1.0.2` 成品；`build/reports/release-verification.md` 状态为 `PASS` |
-| 标准 Forge 2847 专服 | PASS | 空服类基线、最终主包初启及同世界重启均 PASS；报告 `build/reports/standard-forge-verification-20260712-042042984-4e31850b.md` |
+| 单元测试 | PASS | 34 份测试套件 XML，共 95 项；0 failures、0 errors、0 skipped |
+| 最终 `clean test build compileClientHarnessJava` 与发布报告 | PASS | MixinBooter 9.1 与默认 11.2 均完成完整构建；最终 11.2 四件套的 `build/reports/release-verification.md` 为 `PASS` |
+| 标准 Forge 2847 专服 | 待重新执行 | 9.1 尝试在安装 Ponder 前因空服基线未确认 `save-all` 而中止；不能记为 Ponder 运行失败或通过 |
 | RFG/验收 harness 客户端 | 编译通过，运行受阻 | harness 已覆盖四阶段逐块截图、70 tick 书本 Y 采样及八场景自动播放；宿主机仍报 `LWJGLException: Pixel format not accelerated`，未取得运行时深度读回或截图 |
 | 标准 Forge reobf 客户端视觉门槛 | 环境阻塞/未执行 | 仍须在可用 OpenGL 客户端验证八个场景、真实输入、全屏、资源重载和 GUI scale 1-4 |
-| CatServer 四层服务端预检 | `PASS_SERVER_ONLY` | 四层均 PASS，示例 addon 同世界重启通过；报告 `build/reports/catserver-verification-20260712-042228873-f2d8f415.md` |
+| CatServer 四层服务端预检 | 待重新执行 | 1.0.2 的 `PASS_SERVER_ONLY` 不转移到 1.0.3 |
 
 当前完整客户端验收仍未满足：标准 Forge 客户端画面/交互没有证据。CatServer 真实客户端连接未执行，
 但不属于本轮必要门槛；`PASS_SERVER_ONLY` 是本轮预期的 CatServer 结果，仍不能改写成客户端通过。
 
-本次固定成品与依赖哈希如下；任何重新构建都会使这些运行证据失效：
+本次默认 MixinBooter 11.2 构建的固定成品如下；重新构建会改变这些哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `Ponder-1.12.2-1.0.3.jar` | `C279728B867016EA25E933510F0CDB66B7E9F11E97FF85BB7616CAF2C7A68881` |
+| `Ponder-1.12.2-1.0.3-api.jar` | `3FDE3176163717596221D358085441F5DD0687E66B307625F16FCC456D6C7D96` |
+| `Ponder-1.12.2-1.0.3-sources.jar` | `4ADFFDC36B2F3F28AE64E50DF3B62BA014BB27264796FD7A396AE3329678F034` |
+| `Ponder-Example-Addon-1.12.2-1.0.3.jar` | `96F61451689139DFF5CD93A41C9917F0710E0C58693EAB639B8D34F6A6C8D8DD` |
+| `mixinbooter-11.2.jar` | `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E` |
+
+最近一次完整服务端验收属于 1.0.2，仅作为历史记录：
 
 | 文件 | SHA-256 |
 | --- | --- |
@@ -80,8 +91,9 @@ Gradle 门槛检查以下内容：
 
 ## 标准 Forge 专服
 
-使用 Mojang/Forge 安装器建立隔离的 14.23.5.2847 专服，只安装最终 reobf Ponder 与外置
-MixinBooter 11.2。至少执行两次启动：
+使用 Mojang/Forge 安装器建立隔离的 14.23.5.2847 专服，只安装最终 reobf Ponder 与选定的外置
+MixinBooter。脚本默认使用 11.2，也可通过 `-MixinBooterVersion` 和可选
+`-ExpectedMixinBooterHash` 指定其他版本。至少执行两次启动：
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-1.8'
@@ -110,7 +122,8 @@ storyboard、`Done`、`Saved the world` 和正常关闭，且致命 mixin/缺类
 
 ## 标准 Forge 客户端
 
-客户端必须使用 Java 8、Forge 2847+、外置 MixinBooter 11.2 和同一 SHA-256 的 Ponder 主包。
+客户端必须使用 Java 8、Forge 2847+、外置 MixinBooter 和同一 SHA-256 的 Ponder 主包。
+当前完整验收基线使用 11.2；其他允许版本需要分别保留对应客户端证据。
 八个内置入口为 `minecraft:crafting_table`、`minecraft:chest`、`minecraft:furnace`、
 `minecraft:piston`、`minecraft:redstone_lamp`、`minecraft:glass`、`minecraft:water_bucket` 和
 `minecraft:rail`。示例 addon 的场景还需安装同一构建生成的 reobf 示例包。

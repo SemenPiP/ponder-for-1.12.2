@@ -1,25 +1,25 @@
 # Ponder 1.12.2 开发接入
 
 本项目的公开 Ponder API 位于 `net.createmod.ponder.api`；场景所需的 Catnip 适配类位于
-`net.createmod.catnip`。addon 编译时可依赖 `Ponder-1.12.2-1.0.2-api.jar`，但不要把这个
-反混淆 API jar 安装到游戏。运行环境应安装 reobf 的 Ponder 主包与独立的 MixinBooter 11.2；
+`net.createmod.catnip`。addon 编译时可依赖 `Ponder-1.12.2-1.0.3-api.jar`，但不要把这个
+反混淆 API jar 安装到游戏。运行环境应安装 reobf 的 Ponder 主包与独立的 MixinBooter 9.1 或更高版本；
 addon 自身也必须经过 Forge 1.12.2 reobf 后才能发布。
 
 ## 当前构建基线
 
-当前开发版本为 `1.0.2-mc1.12.2`，依赖精确的 MixinBooter 11.2。历史 1.0.0/1.0.1 的构建哈希与
+当前开发版本为 `1.0.3-mc1.12.2`。默认构建与当前服务端验收基线使用 MixinBooter 11.2，
+运行元数据接受 9.1 及以上版本。可通过 `-PmixinBooterVersion=<版本>` 切换编译和发布校验所用版本。
+Mixin refmap 的注解处理器固定使用 11.2；较旧 MixinBooter 版本仍可作为运行 API 编译目标，但其自身
+没有携带当前构建链所需的完整 ASM 类路径。
+历史 1.0.0/1.0.1 的构建哈希与
 服务端报告不适用于当前版本；每次重新构建后都必须使用新 SHA-256 重新执行发布内容、标准 Forge
 专服、CatServer 与客户端门槛。
 
-当前工作区的干净构建、92 项单元测试、标准 Forge 2847 专服初启/同世界重启及 CatServer 四层
-服务端预检，均已绑定到主包 SHA-256
-`28C787F41B99BC469893A43EEA107EF98AD48CC36CAEC2E2DA3C7368B0A94EF2`。标准 Forge 与 CatServer 报告分别为
-`build/reports/standard-forge-verification-20260712-042042984-4e31850b.md` 和
-`build/reports/catserver-verification-20260712-042228873-f2d8f415.md`。这些结果不覆盖客户端画面
-与交互。当前工作区无法创建硬件 OpenGL 上下文，标准 Forge 客户端视觉、真实鼠标、全屏和 GUI
-scale 1-4 验收仍未执行；真实客户端连接 CatServer 也未执行，但不属于本轮必要门槛。开发或发版时
-不得把专服启动、自动化测试或 `PASS_SERVER_ONLY` 当成标准 Forge 客户端门槛已经通过。实时证据和剩余门槛见
-[TESTING.md](TESTING.md)。
+1.0.2 的标准 Forge 与 CatServer 报告属于历史成品，不能转移到 1.0.3。当前版本必须重新生成
+发布报告。当前单元测试基线为 34 个测试套件、95 项测试；针对要声明兼容的 MixinBooter 版本还应
+分别执行服务端和客户端门槛。开发或发版时不得把
+专服启动、自动化测试或 `PASS_SERVER_ONLY` 当成标准 Forge 客户端门槛已经通过。实时证据和剩余
+门槛见 [TESTING.md](TESTING.md)。
 
 ## 注册插件
 
@@ -96,15 +96,15 @@ FMLInterModComms.sendMessage(
 - 方块修改、实体创建、粒子、摄像机旋转和结束标记。
 
 在项目根目录执行 `gradlew.bat reobfExampleAddonJar` 可单独构建示例。开发环境产物是
-`build/devlibs/Ponder-Example-Addon-1.12.2-1.0.2-dev.jar`；可安装到标准 Forge/CatServer
-的 SRG 成品是 `build/libs/Ponder-Example-Addon-1.12.2-1.0.2.jar`。不要发布或安装带
+`build/devlibs/Ponder-Example-Addon-1.12.2-1.0.3-dev.jar`；可安装到标准 Forge/CatServer
+的 SRG 成品是 `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`。不要发布或安装带
 `-dev` classifier 的示例 jar。示例只依赖 Ponder 的公开 API，且不会被打进 Ponder 主 jar。
 
 ## 打开与操作场景
 
 - `/ponder examplemod:machine` 打开指定组件的场景；`/ponder index` 和 `/ponder tags` 打开索引视图。
 - `/ponder reload` 要求权限等级 2，用于重新构建客户端 Ponder 注册表；材质/模型资源仍使用原版资源重载入口。
-- 容器中悬停已注册物品并按住“前进”键可打开对应场景。
+- 容器中悬停已注册物品并按住“思索”按键可打开对应场景；默认是 `W`，可在控制设置中重新绑定。
 - 场景内拖动鼠标旋转，滚轮缩放，空格暂停/继续，`R` 重播，左右方向键切换场景，`Q` 切换识别模式。
 - 底部进度条可以拖动；跳转会从最近快照恢复后确定性重放到目标 tick。
 
