@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Java 8
         uses: actions/setup-java@v5
@@ -33,10 +33,15 @@ jobs:
           distribution: temurin
           java-version: "8"
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v6
+      - name: Restore Gradle and RFG cache
+        uses: actions/cache@v6
         with:
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-rfg-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-rfg-${{ runner.os }}-
 
       - name: Build and run tests
         shell: powershell
@@ -68,7 +73,7 @@ jobs:
             }
 
       - name: Upload release jars
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ponder-1.1.0-${{ github.sha }}
           path: build/libs/*.jar
@@ -77,7 +82,7 @@ jobs:
 
       - name: Upload build reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: build-reports-${{ github.sha }}
           path: |
@@ -94,7 +99,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Java 8
         uses: actions/setup-java@v5
@@ -102,8 +107,14 @@ jobs:
           distribution: temurin
           java-version: "8"
 
+      - name: Restore Forge server runtime
+        uses: actions/cache@v6
+        with:
+          path: build/forge-2847-server-source
+          key: forge-server-1.12.2-14.23.5.2847-v1
+
       - name: Download release jars
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: ponder-1.1.0-${{ github.sha }}
           path: build/libs
@@ -118,7 +129,7 @@ jobs:
 
       - name: Upload server reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: forge-server-reports-${{ github.sha }}
           path: |
