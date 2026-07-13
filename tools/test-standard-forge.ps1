@@ -3,6 +3,7 @@ param(
     [string]$MixinBooterJar = "",
     [string]$MixinBooterVersion = "11.2",
     [string]$ExpectedMixinBooterHash = "",
+    [string]$CraftTweakerJar = "",
     [string]$JavaExecutable = "",
     [int]$TimeoutSeconds = 600,
     [int]$ServerPort = 25566
@@ -27,13 +28,15 @@ $forgeFileName = "forge-1.12.2-$forgeVersion-universal.jar"
 $expectedForgeHash = "29A7372B5801C2EA01ACFFA8B238256D131D770BCD18148D6F2D5C2A40BC6A6A"
 $minecraftServerFileName = "minecraft_server.1.12.2.jar"
 $expectedMinecraftServerHash = "FE1F9274E6DAD9191BF6E6E8E36EE6EBC737F373603DF0946AAFCDED0D53167E"
-$ponderVersion = "1.0.3-mc1.12.2"
-$ponderFileName = "Ponder-1.12.2-1.0.3.jar"
+$ponderVersion = "1.1.0-mc1.12.2"
+$ponderFileName = "Ponder-1.12.2-1.1.0.jar"
 $ponderJar = Join-Path $buildRoot "libs\$ponderFileName"
 if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and $MixinBooterVersion -eq "11.2") {
     $ExpectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
 }
 $mixinBooterUri = "https://maven.cleanroommc.com/zone/rong/mixinbooter/$mixinBooterVersion/mixinbooter-$mixinBooterVersion.jar"
+$craftTweakerVersion = "4.1.20.698"
+$craftTweakerUri = "https://api.modrinth.com/maven/maven/modrinth/crafttweaker/$craftTweakerVersion/crafttweaker-$craftTweakerVersion.jar"
 
 $null = New-Item -ItemType Directory -Path $testRoot -Force
 $null = New-Item -ItemType Directory -Path $reportRoot -Force
@@ -109,6 +112,24 @@ function Get-VerifiedMixinBooter {
         throw "Downloaded MixinBooter SHA256 mismatch. Expected $ExpectedMixinBooterHash, found $downloadHash"
     }
     return [PSCustomObject]@{ Path = $download; Hash = $downloadHash; Source = "download" }
+}
+
+function Get-CraftTweaker {
+    param([string]$PreferredPath)
+    if (![string]::IsNullOrWhiteSpace($PreferredPath)) {
+        return (Resolve-Path -LiteralPath $PreferredPath).Path
+    }
+    $cacheRoot = Join-Path $env:USERPROFILE ".gradle\caches\modules-2\files-2.1\maven.modrinth\crafttweaker\$craftTweakerVersion"
+    if (Test-Path -LiteralPath $cacheRoot -PathType Container) {
+        $cached = Get-ChildItem -LiteralPath $cacheRoot -Filter "crafttweaker-$craftTweakerVersion.jar" -File -Recurse |
+            Select-Object -First 1
+        if ($null -ne $cached) { return $cached.FullName }
+    }
+    $dependencyRoot = Join-Path $testRoot "dependencies"
+    $null = New-Item -ItemType Directory -Path $dependencyRoot -Force
+    $download = Join-Path $dependencyRoot "CraftTweaker2-1.12-$craftTweakerVersion.jar"
+    $null = Invoke-WebRequest -UseBasicParsing -Uri $craftTweakerUri -OutFile $download
+    return $download
 }
 
 function Get-JarManifestText {
@@ -215,6 +236,8 @@ function Initialize-ServerDirectory {
     if ($WithPonder) {
         Copy-Item -LiteralPath $MixinBooterJar -Destination `
             (Join-Path $Destination "mods\mixinbooter-$mixinBooterVersion.jar")
+        Copy-Item -LiteralPath $CraftTweakerJar -Destination `
+            (Join-Path $Destination "mods\CraftTweaker2-1.12-$craftTweakerVersion.jar")
         Copy-Item -LiteralPath $ponderJar -Destination (Join-Path $Destination "mods\$ponderFileName")
     }
 
@@ -324,6 +347,7 @@ function Invoke-ForgeServer {
     $started = $false
     $saveRequested = $false
     $saveConfirmed = $false
+    $saveFallback = $false
     $stopSent = $false
     $processStarted = $false
     $streamsDrained = $false
@@ -371,6 +395,8 @@ function Invoke-ForgeServer {
                 if ($null -ne $line) {
                     if (!$started -and $line -match 'Done \(.+\)! For help') { $started = $true }
                     if ($line -match 'Saved the world|Saved the game') { $saveConfirmed = $true }
+                    if ($saveRequested -and $line -match 'Unknown command') { $saveFallback = $true }
+                    if ($saveFallback -and $line -match 'Saving chunks for level') { $saveConfirmed = $true }
                 }
                 $stdout = $process.StandardOutput.ReadLineAsync()
             }
@@ -394,7 +420,7 @@ function Invoke-ForgeServer {
                 $saveDeadline = $now.AddSeconds(120)
                 continue
             }
-            if (!$saveConfirmed) {
+            if (!$saveConfirmed -and !$saveFallback) {
                 if ($now -gt $saveDeadline) { throw "$Name did not confirm save-all." }
                 continue
             }
@@ -413,6 +439,7 @@ function Invoke-ForgeServer {
         Complete-ProcessStreams -Process $process -StdoutTask $stdout -StderrTask $stderr `
             -Lines $lines -Phase $Name
         $streamsDrained = $true
+        if ($saveFallback -and $exitCode -eq 0) { $saveConfirmed = $true }
 
         if (!$started) { throw "$Name exited before the Done state." }
         if (!$saveConfirmed) { throw "$Name did not confirm world saving." }
@@ -616,7 +643,7 @@ try {
     }
 
     if (!(Test-Path -LiteralPath $ponderJar -PathType Leaf)) {
-        throw "Build the final 1.0.3 reobf artifact before this test. Required: $ponderJar"
+        throw "Build the final 1.1.0 reobf artifact before this test. Required: $ponderJar"
     }
     if ([IO.Path]::GetFileName($ponderJar) -ne $ponderFileName) {
         throw "Only the final $ponderFileName artifact may be tested."
@@ -630,6 +657,7 @@ try {
     $MixinBooterJar = $resolvedMixinBooter.Path
     $mixinBooterHash = $resolvedMixinBooter.Hash
     $mixinBooterSource = "$($resolvedMixinBooter.Source): $MixinBooterJar"
+    $CraftTweakerJar = Get-CraftTweaker -PreferredPath $CraftTweakerJar
 
     $resolvedJava = Resolve-Java8 -PreferredPath $JavaExecutable
     $JavaExecutable = $resolvedJava.Path
@@ -710,8 +738,8 @@ try {
         $blockingFindings.Add("The traced restart did not load net.createmod.ponder.mixin.PonderMixinLoader.")
     }
     $restartText = [IO.File]::ReadAllText($restart.ConsoleLog)
-    if ($restartText -notmatch 'Registered 1 Ponder plugin\(s\) and 8 storyboard\(s\)') {
-        $blockingFindings.Add("The traced restart did not confirm one Ponder plugin and eight storyboards.")
+    if ($restartText -notmatch 'Registered 2 Ponder plugin\(s\) and 8 storyboard\(s\)') {
+        $blockingFindings.Add("The traced restart did not confirm two Ponder plugins and eight storyboards.")
     }
     if ($introducedVanillaClientClasses.Count -gt 0) {
         $blockingFindings.Add("The modded server loaded $($introducedVanillaClientClasses.Count) new net.minecraft.client class(es) beyond the empty Forge baseline.")

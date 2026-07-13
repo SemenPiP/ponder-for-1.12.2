@@ -16,6 +16,7 @@ import net.createmod.ponder.enums.PonderKeybinds;
 import net.createmod.ponder.foundation.PonderElementFactories;
 import net.createmod.ponder.foundation.PonderIndex;
 import net.createmod.ponder.render.SectionRenderCache;
+import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.client.resources.IReloadableResourceManager;
@@ -23,6 +24,7 @@ import net.minecraft.client.resources.I18n;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -40,6 +42,7 @@ public class ClientProxy extends CommonProxy {
         }
         PonderKeybinds.register(ClientRegistry::registerKeyBinding);
         MinecraftForge.EVENT_BUS.register(events);
+        FMLCommonHandler.instance().bus().register(events);
     }
 
     @Override
@@ -54,6 +57,13 @@ public class ClientProxy extends CommonProxy {
             }
         });
         IResourceManager manager = Minecraft.getMinecraft().getResourceManager();
+        PonderStructureLoader.setResourceProvider(location -> {
+            try {
+                return Minecraft.getMinecraft().getResourceManager().getResource(location).getInputStream();
+            } catch (java.io.FileNotFoundException missing) {
+                return null;
+            }
+        });
         if (manager instanceof IReloadableResourceManager) {
             ((IReloadableResourceManager) manager).registerReloadListener(new ClientResourceReloadListener() {
                 @Override
@@ -63,6 +73,7 @@ public class ClientProxy extends CommonProxy {
                     SuperByteBufferCache.getInstance().invalidate();
                     SectionRenderCache.invalidateAll();
                     PonderClient.invalidateRenderers();
+                    PonderStructureLoader.invalidateCaches();
                 }
             });
         }

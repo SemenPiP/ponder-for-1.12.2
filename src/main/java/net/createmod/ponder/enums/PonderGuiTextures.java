@@ -33,7 +33,7 @@ public enum PonderGuiTextures implements TextureSheetSegment, ScreenElement {
     PonderGuiTextures(String file, int column, int row) { this(file, column * 16, row * 16, 16, 16); }
     PonderGuiTextures(String file, int x, int y, int width, int height) { this(file, x, y, width, height, 256, 256); }
     PonderGuiTextures(String file, int x, int y, int width, int height, int sheetWidth, int sheetHeight) {
-        location = new ResourceLocation(Ponder.MOD_ID, "textures/gui/" + file + ".png");
+        location = new ResourceLocation(Ponder.CONTENT_NAMESPACE, "textures/gui/" + file + ".png");
         startX = x; startY = y; this.width = width; this.height = height;
         this.sheetWidth = sheetWidth; this.sheetHeight = sheetHeight;
     }

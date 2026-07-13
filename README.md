@@ -12,10 +12,11 @@ not establish client rendering or full CatServer compatibility.
 
 ## Current verification status
 
-Version 1.0.3 retains the 1.0.2 scene, replay, and rendering fixes while
-removing the exact MixinBooter 11.2 runtime lock. Runtime metadata now accepts
-MixinBooter 9.1 and newer. Every built-in scene still runs for exactly 32
-seconds. Historical reports do not qualify the current 1.0.3 artifact.
+Version 1.1.0 adds CraftTweaker/ZenScript scene authoring, external structures,
+and server-authoritative scene snapshots on top of the 1.0.3 compatibility
+fixes. Runtime metadata accepts MixinBooter 9.1 and newer and requires
+CraftTweaker 4.1.20 or newer. Every generated built-in scene runs for exactly
+32 seconds. Historical reports do not qualify the current 1.1.0 artifact.
 
 This workspace cannot create a usable hardware OpenGL context for visual
 judgement or real mouse, fullscreen and GUI-scale testing. Standard Forge
@@ -26,13 +27,16 @@ this round. Server-only results are recorded separately in
 
 ## Runtime requirements
 
+- Forge mod ID: `ponder_legacy`
+- Content, resource and ZenScript namespace: `ponder`
 - Minecraft 1.12.2
 - Forge 14.23.5.2847 or newer
 - Java 8
 - MixinBooter 9.1 or newer
+- CraftTweaker 4.1.20 or newer
 
-Install `Ponder-1.12.2-1.0.3.jar` and a separate supported MixinBooter jar in the
-same `mods` directory. MixinBooter is deliberately not embedded.
+Install `Ponder-1.12.2-1.1.0.jar`, a supported MixinBooter jar, and CraftTweaker
+in the same `mods` directory. Runtime dependencies are deliberately not embedded.
 
 Do not install the `-api`, `-sources`, or `-dev` jars as runtime mods. The API
 jar is a deobfuscated compile-time dependency for addon development. The
@@ -64,10 +68,10 @@ produces the reobfuscated artifacts. Before any release compatibility claim,
 the same artifacts must also pass the standard Forge and CatServer gates in
 [docs/TESTING.md](docs/TESTING.md).
 
-`build/libs/Ponder-1.12.2-1.0.3.jar` is the reobfuscated runtime artifact.
+`build/libs/Ponder-1.12.2-1.1.0.jar` is the reobfuscated runtime artifact.
 Developer jars are isolated under `build/devlibs` and must not be installed on
 a production server. `reobfExampleAddonJar` builds the separately installable
-example as `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`.
+example as `build/libs/Ponder-Example-Addon-1.12.2-1.1.0.jar`.
 
 ## Built-in demonstrations
 
@@ -79,6 +83,18 @@ The built-in scenes first reveal the 5x5 floor and then the upper structure.
 Scripted books keep a fixed position while retaining their slow item rotation.
 In a container screen, hover a registered item and hold the displayed Ponder
 key to open its scene. The default is `W` and can be rebound in Controls.
+
+On first launch Ponder writes eight editable scripts to
+`scripts/ponder/builtin`. A marker under
+`config/ponder/builtin-zs-generated.properties` prevents later overwrites or
+restoration, so deleting a generated script disables that built-in scene.
+
+Custom scenes belong under `scripts/ponder/scenes`. Custom structure NBT belongs
+under `scripts/ponder/structures/<namespace>/<path>.nbt` and is addressed as
+`<namespace>:<path>`. External structures override resource-pack and mod-jar
+resources. Script changes require a restart; `/ponder reload` only reapplies
+compiled definitions and invalidates structure caches. Servers synchronize
+validated scene instructions, not scripts or structure NBT.
 
 ## Addon development
 

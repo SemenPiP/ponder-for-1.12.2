@@ -9,10 +9,11 @@ CatServer 完整兼容已经通过。
 
 ## 当前验证状态
 
-`1.0.3` 保留了 1.0.2 的 GUI、场景和回放修复，并取消 MixinBooter 11.2 精确运行锁定。
-运行元数据现在接受 MixinBooter 9.1 及以上版本，八个内置场景仍均为精确 32 秒。该版本的构建、
+`1.1.0` 在 1.0.3 基础上加入 CraftTweaker/ZenScript 场景系统、外部结构目录和服务器场景快照。
+运行元数据接受 MixinBooter 9.1 及以上版本，并要求 CraftTweaker 4.1.20 及以上版本。
+八个内置场景改为首次启动生成的 ZS 文件，仍均为精确 32 秒。该版本的构建、
 标准 Forge、CatServer 和客户端视觉证据必须绑定到新的成品 SHA-256；历史报告只作为历史记录，
-不能证明当前 1.0.3 成品已经通过。
+不能证明当前 1.1.0 成品已经通过。
 
 当前工作区是远程服务器环境，不能提供可可靠判断 Minecraft 画面的桌面，也无法完成真实鼠标、
 全屏切换和 GUI scale 1-4 的人工观感验收。因此，标准 Forge 客户端视觉验证和真实客户端连接
@@ -21,13 +22,17 @@ CatServer 后打开演示仍未完成，完整发布门槛尚未满足。服务�
 
 ## 安装
 
+Forge 模组 ID 为 `ponder_legacy`；已有内容资源、`ponder:*` 场景 ID、
+`mods.ponder` ZenScript API、`scripts/ponder` 目录和 `/ponder` 命令继续使用 `ponder`。
+
 必须同时安装：
 
 - Forge 14.23.5.2847 或更高版本
-- `Ponder-1.12.2-1.0.3.jar`
+- `Ponder-1.12.2-1.1.0.jar`
 - MixinBooter 9.1 或更高版本，并作为单独模组安装
+- CraftTweaker 4.1.20 或更高版本
 
-Ponder 不会把 MixinBooter、CleanMix 或 MixinExtras 打进自身 jar。
+Ponder 不会把 MixinBooter、CraftTweaker、CleanMix 或 MixinExtras 打进自身 jar。
 当前默认构建和完整服务端验收基线仍使用 MixinBooter 11.2，其已核对 SHA-256 为
 `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E`。
 默认构建使用 [CleanroomMC Maven 上的 11.2 成品](https://maven.cleanroommc.com/zone/rong/mixinbooter/11.2/mixinbooter-11.2.jar)；
@@ -55,9 +60,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\verify-release.ps1
 固定使用 11.2，因为较旧版本没有携带完整的构建期 ASM 类路径。运行元数据接受 9.1 及以上版本，
 但发布兼容声明仍应以实际执行过 Forge、CatServer 和客户端验收的版本为准。
 
-可安装成品是 `build/libs/Ponder-1.12.2-1.0.3.jar`。`build/devlibs` 中带 `-dev`
+可安装成品是 `build/libs/Ponder-1.12.2-1.1.0.jar`。`build/devlibs` 中带 `-dev`
 classifier 的文件只用于开发环境，不得安装到正式服务端。执行 `reobfExampleAddonJar`
-会生成独立示例模组 `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`。另外还会生成
+会生成独立示例模组 `build/libs/Ponder-Example-Addon-1.12.2-1.1.0.jar`。另外还会生成
 `-api.jar` 和 `-sources.jar`，二者都不是运行模组。
 
 ## 内置演示
@@ -68,6 +73,20 @@ classifier 的文件只用于开发环境，不得安装到正式服务端。执
 内置场景会先逐块显示 5x5 地板，再逐块显示上层结构；脚本书本坐标保持固定，同时保留缓慢旋转。
 也可以在容器界面悬停已注册物品，并按住提示中的“思索”按键打开场景；默认按键为 `W`，
 可在控制设置中重新绑定。
+
+首次启动时会在 CraftTweaker 扫描前生成 `scripts/ponder/builtin/*.zs`。生成标记位于
+`config/ponder/builtin-zs-generated.properties`；标记存在后不会覆盖、恢复或升级这些文件，
+删除某个 ZS 即可关闭对应内置场景。
+
+## ZenScript 场景
+
+自定义脚本放在 `scripts/ponder/scenes`，使用 `mods.ponder.SceneRegistry`、`TagRegistry`、
+`Selection` 等静态 API，并在最后调用 `scene.register()`。修改 ZS 后必须重启；
+`/ponder reload` 只重建已编译的注册表和结构缓存。
+
+自定义结构放在 `scripts/ponder/structures/<namespace>/<path>.nbt`。例如
+`scripts/ponder/structures/mypack/machine/basic.nbt` 的结构 ID 是 `mypack:machine/basic`。
+加载优先级为外部结构、资源包、模组 jar。服务器只同步验证后的场景指令，不同步 ZS 或结构 NBT。
 
 ## 供其他模组调用
 

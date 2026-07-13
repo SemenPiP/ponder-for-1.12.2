@@ -11,6 +11,7 @@
 | Java | 64 位 Java 8，源码与 class major version 均为 52 |
 | Forge 编译/最低运行基线 | 14.23.5.2847；声明兼容 2847 及以上 |
 | MixinBooter | 运行范围 9.1 及以上；默认认证基线 11.2，SHA-256 `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E` |
+| CraftTweaker | 强制依赖 4.1.20 及以上；构建基线 4.1.20.698 |
 | CatServer | 仅限 SHA-256 `EAF575310ACBB48D535212CFB88D93DE69F90F2A81879A26F88457713A25952E` |
 
 MixinBooter 必须作为独立 jar 安装，不能嵌入 Ponder。每个要正式声明兼容的 MixinBooter 版本都应
@@ -30,10 +31,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 `build` 已依赖 reobf 主包、reobf 示例 addon、API jar、sources jar 和发布内容检查。不要用
 `jar` 任务的 `build/devlibs/*-dev.jar` 代替发布成品。成功后应存在：
 
-- `build/libs/Ponder-1.12.2-1.0.3.jar`
-- `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`
-- `build/libs/Ponder-1.12.2-1.0.3-api.jar`
-- `build/libs/Ponder-1.12.2-1.0.3-sources.jar`
+- `build/libs/Ponder-1.12.2-1.1.0.jar`
+- `build/libs/Ponder-Example-Addon-1.12.2-1.1.0.jar`
+- `build/libs/Ponder-1.12.2-1.1.0-api.jar`
+- `build/libs/Ponder-1.12.2-1.1.0-sources.jar`
 
 Gradle 门槛检查以下内容：
 
@@ -41,43 +42,44 @@ Gradle 门槛检查以下内容：
 - 主包有有效 `mixins.ponder.refmap.json`，四个必要客户端 mixin 都有 SRG 映射；
 - manifest 使用 `PonderMixinLoader`、`ForceLoadAsMod=true` 和 `FMLCorePluginContainsFMLMod=true`；
 - 主包和示例包抽样类不含 MCP 字段/方法名，证明发布包经过 reobf；
-- 不嵌入 MixinBooter、Mixin、MixinExtras、Cleanroom、Flywheel、JOML、GLFW、Fabric 或 NeoForge；
+- 不嵌入 MixinBooter、CraftTweaker、ZenScript、Mixin、MixinExtras、Cleanroom、Flywheel、JOML、GLFW、Fabric 或 NeoForge；
 - 不把示例 addon 或 `assets/ponder/ponder/debug` 九个开发结构打进主包；
 - 主包必须包含 `assets/ponder/ponder/demo` 下八个正式演示结构，并按发布清单逐项检查；
+- 主包必须包含 `assets/ponder/scripts/builtin` 下八个内置 ZenScript，并按发布清单逐项检查；
 - API classifier 只包含 Ponder API、Catnip 适配 API 及明确公开的入口类。
 
 `verify-release.ps1` 会再次遍历主包、API、sources 和示例包：对两个可运行成品解析 class 常量池，
 检查 Minecraft 成员是否仍是 MCP 名；API classifier 是供开发编译的反混淆包，不作为运行 jar 检查。
-脚本还验证 sources 不含 class 或开发 debug NBT，主包包含八个正式演示结构，并复核 refmap、manifest、
-禁用引用、语言数和 `pack_format=3`。它把四个成品与 CatServer 的 SHA-256 写入
+脚本还验证 sources 不含 class 或开发 debug NBT，主包包含八个正式演示结构和八个内置 ZenScript，
+并复核 refmap、manifest、禁用引用、语言数和 `pack_format=3`。它把四个成品与 CatServer 的 SHA-256 写入
 `build/reports/release-verification.md`。单元测试报告位于 `build/reports/tests/test/index.html`。
 
 ## 当前验证状态
 
-`1.0.3` 在 1.0.2 基础上取消 MixinBooter 11.2 精确锁定，并允许构建与验收脚本选择目标版本。
-历史版本的哈希和报告不转移到当前版本；以下结果必须绑定到新的 1.0.3 成品：
+`1.1.0` 新增 CraftTweaker/ZenScript 场景 IR、首次生成脚本、外部结构加载和服务器快照同步。
+历史版本的哈希和报告不转移到当前版本；以下结果必须绑定到新的 1.1.0 成品：
 
 | 门槛 | 状态 | 证据或原因 |
 | --- | --- | --- |
-| 单元测试 | PASS | 34 份测试套件 XML，共 95 项；0 failures、0 errors、0 skipped |
-| 最终 `clean test build compileClientHarnessJava` 与发布报告 | PASS | MixinBooter 9.1 与默认 11.2 均完成完整构建；最终 11.2 四件套的 `build/reports/release-verification.md` 为 `PASS` |
-| 标准 Forge 2847 专服 | 待重新执行 | 9.1 尝试在安装 Ponder 前因空服基线未确认 `save-all` 而中止；不能记为 Ponder 运行失败或通过 |
+| 单元测试 | PASS | 40 个测试套件，共 121 项；0 failures、0 errors、0 skipped |
+| 完整构建与发布报告 | PASS | `clean test build compileClientHarnessJava` 通过；默认 MixinBooter 11.2 + CraftTweaker 4.1.20.698 发布报告为 `PASS` |
+| RFG reobf 专服脚本预检 | PASS | 首次生成 8 个 ZS；CraftTweaker 在 218 ms 内无错误编译并注册全部场景；Forge 加载 8 个 storyboard、生成世界后使用 `stop` 正常保存退出 |
+| 标准 Forge 2847 专服 | PASS | 空服对照、Ponder + CraftTweaker 首启、同世界重启和专服类审计通过；报告 `standard-forge-verification-20260712-182019243-1e247d13.md` |
 | RFG/验收 harness 客户端 | 编译通过，运行受阻 | harness 已覆盖四阶段逐块截图、70 tick 书本 Y 采样及八场景自动播放；宿主机仍报 `LWJGLException: Pixel format not accelerated`，未取得运行时深度读回或截图 |
 | 标准 Forge reobf 客户端视觉门槛 | 环境阻塞/未执行 | 仍须在可用 OpenGL 客户端验证八个场景、真实输入、全屏、资源重载和 GUI scale 1-4 |
-| CatServer 四层服务端预检 | 待重新执行 | 1.0.2 的 `PASS_SERVER_ONLY` 不转移到 1.0.3 |
+| CatServer 四层服务端预检 | PASS_SERVER_ONLY | 指定 SHA-256 的 CatServer 完成空服、MixinBooter、Ponder + CraftTweaker、示例 addon 和重启；报告 `catserver-verification-20260712-182119289-92d095bb.md` |
 
 当前完整客户端验收仍未满足：标准 Forge 客户端画面/交互没有证据。CatServer 真实客户端连接未执行，
-但不属于本轮必要门槛；`PASS_SERVER_ONLY` 是本轮预期的 CatServer 结果，仍不能改写成客户端通过。
+因此 `PASS_SERVER_ONLY` 仍不能改写成客户端通过。
 
-本次默认 MixinBooter 11.2 构建的固定成品如下；重新构建会改变这些哈希：
+本次最终 1.1.0 成品如下；任何后续重建都会改变哈希：
 
 | 文件 | SHA-256 |
 | --- | --- |
-| `Ponder-1.12.2-1.0.3.jar` | `C279728B867016EA25E933510F0CDB66B7E9F11E97FF85BB7616CAF2C7A68881` |
-| `Ponder-1.12.2-1.0.3-api.jar` | `3FDE3176163717596221D358085441F5DD0687E66B307625F16FCC456D6C7D96` |
-| `Ponder-1.12.2-1.0.3-sources.jar` | `4ADFFDC36B2F3F28AE64E50DF3B62BA014BB27264796FD7A396AE3329678F034` |
-| `Ponder-Example-Addon-1.12.2-1.0.3.jar` | `96F61451689139DFF5CD93A41C9917F0710E0C58693EAB639B8D34F6A6C8D8DD` |
-| `mixinbooter-11.2.jar` | `48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E` |
+| `Ponder-1.12.2-1.1.0.jar` | `C76797E091DB2EE0E4157D4FD7D358D3482A5EE4B676FFAF9FFC6B5DF27C8E1F` |
+| `Ponder-1.12.2-1.1.0-api.jar` | `3F00CC619A3D91FDE2CBF9DB59FFBF576802160FF54DA6827202C5F8565F9FC1` |
+| `Ponder-1.12.2-1.1.0-sources.jar` | `47B3FB4FCE02CD708B0606DD02E7CF19493A88653EE553B5E50A6538767AA06C` |
+| `Ponder-Example-Addon-1.12.2-1.1.0.jar` | `435E46A90804DF3406CBA1D328112898B6BEB7C0AFC5CABDC97F2A94422797D0` |
 
 最近一次完整服务端验收属于 1.0.2，仅作为历史记录：
 
@@ -91,7 +93,7 @@ Gradle 门槛检查以下内容：
 
 ## 标准 Forge 专服
 
-使用 Mojang/Forge 安装器建立隔离的 14.23.5.2847 专服，只安装最终 reobf Ponder 与选定的外置
+使用 Mojang/Forge 安装器建立隔离的 14.23.5.2847 专服，只安装最终 reobf Ponder、CraftTweaker 与选定的外置
 MixinBooter。脚本默认使用 11.2，也可通过 `-MixinBooterVersion` 和可选
 `-ExpectedMixinBooterHash` 指定其他版本。至少执行两次启动：
 

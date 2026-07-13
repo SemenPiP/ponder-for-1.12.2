@@ -18,7 +18,8 @@ import net.minecraftforge.fml.relauncher.Side;
     name = Ponder.MOD_NAME,
     version = Ponder.VERSION,
     acceptedMinecraftVersions = "[1.12.2]",
-    dependencies = "required-after:forge@[14.23.5.2847,);required-after:mixinbooter@[9.1,)",
+    dependencies = "required-after:forge@[14.23.5.2847,);required-after:mixinbooter@[9.1,);"
+        + "required-after:crafttweaker@[4.1.20,)",
     guiFactory = "net.createmod.ponder.client.PonderGuiFactory",
     acceptableRemoteVersions = "*"
 )

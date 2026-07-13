@@ -7,6 +7,7 @@ import net.createmod.ponder.foundation.ui.PonderIndexScreen;
 import net.createmod.ponder.foundation.ui.PonderTagIndexScreen;
 import net.createmod.ponder.foundation.ui.PonderUI;
 import net.minecraft.util.ResourceLocation;
+import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -38,6 +39,7 @@ public final class SimplePonderActions {
     }
 
     public static void reloadPonder(String ignored) {
+        PonderStructureLoader.invalidateCaches();
         PonderIndex.reload();
     }
 }

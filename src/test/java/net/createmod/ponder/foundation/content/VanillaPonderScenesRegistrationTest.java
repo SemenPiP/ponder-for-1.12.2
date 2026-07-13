@@ -31,6 +31,7 @@ import net.createmod.ponder.foundation.registration.PonderLocalization;
 import net.createmod.ponder.foundation.registration.PonderSceneRegistry;
 import net.createmod.ponder.foundation.registration.PonderTagRegistry;
 import net.minecraft.init.Bootstrap;
+import net.minecraft.init.Blocks;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 
@@ -151,8 +152,31 @@ public class VanillaPonderScenesRegistrationTest {
         PonderSceneRegistry scenes = new PonderSceneRegistry(localization);
         PonderTagRegistry tags = new PonderTagRegistry();
         BasePonderPlugin plugin = new BasePonderPlugin();
-        plugin.registerScenes(new DefaultPonderSceneRegistrationHelper(plugin.getModId(), scenes));
-        plugin.registerTags(new DefaultPonderTagRegistrationHelper(plugin.getModId(), tags, localization));
+        VanillaPonderScenes.registerAll(new DefaultPonderSceneRegistrationHelper(plugin.getModId(), scenes));
+        DefaultPonderTagRegistrationHelper tagHelper =
+            new DefaultPonderTagRegistrationHelper(plugin.getModId(), tags, localization);
+        tagHelper.registerTag(BasePonderPlugin.BASICS).title("Ponder Basics")
+            .description("Learn the scene controls and the building blocks used by Ponder tutorials.")
+            .item(Blocks.CRAFTING_TABLE).addToIndex().register();
+        tagHelper.registerTag(BasePonderPlugin.STORAGE).title("Storage")
+            .description("Inspect inventories, item entities and block entity data.")
+            .item(Blocks.CHEST).addToIndex().register();
+        tagHelper.registerTag(BasePonderPlugin.MECHANICS).title("Mechanics")
+            .description("Follow explicit movement, processing and transport sequences.")
+            .item(Blocks.PISTON).addToIndex().register();
+        tagHelper.registerTag(BasePonderPlugin.REDSTONE).title("Redstone")
+            .description("See powered states and signals change step by step.")
+            .item(Blocks.REDSTONE_LAMP).addToIndex().register();
+        tagHelper.registerTag(BasePonderPlugin.RENDERING).title("Rendering")
+            .description("Compare render layers and transparent fluids in the virtual world.")
+            .item(Blocks.GLASS).addToIndex().register();
+        tagHelper.addToTag(BasePonderPlugin.BASICS).add(component("crafting_table"));
+        tagHelper.addToTag(BasePonderPlugin.STORAGE).add(component("chest"));
+        tagHelper.addToTag(BasePonderPlugin.MECHANICS)
+            .add(component("furnace")).add(component("piston")).add(component("rail"));
+        tagHelper.addToTag(BasePonderPlugin.REDSTONE).add(component("redstone_lamp"));
+        tagHelper.addToTag(BasePonderPlugin.RENDERING)
+            .add(component("glass")).add(component("water_bucket"));
         plugin.registerSharedText(new DefaultSharedTextRegistrationHelper(plugin.getModId(), localization));
         return new Registration(localization, scenes, tags);
     }
