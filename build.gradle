@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.1.0'
+version = '1.1.1'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.1.0-mc1.12.2'
+def modVersion = '1.1.1-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -98,6 +98,12 @@ sourceSets {
     clientHarness {
         java.srcDir 'verification/client-harness/src/main/java'
         resources.srcDir 'verification/client-harness/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    serverHarness {
+        java.srcDir 'verification/server-harness/src/main/java'
+        resources.srcDir 'verification/server-harness/src/main/resources'
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += output + compileClasspath
     }
@@ -180,6 +186,15 @@ tasks.register('clientHarnessJar', Jar) {
     from sourceSets.clientHarness.output
 }
 
+tasks.register('serverHarnessJar', Jar) {
+    dependsOn tasks.named('serverHarnessClasses')
+    archiveBaseName.set('Ponder-Server-Harness-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    from sourceSets.serverHarness.output
+}
+
 tasks.register('installClientHarness', Copy) {
     dependsOn tasks.named('clientHarnessJar')
     from tasks.named('clientHarnessJar', Jar).flatMap { it.archiveFile }
@@ -211,6 +226,25 @@ def reobfExampleAddonJar = tasks.register('reobfExampleAddonJar',
     archiveVersion.set(project.version.toString())
     archiveClassifier.set('')
     destinationDirectory.set(layout.buildDirectory.dir('libs'))
+}
+def reobfServerHarnessJar = tasks.register('reobfServerHarnessJar',
+    com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
+    def inputJar = tasks.named('serverHarnessJar', Jar)
+    dependsOn inputJar, mainReobfJar
+    setInputJarFromTask(inputJar)
+    mcVersion.set(mainReobfJar.flatMap { it.mcVersion })
+    srg.set(mainReobfJar.flatMap { it.srg })
+    fieldCsv.set(mainReobfJar.flatMap { it.fieldCsv })
+    methodCsv.set(mainReobfJar.flatMap { it.methodCsv })
+    exceptorCfg.set(mainReobfJar.flatMap { it.exceptorCfg })
+    recompMcJar.set(mainReobfJar.flatMap { it.recompMcJar })
+    extraSrgEntries.set(mainReobfJar.flatMap { it.extraSrgEntries })
+    extraSrgFiles.from(mainReobfJar.map { it.extraSrgFiles })
+    referenceClasspath.from(mainReobfJar.map { it.referenceClasspath })
+    archiveBaseName.set('Ponder-Server-Harness-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('verification/server-harness'))
 }
 
 tasks.register('verifyJava8Bytecode') {
@@ -414,6 +448,7 @@ tasks.named('check') {
 
 tasks.named('assemble') {
     dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
+    dependsOn reobfServerHarnessJar
 }
 
 artifacts {

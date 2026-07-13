@@ -29,6 +29,8 @@ public class ScriptSnapshotReceiverTest {
         ScriptSnapshotReceiver.accept(TRANSFER_ID, 1, new byte[] { compressed[1] });
         assertNotNull(activeTransfer());
         ScriptSnapshotReceiver.accept(TRANSFER_ID, 0, new byte[] { compressed[0] });
+        assertNotNull(activeTransfer());
+        ScriptSnapshotReceiver.complete(TRANSFER_ID);
 
         assertNull(activeTransfer());
     }
@@ -56,8 +58,21 @@ public class ScriptSnapshotReceiverTest {
         byte[] wrongHash = new byte[32];
         begin(1, 1, wrongHash);
         ScriptSnapshotReceiver.accept(TRANSFER_ID, 0, new byte[] { 1 });
+        ScriptSnapshotReceiver.complete(TRANSFER_ID);
 
         assertNull(activeTransfer());
+    }
+
+    @Test
+    public void earlyCompleteRejectsTransferWithoutAffectingLaterTransfer() throws Exception {
+        begin(2, 2, new byte[] { 1, 2 });
+        ScriptSnapshotReceiver.accept(TRANSFER_ID, 0, new byte[] { 1 });
+        ScriptSnapshotReceiver.complete(TRANSFER_ID);
+        assertNull(activeTransfer());
+
+        begin(1, 1, new byte[] { 3 });
+        ScriptSnapshotReceiver.accept(TRANSFER_ID + 1, 0, new byte[] { 9 });
+        assertNotNull(activeTransfer());
     }
 
     @Test
@@ -72,14 +87,14 @@ public class ScriptSnapshotReceiverTest {
     }
 
     @Test
-    public void invalidHeadersClearAnyPreviousTransfer() throws Exception {
+    public void invalidNewHeadersDoNotClearPreviousTransfer() throws Exception {
         begin(1, 1, new byte[] { 1 });
         assertNotNull(activeTransfer());
 
         ScriptSnapshotReceiver.begin(TRANSFER_ID + 1, ScriptSceneSnapshot.PROTOCOL, 0, 0, 0, new byte[32],
             Collections.emptyList());
 
-        assertNull(activeTransfer());
+        assertNotNull(activeTransfer());
     }
 
     @Test

@@ -18,6 +18,18 @@ public final class ScriptVector {
 
     @ZenMethod
     public static ScriptVector of(double x, double y, double z) {
+        validate(x, y, z, "Vector");
         return new ScriptVector(x, y, z);
+    }
+
+    static ScriptVector require(ScriptVector vector, String label) {
+        if (vector == null) throw new IllegalArgumentException(label + " is required");
+        validate(vector.x, vector.y, vector.z, label);
+        return vector;
+    }
+
+    static void validate(double x, double y, double z, String label) {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z))
+            throw new IllegalArgumentException(label + " components must be finite");
     }
 }

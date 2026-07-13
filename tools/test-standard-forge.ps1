@@ -4,6 +4,7 @@ param(
     [string]$MixinBooterVersion = "11.2",
     [string]$ExpectedMixinBooterHash = "",
     [string]$CraftTweakerJar = "",
+    [string]$ServerHarnessJar = "",
     [string]$JavaExecutable = "",
     [int]$TimeoutSeconds = 600,
     [int]$ServerPort = 25566
@@ -31,9 +32,14 @@ $forgeInstallerUri = "https://maven.minecraftforge.net/net/minecraftforge/forge/
 $expectedForgeInstallerHash = "3A74473FC62DCF13BAA4130E6EA31A80C6A872B6B25F1A4C9195C8E878415BD0"
 $minecraftServerFileName = "minecraft_server.1.12.2.jar"
 $expectedMinecraftServerHash = "FE1F9274E6DAD9191BF6E6E8E36EE6EBC737F373603DF0946AAFCDED0D53167E"
-$ponderVersion = "1.1.0-mc1.12.2"
-$ponderFileName = "Ponder-1.12.2-1.1.0.jar"
+$ponderVersion = "1.1.1-mc1.12.2"
+$ponderFileName = "Ponder-1.12.2-1.1.1.jar"
 $ponderJar = Join-Path $buildRoot "libs\$ponderFileName"
+$serverHarnessFileName = "Ponder-Server-Harness-1.12.2-1.1.1.jar"
+if ([string]::IsNullOrWhiteSpace($ServerHarnessJar)) {
+    $ServerHarnessJar = Join-Path $buildRoot "verification\server-harness\$serverHarnessFileName"
+}
+$fixtureScripts = Join-Path $projectRoot "verification\crafttweaker-fixtures"
 if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and $MixinBooterVersion -eq "11.2") {
     $ExpectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
 }
@@ -269,6 +275,9 @@ function Initialize-ServerDirectory {
         Copy-Item -LiteralPath $CraftTweakerJar -Destination `
             (Join-Path $Destination "mods\CraftTweaker2-1.12-$craftTweakerVersion.jar")
         Copy-Item -LiteralPath $ponderJar -Destination (Join-Path $Destination "mods\$ponderFileName")
+        Copy-Item -LiteralPath $ServerHarnessJar -Destination `
+            (Join-Path $Destination "mods\$serverHarnessFileName")
+        Set-CraftTweakerFixtures -ServerRoot $Destination -FileNames @("00_advanced.zs")
     }
 
     [IO.File]::WriteAllText((Join-Path $Destination "eula.txt"), "eula=true`n",
@@ -292,6 +301,35 @@ function Initialize-ServerDirectory {
         "spawn-npcs=false",
         "view-distance=4"
     ), [Text.UTF8Encoding]::new($false))
+}
+
+function Set-CraftTweakerFixtures {
+    param(
+        [string]$ServerRoot,
+        [string[]]$FileNames
+    )
+
+    $serverBoundary = [IO.Path]::GetFullPath($ServerRoot).TrimEnd('\') + '\'
+    $fixtureTarget = [IO.Path]::GetFullPath(
+        (Join-Path $ServerRoot "scripts\ponder\fixtures"))
+    if (!$fixtureTarget.StartsWith($serverBoundary, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Fixture target escaped the server root: $fixtureTarget"
+    }
+    if (Test-Path -LiteralPath $fixtureTarget) {
+        Remove-Item -LiteralPath $fixtureTarget -Recurse -Force
+    }
+    $null = New-Item -ItemType Directory -Path $fixtureTarget -Force
+
+    foreach ($fileName in $FileNames) {
+        if ([IO.Path]::GetFileName($fileName) -ne $fileName -or !$fileName.EndsWith(".zs")) {
+            throw "Invalid CraftTweaker fixture file name: $fileName"
+        }
+        $source = Join-Path $fixtureScripts $fileName
+        if (!(Test-Path -LiteralPath $source -PathType Leaf)) {
+            throw "Missing CraftTweaker fixture: $source"
+        }
+        Copy-Item -LiteralPath $source -Destination (Join-Path $fixtureTarget $fileName)
+    }
 }
 
 function Add-ProcessLine {
@@ -373,6 +411,7 @@ function Invoke-ForgeServer {
 
     $consoleLog = Join-Path $ServerRoot "$Name-console.log"
     $runtimeLogSnapshot = Join-Path $ServerRoot "runtime-logs-$Name"
+    $craftTweakerLogSnapshot = Join-Path $ServerRoot "$Name-crafttweaker.log"
     $lines = [Collections.Generic.List[string]]::new()
     $started = $false
     $saveRequested = $false
@@ -516,6 +555,15 @@ function Invoke-ForgeServer {
             $phaseFailure = if ($phaseFailure) { "$phaseFailure $message" } else { $message }
         }
     }
+    $craftTweakerLog = Join-Path $ServerRoot "crafttweaker.log"
+    if (Test-Path -LiteralPath $craftTweakerLog -PathType Leaf) {
+        try {
+            Copy-Item -LiteralPath $craftTweakerLog -Destination $craftTweakerLogSnapshot -Force
+        } catch {
+            $message = "$Name could not snapshot crafttweaker.log: $($_.Exception.Message)"
+            $phaseFailure = if ($phaseFailure) { "$phaseFailure $message" } else { $message }
+        }
+    }
 
     $fatal = @(Get-FatalLogFindings -ProcessLines $lines -RuntimeLogDirectory $runtimeLogSnapshot)
     if ($fatal.Count -gt 0) {
@@ -533,6 +581,7 @@ function Invoke-ForgeServer {
         DurationSeconds = [Math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
         ConsoleLog = $consoleLog
         RuntimeLogs = $runtimeLogSnapshot
+        CraftTweakerLog = $craftTweakerLogSnapshot
         FatalFindings = $fatal
         Error = $phaseFailure
     }
@@ -687,10 +736,16 @@ try {
     }
 
     if (!(Test-Path -LiteralPath $ponderJar -PathType Leaf)) {
-        throw "Build the final 1.1.0 reobf artifact before this test. Required: $ponderJar"
+        throw "Build the final 1.1.1 reobf artifact before this test. Required: $ponderJar"
     }
     if ([IO.Path]::GetFileName($ponderJar) -ne $ponderFileName) {
         throw "Only the final $ponderFileName artifact may be tested."
+    }
+    if (!(Test-Path -LiteralPath $ServerHarnessJar -PathType Leaf)) {
+        throw "Build the server fixture harness before this test. Required: $ServerHarnessJar"
+    }
+    if (!(Test-Path -LiteralPath $fixtureScripts -PathType Container)) {
+        throw "CraftTweaker fixture scripts are missing: $fixtureScripts"
     }
     $ponderManifest = Get-JarManifestText -JarPath $ponderJar
     if ($ponderManifest -notmatch "(?m)^Implementation-Version:\s*$([regex]::Escape($ponderVersion))\s*`$") {
@@ -730,6 +785,33 @@ try {
     Copy-Item -LiteralPath $levelDat -Destination $initialLevelSnapshot
     $initialLevelHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $initialLevelSnapshot).Hash
 
+    $negativeFixtures = [ordered]@{
+        "90_syntax_error.zs" = "90_syntax_error.zs"
+        "91_duplicate_id.zs" = "Duplicate Ponder script scene id"
+        "92_invalid_handle.zs" = "Unknown scene handle"
+        "93_oversized_nbt.zs" = "Tile NBT exceeds 256 KiB text safety limit"
+        "94_unregistered.zs" = "Ponder scene builder was not registered"
+    }
+    foreach ($fixture in $negativeFixtures.GetEnumerator()) {
+        Set-CraftTweakerFixtures -ServerRoot $moddedRoot `
+            -FileNames @("00_advanced.zs", $fixture.Key)
+        $phaseName = "fixture-" + [IO.Path]::GetFileNameWithoutExtension($fixture.Key)
+        $fixturePhase = Invoke-ForgeServer -Name $phaseName -ServerRoot $moddedRoot -TraceClasses $false
+        $phaseResults.Add($fixturePhase)
+        if ($fixturePhase.Status -ne "PASS") {
+            throw "CraftTweaker fixture phase $($fixture.Key) failed: $($fixturePhase.Error)"
+        }
+        $diagnosticText = [IO.File]::ReadAllText($fixturePhase.ConsoleLog)
+        if (Test-Path -LiteralPath $fixturePhase.CraftTweakerLog -PathType Leaf) {
+            $diagnosticText += [Environment]::NewLine +
+                [IO.File]::ReadAllText($fixturePhase.CraftTweakerLog)
+        }
+        if ($diagnosticText -notmatch [regex]::Escape($fixture.Value)) {
+            throw "CraftTweaker fixture $($fixture.Key) did not report: $($fixture.Value)"
+        }
+    }
+
+    Set-CraftTweakerFixtures -ServerRoot $moddedRoot -FileNames @("00_advanced.zs")
     $restart = Invoke-ForgeServer -Name "modded-restart-trace" -ServerRoot $moddedRoot -TraceClasses $true
     $phaseResults.Add($restart)
     if ($restart.Status -ne "PASS") { throw "Ponder same-world restart failed: $($restart.Error)" }
@@ -778,8 +860,13 @@ try {
         $blockingFindings.Add("The traced restart did not load net.createmod.ponder.mixin.PonderMixinLoader.")
     }
     $restartText = [IO.File]::ReadAllText($restart.ConsoleLog)
-    if ($restartText -notmatch 'Registered 2 Ponder plugin\(s\) and 8 storyboard\(s\)') {
-        $blockingFindings.Add("The traced restart did not confirm two Ponder plugins and eight storyboards.")
+    if ($restartText -notmatch 'Registered 2 Ponder plugin\(s\) and 9 storyboard\(s\)') {
+        $blockingFindings.Add("The traced restart did not confirm eight builtins plus the positive fixture storyboard.")
+    }
+    $fixtureReport = Join-Path $moddedRoot "ponder-fixture-harness.properties"
+    if (!(Test-Path -LiteralPath $fixtureReport -PathType Leaf) -or
+        [IO.File]::ReadAllText($fixtureReport) -notmatch '(?m)^status=PASS\s*$') {
+        $blockingFindings.Add("The real CraftTweaker server harness did not produce a PASS report.")
     }
     if ($introducedVanillaClientClasses.Count -gt 0) {
         $blockingFindings.Add("The modded server loaded $($introducedVanillaClientClasses.Count) new net.minecraft.client class(es) beyond the empty Forge baseline.")

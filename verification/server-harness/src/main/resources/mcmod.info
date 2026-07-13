@@ -1,0 +1,12 @@
+[
+  {
+    "modid": "ponder_fixture_harness",
+    "name": "Ponder Server Fixture Harness",
+    "version": "1.1.1",
+    "mcversion": "1.12.2",
+    "dependencies": [
+      "required-after:forge@[14.23.5.2847,)",
+      "required-after:ponder_legacy"
+    ]
+  }
+]

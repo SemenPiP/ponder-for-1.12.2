@@ -9,6 +9,7 @@ import net.createmod.ponder.api.PonderPalette;
 import net.createmod.ponder.api.script.ScriptInstructionCodec;
 import net.createmod.ponder.api.script.ScriptInstructionCodecs;
 import net.createmod.ponder.api.element.ElementLink;
+import net.createmod.ponder.api.element.EntityElement;
 import net.createmod.ponder.api.element.MinecartElement;
 import net.createmod.ponder.api.element.ParrotElement;
 import net.createmod.ponder.api.element.ParrotPose;
@@ -18,15 +19,19 @@ import net.createmod.ponder.api.element.WorldSectionElement;
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
+import net.createmod.ponder.foundation.instruction.AnimateEntityInstruction;
+import net.createmod.ponder.foundation.instruction.EntityElementInstruction;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 
@@ -35,17 +40,19 @@ final class ScriptSceneProgram {
     }
 
     static void program(ScriptSceneDefinition definition, SceneBuilder scene, SceneBuildingUtil util) {
-        scene.title(definition.getSceneId().getPath(), definition.getTitle());
+        scene.title(definition.getSceneId().toString(), definition.getTitle());
         Map<String, ElementLink<WorldSectionElement>> sections =
             new HashMap<String, ElementLink<WorldSectionElement>>();
         Map<String, ElementLink<MinecartElement>> minecarts =
             new HashMap<String, ElementLink<MinecartElement>>();
         Map<String, ElementLink<ParrotElement>> parrots =
             new HashMap<String, ElementLink<ParrotElement>>();
+        Map<String, ElementLink<EntityElement>> items =
+            new HashMap<String, ElementLink<EntityElement>>();
         int index = 0;
         for (ScriptInstruction instruction : definition.getInstructions()) {
             try {
-                apply(instruction, scene, util, sections, minecarts, parrots);
+                apply(instruction, scene, util, sections, minecarts, parrots, items);
             } catch (RuntimeException exception) {
                 throw new IllegalArgumentException("Ponder script " + definition.getSceneId()
                     + " instruction #" + index + " (" + instruction.getOperation() + ") failed: "
@@ -58,7 +65,8 @@ final class ScriptSceneProgram {
     private static void apply(ScriptInstruction instruction, SceneBuilder scene, SceneBuildingUtil util,
                               Map<String, ElementLink<WorldSectionElement>> sections,
                               Map<String, ElementLink<MinecartElement>> minecarts,
-                              Map<String, ElementLink<ParrotElement>> parrots) {
+                              Map<String, ElementLink<ParrotElement>> parrots,
+                              Map<String, ElementLink<EntityElement>> items) {
         String op = instruction.getOperation();
         NBTTagCompound data = instruction.getData();
         if ("configure_base_plate".equals(op)) {
@@ -138,14 +146,25 @@ final class ScriptSceneProgram {
         } else if ("toggle_redstone".equals(op)) {
             scene.world().toggleRedstonePower(selection(data, util));
         } else if ("create_item".equals(op)) {
+            String handle = data.getString("handle");
+            requireUnusedHandle(handle, sections, minecarts, parrots, items);
             Item item = Item.REGISTRY.getObject(new ResourceLocation(data.getString("item")));
             if (item == null) throw new IllegalArgumentException("Unknown item " + data.getString("item"));
-            scene.world().createItemEntity(vector(data), new Vec3d(data.getDouble("mx"), data.getDouble("my"),
-                data.getDouble("mz")), new ItemStack(item, data.getInteger("count"), data.getInteger("meta")));
+            items.put(handle, scene.world().createItemEntity(vector(data),
+                new Vec3d(data.getDouble("mx"), data.getDouble("my"), data.getDouble("mz")),
+                new ItemStack(item, data.getInteger("count"), data.getInteger("meta"))));
+        } else if ("move_item".equals(op)) {
+            scene.addInstruction(new AnimateEntityInstruction(item(items, data), vector(data),
+                data.getInteger("duration")));
+        } else if ("set_item_visible".equals(op)) {
+            scene.addInstruction(EntityElementInstruction.setVisible(item(items, data), data.getBoolean("visible")));
+        } else if ("remove_item".equals(op)) {
+            String handle = data.getString("handle");
+            scene.addInstruction(EntityElementInstruction.remove(item(items, data)));
+            items.remove(handle);
         } else if ("create_minecart".equals(op)) {
             String handle = data.getString("handle");
-            if (minecarts.containsKey(handle) || parrots.containsKey(handle) || sections.containsKey(handle))
-                throw new IllegalArgumentException("Duplicate runtime handle " + handle);
+            requireUnusedHandle(handle, sections, minecarts, parrots, items);
             minecarts.put(handle, scene.special().createCart(vector(data), data.getFloat("angle"),
                 minecartConstructor(data.getString("type"))));
         } else if ("move_minecart".equals(op)) {
@@ -158,8 +177,7 @@ final class ScriptSceneProgram {
                 direction(data.getString("direction")));
         } else if ("create_parrot".equals(op)) {
             String handle = data.getString("handle");
-            if (minecarts.containsKey(handle) || parrots.containsKey(handle) || sections.containsKey(handle))
-                throw new IllegalArgumentException("Duplicate runtime handle " + handle);
+            requireUnusedHandle(handle, sections, minecarts, parrots, items);
             parrots.put(handle, scene.special().createBirb(vector(data), parrotPose(data.getString("pose"))));
         } else if ("change_parrot_pose".equals(op)) {
             scene.special().changeBirbPose(parrot(parrots, minecarts, data), parrotPose(data.getString("pose")));
@@ -185,6 +203,22 @@ final class ScriptSceneProgram {
                 .text(data.getString("text")).pointAt(vector(data)).colored(palette(data.getString("color")));
             if (data.getBoolean("near")) text.placeNearTarget();
             if (data.getBoolean("keyframe")) text.attachKeyFrame();
+        } else if ("show_shared_text".equals(op)) {
+            TextElementBuilder text = scene.overlay().showText(data.getInteger("duration"))
+                .sharedText(new ResourceLocation(data.getString("key")), stringParameters(data))
+                .pointAt(vector(data)).colored(palette(data.getString("color")));
+            if (data.getBoolean("near")) text.placeNearTarget();
+            if (data.getBoolean("keyframe")) text.attachKeyFrame();
+        } else if ("show_independent_text".equals(op)) {
+            TextElementBuilder text = scene.overlay().showText(data.getInteger("duration"))
+                .text(data.getString("text")).independent(data.getInteger("y"))
+                .colored(palette(data.getString("color")));
+            if (data.getBoolean("keyframe")) text.attachKeyFrame();
+        } else if ("show_outline_text".equals(op)) {
+            TextElementBuilder text = scene.overlay().showOutlineWithText(selection(data, util),
+                data.getInteger("duration")).text(data.getString("text"))
+                .colored(palette(data.getString("color")));
+            if (data.getBoolean("keyframe")) text.attachKeyFrame();
         } else if ("show_controls".equals(op)) {
             InputElementBuilder input = scene.overlay().showControls(vector(data), pointing(data.getString("pointing")),
                 data.getInteger("duration"));
@@ -205,6 +239,22 @@ final class ScriptSceneProgram {
         } else if ("show_outline".equals(op)) {
             scene.overlay().showOutline(palette(data.getString("color")), data.getString("slot"),
                 selection(data, util), data.getInteger("duration"));
+        } else if ("show_bounding_box".equals(op)) {
+            scene.overlay().chaseBoundingBoxOutline(palette(data.getString("color")), data.getString("slot"),
+                new AxisAlignedBB(data.getDouble("minX"), data.getDouble("minY"), data.getDouble("minZ"),
+                    data.getDouble("maxX"), data.getDouble("maxY"), data.getDouble("maxZ")),
+                data.getInteger("duration"));
+        } else if ("show_scroll_input".equals(op)) {
+            scene.overlay().showScrollInput(vector(data), direction(data.getString("side")),
+                data.getInteger("duration"));
+        } else if ("show_centered_scroll_input".equals(op)) {
+            scene.overlay().showCenteredScrollInput(position(data), direction(data.getString("side")),
+                data.getInteger("duration"));
+        } else if ("show_repeater_scroll_input".equals(op)) {
+            scene.overlay().showRepeaterScrollInput(position(data), data.getInteger("duration"));
+        } else if ("show_filter_slot_input".equals(op)) {
+            scene.overlay().showFilterSlotInput(vector(data), direction(data.getString("side")),
+                data.getInteger("duration"));
         } else if ("indicate_redstone".equals(op)) {
             scene.effects().indicateRedstone(position(data));
         } else if ("indicate_success".equals(op)) {
@@ -287,6 +337,32 @@ final class ScriptSceneProgram {
                 throw new IllegalArgumentException("Handle " + data.getString("handle") + " is a minecart, expected parrot");
             throw new IllegalArgumentException("Unknown parrot handle " + data.getString("handle"));
         }
+        return result;
+    }
+
+    private static ElementLink<EntityElement> item(Map<String, ElementLink<EntityElement>> items,
+                                                    NBTTagCompound data) {
+        ElementLink<EntityElement> result = items.get(data.getString("handle"));
+        if (result == null)
+            throw new IllegalArgumentException("Unknown or removed item handle " + data.getString("handle"));
+        return result;
+    }
+
+    private static void requireUnusedHandle(String handle,
+                                            Map<String, ElementLink<WorldSectionElement>> sections,
+                                            Map<String, ElementLink<MinecartElement>> minecarts,
+                                            Map<String, ElementLink<ParrotElement>> parrots,
+                                            Map<String, ElementLink<EntityElement>> items) {
+        if (sections.containsKey(handle) || minecarts.containsKey(handle)
+            || parrots.containsKey(handle) || items.containsKey(handle))
+            throw new IllegalArgumentException("Duplicate runtime handle " + handle);
+    }
+
+    private static Object[] stringParameters(NBTTagCompound data) {
+        NBTTagList values = data.getTagList("params", 8);
+        Object[] result = new Object[values.tagCount()];
+        for (int i = 0; i < values.tagCount(); i++)
+            result[i] = values.getStringTagAt(i);
         return result;
     }
 

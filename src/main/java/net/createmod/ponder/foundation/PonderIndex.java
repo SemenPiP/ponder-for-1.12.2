@@ -30,12 +30,10 @@ import net.createmod.ponder.script.ScriptPonderPlugin;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 
 public final class PonderIndex {
-    private static final PonderLocalization LOCALIZATION = new PonderLocalization();
-    private static final PonderSceneRegistry SCENES = new PonderSceneRegistry(LOCALIZATION);
-    private static final PonderTagRegistry TAGS = new PonderTagRegistry();
-    private static final PonderIndexExclusionHelper EXCLUSIONS = new PonderIndexExclusionHelper();
     private static final List<PonderPlugin> PLUGINS = new ArrayList<PonderPlugin>();
     private static final Set<String> PLUGIN_CLASSES = new HashSet<String>();
+    private static volatile RegistrationState state = RegistrationState.empty();
+    private static volatile PonderLocalization.TranslationProvider translationProvider;
     private static boolean discovered;
     private static boolean frozen;
 
@@ -79,31 +77,40 @@ public final class PonderIndex {
     }
 
     public static synchronized void registerAll() {
-        SCENES.clearRegistry();
-        TAGS.clearRegistry();
-        LOCALIZATION.clearAll();
-        for (PonderPlugin plugin : PLUGINS)
-            plugin.registerScenes(new DefaultPonderSceneRegistrationHelper(plugin.getModId(), SCENES));
-        for (PonderPlugin plugin : PLUGINS)
-            plugin.registerTags(new DefaultPonderTagRegistrationHelper(plugin.getModId(), TAGS, LOCALIZATION));
-        gatherSharedText();
-        for (PonderPlugin plugin : PLUGINS)
-            plugin.indexExclusions(EXCLUSIONS);
-        SCENES.freeze();
-        TAGS.freeze();
+        RegistrationState replacement = buildState();
+        state = replacement;
         frozen = true;
         Ponder.LOGGER.info("Registered {} Ponder plugin(s) and {} storyboard(s)", PLUGINS.size(),
-            SCENES.getRegisteredEntries().size());
+            replacement.scenes.getRegisteredEntries().size());
     }
 
     public static synchronized void gatherSharedText() {
-        LOCALIZATION.clearShared();
-        for (PonderPlugin plugin : PLUGINS)
-            plugin.registerSharedText(new DefaultSharedTextRegistrationHelper(plugin.getModId(), LOCALIZATION));
+        registerAll();
     }
 
     public static synchronized void reload() {
         registerAll();
+    }
+
+    private static RegistrationState buildState() {
+        PonderLocalization localization = new PonderLocalization();
+        localization.setTranslationProvider(translationProvider);
+        PonderSceneRegistry scenes = new PonderSceneRegistry(localization);
+        PonderTagRegistry tags = new PonderTagRegistry();
+        PonderIndexExclusionHelper exclusions = new PonderIndexExclusionHelper();
+
+        for (PonderPlugin plugin : PLUGINS)
+            plugin.registerScenes(new DefaultPonderSceneRegistrationHelper(plugin.getModId(), scenes));
+        for (PonderPlugin plugin : PLUGINS)
+            plugin.registerTags(new DefaultPonderTagRegistrationHelper(plugin.getModId(), tags, localization));
+        for (PonderPlugin plugin : PLUGINS)
+            plugin.registerSharedText(new DefaultSharedTextRegistrationHelper(plugin.getModId(), localization));
+        for (PonderPlugin plugin : PLUGINS)
+            plugin.indexExclusions(exclusions);
+
+        scenes.freeze();
+        tags.freeze();
+        return new RegistrationState(localization, scenes, tags, exclusions);
     }
 
     public static void forEachPlugin(Consumer<PonderPlugin> consumer) {
@@ -118,16 +125,41 @@ public final class PonderIndex {
         return new ArrayList<PonderPlugin>(PLUGINS);
     }
 
-    public static SceneRegistryAccess getSceneAccess() { return SCENES; }
-    public static TagRegistryAccess getTagAccess() { return TAGS; }
-    public static LangRegistryAccess getLangAccess() { return LOCALIZATION; }
+    public static SceneRegistryAccess getSceneAccess() { return state.scenes; }
+    public static TagRegistryAccess getTagAccess() { return state.tags; }
+    public static LangRegistryAccess getLangAccess() { return state.localization; }
     public static void setTranslationProvider(PonderLocalization.TranslationProvider provider) {
-        LOCALIZATION.setTranslationProvider(provider);
+        translationProvider = provider;
+        state.localization.setTranslationProvider(provider);
     }
-    public static PonderIndexExclusionHelper getIndexExclusions() { return EXCLUSIONS; }
+    public static PonderIndexExclusionHelper getIndexExclusions() { return state.exclusions; }
     public static boolean editingModeActive() { return PonderConfig.client().isEditingMode(); }
 
     public static void registerCommands(FMLServerStartingEvent event) {
         PonderCommands.register(event);
+    }
+
+    private static final class RegistrationState {
+        final PonderLocalization localization;
+        final PonderSceneRegistry scenes;
+        final PonderTagRegistry tags;
+        final PonderIndexExclusionHelper exclusions;
+
+        RegistrationState(PonderLocalization localization, PonderSceneRegistry scenes,
+                          PonderTagRegistry tags, PonderIndexExclusionHelper exclusions) {
+            this.localization = localization;
+            this.scenes = scenes;
+            this.tags = tags;
+            this.exclusions = exclusions;
+        }
+
+        static RegistrationState empty() {
+            PonderLocalization localization = new PonderLocalization();
+            PonderSceneRegistry scenes = new PonderSceneRegistry(localization);
+            PonderTagRegistry tags = new PonderTagRegistry();
+            scenes.freeze();
+            tags.freeze();
+            return new RegistrationState(localization, scenes, tags, new PonderIndexExclusionHelper());
+        }
     }
 }

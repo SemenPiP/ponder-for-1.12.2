@@ -31,10 +31,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 `build` 已依赖 reobf 主包、reobf 示例 addon、API jar、sources jar 和发布内容检查。不要用
 `jar` 任务的 `build/devlibs/*-dev.jar` 代替发布成品。成功后应存在：
 
-- `build/libs/Ponder-1.12.2-1.1.0.jar`
-- `build/libs/Ponder-Example-Addon-1.12.2-1.1.0.jar`
-- `build/libs/Ponder-1.12.2-1.1.0-api.jar`
-- `build/libs/Ponder-1.12.2-1.1.0-sources.jar`
+- `build/libs/Ponder-1.12.2-1.1.1.jar`
+- `build/libs/Ponder-Example-Addon-1.12.2-1.1.1.jar`
+- `build/libs/Ponder-1.12.2-1.1.1-api.jar`
+- `build/libs/Ponder-1.12.2-1.1.1-sources.jar`
 
 Gradle 门槛检查以下内容：
 
@@ -54,10 +54,28 @@ Gradle 门槛检查以下内容：
 并复核 refmap、manifest、禁用引用、语言数和 `pack_format=3`。它把四个成品与 CatServer 的 SHA-256 写入
 `build/reports/release-verification.md`。单元测试报告位于 `build/reports/tests/test/index.html`。
 
-## 当前验证状态
+## 1.1.1 当前发布记录
+
+当前 1.1.1 成品的 SHA-256 不在本文硬编码。请到 GitHub Actions 的 build job summary
+和上传的 release artifact bundle 中读取同一次构建的四个成品哈希。
+
+同一次构建应同时产出：
+
+- `Ponder-1.12.2-1.1.1.jar`
+- `Ponder-Example-Addon-1.12.2-1.1.1.jar`
+- `Ponder-1.12.2-1.1.1-api.jar`
+- `Ponder-1.12.2-1.1.1-sources.jar`
+
+这四个成品、`build/reports/release-verification.md`、`build/reports/tests/test/index.html`
+以及标准 Forge 专服报告必须指向同一次 1.1.1 构建。CatServer 服务端回归报告也应记录对应成品，
+但 CatServer 客户端支持只算实验线，不阻塞发布。标准 Forge 真实客户端仍是 1.1.1 的发布门槛。
+
+## 历史记录
+
+### 1.1.0 历史结果
 
 `1.1.0` 新增 CraftTweaker/ZenScript 场景 IR、首次生成脚本、外部结构加载和服务器快照同步。
-历史版本的哈希和报告不转移到当前版本；以下结果必须绑定到新的 1.1.0 成品：
+历史版本的哈希和报告不转移到当前版本；以下结果仅作为 1.1.0 的历史记录：
 
 | 门槛 | 状态 | 证据或原因 |
 | --- | --- | --- |
@@ -80,6 +98,8 @@ Gradle 门槛检查以下内容：
 | `Ponder-1.12.2-1.1.0-api.jar` | `3F00CC619A3D91FDE2CBF9DB59FFBF576802160FF54DA6827202C5F8565F9FC1` |
 | `Ponder-1.12.2-1.1.0-sources.jar` | `47B3FB4FCE02CD708B0606DD02E7CF19493A88653EE553B5E50A6538767AA06C` |
 | `Ponder-Example-Addon-1.12.2-1.1.0.jar` | `435E46A90804DF3406CBA1D328112898B6BEB7C0AFC5CABDC97F2A94422797D0` |
+
+### 1.0.2 历史结果
 
 最近一次完整服务端验收属于 1.0.2，仅作为历史记录：
 
@@ -153,7 +173,7 @@ storyboard、`Done`、`Saved the world` 和正常关闭，且致命 mixin/缺类
 创建或只能远程基本显示时，结果应记为“环境阻塞/未执行”，不能记为通过。
 Mesa/llvmpipe 仅是当前无硬件 OpenGL 驱动宿主机的验收手段，不是 Ponder 的运行前置，也不得进入发布包。
 
-## CatServer 分层验收
+## CatServer 实验性分层验收
 
 先确保项目上一级目录中的 CatServer jar 哈希与固定值一致，再对最终发布 jar 执行服务端四层预检：
 
@@ -168,7 +188,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\test-catserver.p
 脚本按隔离目录依次启动：空服、仅 MixinBooter、MixinBooter + Ponder、再加 reobf 示例 addon。
 上述命令不等待客户端，最多只能得到 `PASS_SERVER_ONLY`。
 
-完整门槛只能在具有可用桌面和 OpenGL 的机器上执行相同命令并追加 `-WaitForClient`。
+若要额外声明 CatServer 客户端兼容，只能在具有可用桌面和 OpenGL 的机器上执行相同命令并追加
+`-WaitForClient`。这项客户端兼容证据不阻塞 1.1.1 的标准 Forge 发布。
 最后一层监听 `127.0.0.1:25567`，必须用真实 1.12.2 客户端连接，打开内置演示并完成上述视觉/交互
 检查。完成后创建脚本打印出的唯一 `client-demo-ok.flag` 路径；不要预先创建或复用旧标记。脚本随后
 验证保存、关闭、同一世界重启、mixin 致命错误和专服客户端类加载。

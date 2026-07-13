@@ -60,7 +60,7 @@ jobs:
       - name: Write artifact summary
         shell: powershell
         run: |
-          "## Ponder 1.1.0 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "## Ponder 1.1.1 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -75,10 +75,18 @@ jobs:
       - name: Upload release jars
         uses: actions/upload-artifact@v7
         with:
-          name: ponder-1.1.0-${{ github.sha }}
+          name: ponder-1.1.1-${{ github.sha }}
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload server fixture harness
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-server-harness-${{ github.sha }}
+          path: build/verification/server-harness/*.jar
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload build reports
         if: always()
@@ -116,8 +124,14 @@ jobs:
       - name: Download release jars
         uses: actions/download-artifact@v8
         with:
-          name: ponder-1.1.0-${{ github.sha }}
+          name: ponder-1.1.1-${{ github.sha }}
           path: build/libs
+
+      - name: Download server fixture harness
+        uses: actions/download-artifact@v8
+        with:
+          name: ponder-server-harness-${{ github.sha }}
+          path: build/verification/server-harness
 
       - name: Run dedicated-server verification
         shell: powershell
@@ -135,6 +149,7 @@ jobs:
           path: |
             build/reports/standard-forge-verification-*.md
             build/standard-forge-smoke/**/*-console.log
+            build/standard-forge-smoke/**/*-crafttweaker.log
             build/standard-forge-smoke/**/crash-reports/**
             build/standard-forge-smoke/**/logs/**
           if-no-files-found: warn

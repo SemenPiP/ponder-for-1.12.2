@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.List;
 
 import net.createmod.ponder.api.scene.PonderStoryBoard;
-import net.createmod.ponder.api.script.ScriptInstructionCodecs;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
@@ -38,13 +37,7 @@ public final class ScriptSceneDefinition {
             throw new IllegalArgumentException("Scene has no instructions: " + sceneId);
         if (instructions.size() > MAX_INSTRUCTIONS)
             throw new IllegalArgumentException("Scene exceeds " + MAX_INSTRUCTIONS + " instructions: " + sceneId);
-        for (ScriptInstruction instruction : instructions) {
-            if ("custom".equals(instruction.getOperation())) {
-                ResourceLocation codec = new ResourceLocation(instruction.getData().getString("codec"));
-                if (ScriptInstructionCodecs.get(codec) == null)
-                    throw new IllegalArgumentException("Scene requires unavailable script codec " + codec);
-            }
-        }
+        ScriptInstructionValidator.validate(sceneId, instructions);
         this.component = component;
         this.sceneId = sceneId;
         this.title = title;

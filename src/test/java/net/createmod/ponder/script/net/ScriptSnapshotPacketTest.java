@@ -49,6 +49,40 @@ public class ScriptSnapshotPacketTest {
         assertTrue(decodedMessage.indexOf('\n') < 0);
     }
 
+    @Test
+    public void capabilityPacketRoundTripsProtocolAndCodecs() throws Exception {
+        ServerboundScriptCapabilitiesPacket source = new ServerboundScriptCapabilitiesPacket(
+            ScriptSceneSnapshot.PROTOCOL,
+            Arrays.asList(new ResourceLocation("example", "first"), new ResourceLocation("example", "second")));
+        ByteBuf bytes = Unpooled.buffer();
+        source.toBytes(bytes);
+        ServerboundScriptCapabilitiesPacket decoded = new ServerboundScriptCapabilitiesPacket();
+        decoded.fromBytes(bytes);
+
+        assertEquals(ScriptSceneSnapshot.PROTOCOL, integer(decoded, "protocol"));
+        assertEquals(2, ((java.util.List<?>) field(decoded, "codecs")).size());
+    }
+
+    @Test
+    public void completeAndStatusPacketsRoundTrip() throws Exception {
+        ClientboundScriptSnapshotCompletePacket complete = new ClientboundScriptSnapshotCompletePacket(77);
+        ByteBuf completeBytes = Unpooled.buffer();
+        complete.toBytes(completeBytes);
+        ClientboundScriptSnapshotCompletePacket decodedComplete = new ClientboundScriptSnapshotCompletePacket();
+        decodedComplete.fromBytes(completeBytes);
+        assertEquals(77, integer(decodedComplete, "transferId"));
+
+        ClientboundScriptSnapshotStatusPacket status = new ClientboundScriptSnapshotStatusPacket(77,
+            ClientboundScriptSnapshotStatusPacket.REJECTED, "missing codec");
+        ByteBuf statusBytes = Unpooled.buffer();
+        status.toBytes(statusBytes);
+        ClientboundScriptSnapshotStatusPacket decodedStatus = new ClientboundScriptSnapshotStatusPacket();
+        decodedStatus.fromBytes(statusBytes);
+        assertEquals(77, integer(decodedStatus, "transferId"));
+        assertEquals(ClientboundScriptSnapshotStatusPacket.REJECTED, field(decodedStatus, "status"));
+        assertEquals("missing codec", field(decodedStatus, "message"));
+    }
+
     private static int integer(Object target, String name) throws Exception {
         return ((Integer) field(target, name)).intValue();
     }

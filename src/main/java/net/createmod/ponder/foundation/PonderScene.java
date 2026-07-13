@@ -331,6 +331,11 @@ public final class PonderScene {
         linkedElements.put(link.getId(), element);
     }
 
+    public void unlinkElement(ElementLink<?> link) {
+        if (link != null)
+            linkedElements.remove(link.getId());
+    }
+
     @Nullable public <E extends PonderElement> E resolve(ElementLink<E> link) {
         return link == null ? null : link.cast(linkedElements.get(link.getId()));
     }
@@ -377,7 +382,7 @@ public final class PonderScene {
     }
 
     public void setSceneTitle(String id, String title) {
-        sceneId = new ResourceLocation(namespace, id);
+        sceneId = id.indexOf(':') >= 0 ? new ResourceLocation(id) : new ResourceLocation(namespace, id);
         localization.registerSpecific(sceneId, TITLE_KEY, title);
     }
 

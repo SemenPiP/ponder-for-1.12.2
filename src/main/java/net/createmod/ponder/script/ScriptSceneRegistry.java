@@ -69,8 +69,11 @@ public final class ScriptSceneRegistry {
     }
 
     public static synchronized void reportUnregisteredBuilders() {
-        for (ScriptSceneBuilder builder : PENDING)
-            CraftTweakerAPI.logError("Ponder scene builder was not registered: " + builder.getSceneId());
+        for (ScriptSceneBuilder builder : PENDING) {
+            String source = builder.getSourceDescription();
+            CraftTweakerAPI.logError("Ponder scene builder was not registered: " + builder.getSceneId()
+                + (source == null ? "" : " at " + source));
+        }
         PENDING.clear();
     }
 
@@ -89,20 +92,51 @@ public final class ScriptSceneRegistry {
     }
 
     public static synchronized void replaceServerScenes(Collection<ScriptSceneDefinition> definitions) {
-        if (definitions == null || definitions.size() > MAX_SCENES)
-            throw new IllegalArgumentException("Invalid server Ponder scene collection");
-        Map<ResourceLocation, ScriptSceneDefinition> replacement =
-            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
-        for (ScriptSceneDefinition definition : definitions) {
-            if (replacement.put(definition.getSceneId(), definition) != null)
-                throw new IllegalArgumentException("Duplicate server Ponder scene id: " + definition.getSceneId());
-        }
+        Map<ResourceLocation, ScriptSceneDefinition> replacement = validateServerScenes(definitions);
         SERVER.clear();
         SERVER.putAll(replacement);
     }
 
     public static synchronized void clearServerScenes() {
         SERVER.clear();
+    }
+
+    public static synchronized void replaceServerScenesAndReload(Collection<ScriptSceneDefinition> definitions) {
+        Map<ResourceLocation, ScriptSceneDefinition> replacement = validateServerScenes(definitions);
+        Map<ResourceLocation, ScriptSceneDefinition> previous =
+            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>(SERVER);
+        SERVER.clear();
+        SERVER.putAll(replacement);
+        try {
+            net.createmod.ponder.foundation.PonderIndex.reload();
+        } catch (RuntimeException failure) {
+            SERVER.clear();
+            SERVER.putAll(previous);
+            throw failure;
+        }
+    }
+
+    public static synchronized void clearServerScenesAndReload() {
+        replaceServerScenesAndReload(Collections.<ScriptSceneDefinition>emptyList());
+    }
+
+    public static synchronized List<ScriptSceneDefinition> serverSnapshot() {
+        return Collections.unmodifiableList(new ArrayList<ScriptSceneDefinition>(SERVER.values()));
+    }
+
+    private static Map<ResourceLocation, ScriptSceneDefinition> validateServerScenes(
+            Collection<ScriptSceneDefinition> definitions) {
+        if (definitions == null || definitions.size() > MAX_SCENES)
+            throw new IllegalArgumentException("Invalid server Ponder scene collection");
+        Map<ResourceLocation, ScriptSceneDefinition> replacement =
+            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
+        for (ScriptSceneDefinition definition : definitions) {
+            if (definition == null)
+                throw new IllegalArgumentException("Server Ponder scene may not be null");
+            if (replacement.put(definition.getSceneId(), definition) != null)
+                throw new IllegalArgumentException("Duplicate server Ponder scene id: " + definition.getSceneId());
+        }
+        return replacement;
     }
 
     static ResourceLocation parseId(String value, String label) {

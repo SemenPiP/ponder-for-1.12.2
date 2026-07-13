@@ -6,6 +6,7 @@ import net.createmod.catnip.net.base.BasePacketPayload;
 import net.createmod.catnip.net.base.ServerboundPacketPayload;
 import net.createmod.ponder.Ponder;
 import net.createmod.ponder.script.ScriptSceneSnapshot;
+import net.createmod.ponder.script.ScriptSceneSync;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.fml.common.network.ByteBufUtils;
 
@@ -43,6 +44,7 @@ public final class ServerboundScriptSnapshotResultPacket implements ServerboundP
 
     @Override
     public void handle(EntityPlayerMP player) {
+        ScriptSceneSync.receiveResult(player, transferId, protocol, accepted, message);
         if (protocol != ScriptSceneSnapshot.PROTOCOL) {
             Ponder.LOGGER.warn("{} reported incompatible Ponder script protocol {}", player.getName(), protocol);
         } else if (accepted) {

@@ -40,7 +40,12 @@ public class ScriptSceneLimitsTest {
         List<ScriptInstruction> instructions = new ArrayList<ScriptInstruction>();
         for (int i = 0; i < 5; i++) {
             NBTTagCompound data = new NBTTagCompound();
-            data.setByteArray("nbt", new byte[240 * 1024]);
+            data.setTag("selection", ScriptSelection.position(0, 0, 0).serialize());
+            NBTTagCompound nbt = new NBTTagCompound();
+            nbt.setByteArray("payload", new byte[240 * 1024]);
+            data.setTag("nbt", nbt);
+            data.setBoolean("replace", false);
+            data.setBoolean("redraw", false);
             instructions.add(new ScriptInstruction("tile_nbt", data));
         }
         ScriptSceneDefinition scene = new ScriptSceneDefinition(

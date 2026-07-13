@@ -78,6 +78,12 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void glueBlockOnto(ScriptPosition position, String direction, String handle) {
+        ScriptPosition required = ScriptPosition.require(position, "Block position");
+        glueBlockOnto(required.x, required.y, required.z, direction, handle);
+    }
+
+    @ZenMethod
     public void hideIndependentSection(String handle, String direction) {
         scene.requireHandle(handle, ScriptSceneBuilder.HandleType.SECTION);
         NBTTagCompound data = new NBTTagCompound();
@@ -96,12 +102,24 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void moveSection(String handle, ScriptVector offset, int duration) {
+        ScriptVector required = ScriptVector.require(offset, "Section movement");
+        moveSection(handle, required.x, required.y, required.z, duration);
+    }
+
+    @ZenMethod
     public void rotateSection(String handle, double x, double y, double z, int duration) {
         scene.requireHandle(handle, ScriptSceneBuilder.HandleType.SECTION);
         NBTTagCompound data = vector(x, y, z);
         data.setString("handle", handle);
         data.setInteger("duration", duration(duration));
         scene.add("rotate_section", data);
+    }
+
+    @ZenMethod
+    public void rotateSection(String handle, ScriptVector rotation, int duration) {
+        ScriptVector required = ScriptVector.require(rotation, "Section rotation");
+        rotateSection(handle, required.x, required.y, required.z, duration);
     }
 
     @ZenMethod
@@ -113,11 +131,23 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void configureCenterOfRotation(String handle, ScriptVector anchor) {
+        ScriptVector required = ScriptVector.require(anchor, "Center of rotation");
+        configureCenterOfRotation(handle, required.x, required.y, required.z);
+    }
+
+    @ZenMethod
     public void configureStabilization(String handle, double x, double y, double z) {
         scene.requireHandle(handle, ScriptSceneBuilder.HandleType.SECTION);
         NBTTagCompound data = vector(x, y, z);
         data.setString("handle", handle);
         scene.add("stabilize_section", data);
+    }
+
+    @ZenMethod
+    public void configureStabilization(String handle, ScriptVector anchor) {
+        ScriptVector required = ScriptVector.require(anchor, "Stabilization anchor");
+        configureStabilization(handle, required.x, required.y, required.z);
     }
 
     @ZenMethod
@@ -127,6 +157,12 @@ public final class ScriptWorldBuilder {
         data.setString("state", requiredText(state, "block state"));
         data.setBoolean("particles", particles);
         scene.add("set_block", data);
+    }
+
+    @ZenMethod
+    public void setBlock(ScriptPosition position, String state, boolean particles) {
+        ScriptPosition required = ScriptPosition.require(position, "Block position");
+        setBlock(required.x, required.y, required.z, state, particles);
     }
 
     @ZenMethod
@@ -150,8 +186,20 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void destroyBlock(ScriptPosition position) {
+        ScriptPosition required = ScriptPosition.require(position, "Block position");
+        destroyBlock(required.x, required.y, required.z);
+    }
+
+    @ZenMethod
     public void incrementBlockBreakingProgress(int x, int y, int z) {
         scene.add("break_progress", position(x, y, z));
+    }
+
+    @ZenMethod
+    public void incrementBlockBreakingProgress(ScriptPosition position) {
+        ScriptPosition required = ScriptPosition.require(position, "Block position");
+        incrementBlockBreakingProgress(required.x, required.y, required.z);
     }
 
     @ZenMethod
@@ -159,6 +207,12 @@ public final class ScriptWorldBuilder {
         NBTTagCompound data = position(x, y, z);
         data.setString("property", requiredText(property, "block property"));
         scene.add("cycle_property", data);
+    }
+
+    @ZenMethod
+    public void cycleBlockProperty(ScriptPosition position, String property) {
+        ScriptPosition required = ScriptPosition.require(position, "Block position");
+        cycleBlockProperty(required.x, required.y, required.z, property);
     }
 
     @ZenMethod
@@ -182,6 +236,58 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void createItemEntity(String handle, ScriptVector position, ScriptVector motion,
+                                 String itemId, int count, int meta) {
+        ScriptVector requiredPosition = ScriptVector.require(position, "Item position");
+        ScriptVector requiredMotion = ScriptVector.require(motion, "Item motion");
+        createItemEntity(handle, requiredPosition.x, requiredPosition.y, requiredPosition.z,
+            requiredMotion.x, requiredMotion.y, requiredMotion.z, itemId, count, meta);
+    }
+
+    @ZenMethod
+    public void moveItem(String handle, double x, double y, double z, int duration) {
+        scene.requireHandle(handle, ScriptSceneBuilder.HandleType.ITEM);
+        NBTTagCompound data = vector(x, y, z);
+        data.setString("handle", handle);
+        data.setInteger("duration", duration(duration));
+        scene.add("move_item", data);
+    }
+
+    @ZenMethod
+    public void moveItem(String handle, ScriptVector offset, int duration) {
+        ScriptVector required = ScriptVector.require(offset, "Item movement");
+        moveItem(handle, required.x, required.y, required.z, duration);
+    }
+
+    @ZenMethod
+    public void setItemVisible(String handle, boolean visible) {
+        scene.requireHandle(handle, ScriptSceneBuilder.HandleType.ITEM);
+        NBTTagCompound data = new NBTTagCompound();
+        data.setString("handle", handle);
+        data.setBoolean("visible", visible);
+        scene.add("set_item_visible", data);
+    }
+
+    @ZenMethod
+    public void hideItem(String handle) {
+        setItemVisible(handle, false);
+    }
+
+    @ZenMethod
+    public void showItem(String handle) {
+        setItemVisible(handle, true);
+    }
+
+    @ZenMethod
+    public void removeItem(String handle) {
+        scene.requireHandle(handle, ScriptSceneBuilder.HandleType.ITEM);
+        NBTTagCompound data = new NBTTagCompound();
+        data.setString("handle", handle);
+        scene.add("remove_item", data);
+        scene.terminateHandle(handle, ScriptSceneBuilder.HandleType.ITEM);
+    }
+
+    @ZenMethod
     public void createMinecart(String handle, double x, double y, double z, float angle, String type) {
         scene.defineHandle(handle, ScriptSceneBuilder.HandleType.MINECART);
         NBTTagCompound data = vector(x, y, z);
@@ -192,8 +298,19 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void createMinecart(String handle, ScriptVector position, float angle, String type) {
+        ScriptVector required = ScriptVector.require(position, "Minecart position");
+        createMinecart(handle, required.x, required.y, required.z, angle, type);
+    }
+
+    @ZenMethod
     public void createCart(String handle, double x, double y, double z, float angle, String type) {
         createMinecart(handle, x, y, z, angle, type);
+    }
+
+    @ZenMethod
+    public void createCart(String handle, ScriptVector position, float angle, String type) {
+        createMinecart(handle, position, angle, type);
     }
 
     @ZenMethod
@@ -206,8 +323,19 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void moveMinecart(String handle, ScriptVector offset, int duration) {
+        ScriptVector required = ScriptVector.require(offset, "Minecart movement");
+        moveMinecart(handle, required.x, required.y, required.z, duration);
+    }
+
+    @ZenMethod
     public void moveCart(String handle, double x, double y, double z, int duration) {
         moveMinecart(handle, x, y, z, duration);
+    }
+
+    @ZenMethod
+    public void moveCart(String handle, ScriptVector offset, int duration) {
+        moveMinecart(handle, offset, duration);
     }
 
     @ZenMethod
@@ -244,8 +372,19 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void createParrot(String handle, ScriptVector position, String pose) {
+        ScriptVector required = ScriptVector.require(position, "Parrot position");
+        createParrot(handle, required.x, required.y, required.z, pose);
+    }
+
+    @ZenMethod
     public void createBirb(String handle, double x, double y, double z, String pose) {
         createParrot(handle, x, y, z, pose);
+    }
+
+    @ZenMethod
+    public void createBirb(String handle, ScriptVector position, String pose) {
+        createParrot(handle, position, pose);
     }
 
     @ZenMethod
@@ -272,12 +411,24 @@ public final class ScriptWorldBuilder {
     }
 
     @ZenMethod
+    public void moveParrot(String handle, ScriptVector offset, int duration) {
+        ScriptVector required = ScriptVector.require(offset, "Parrot movement");
+        moveParrot(handle, required.x, required.y, required.z, duration);
+    }
+
+    @ZenMethod
     public void rotateParrot(String handle, double x, double y, double z, int duration) {
         scene.requireHandle(handle, ScriptSceneBuilder.HandleType.PARROT);
         NBTTagCompound data = vector(x, y, z);
         data.setString("handle", handle);
         data.setInteger("duration", duration(duration));
         scene.add("rotate_parrot", data);
+    }
+
+    @ZenMethod
+    public void rotateParrot(String handle, ScriptVector rotation, int duration) {
+        ScriptVector required = ScriptVector.require(rotation, "Parrot rotation");
+        rotateParrot(handle, required.x, required.y, required.z, duration);
     }
 
     @ZenMethod
@@ -339,6 +490,7 @@ public final class ScriptWorldBuilder {
     }
 
     static NBTTagCompound vector(double x, double y, double z) {
+        ScriptVector.validate(x, y, z, "Vector");
         NBTTagCompound data = new NBTTagCompound();
         data.setDouble("x", x); data.setDouble("y", y); data.setDouble("z", z);
         return data;

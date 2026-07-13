@@ -20,4 +20,9 @@ public final class ScriptPosition {
     public static ScriptPosition of(int x, int y, int z) {
         return new ScriptPosition(x, y, z);
     }
+
+    static ScriptPosition require(ScriptPosition position, String label) {
+        if (position == null) throw new IllegalArgumentException(label + " is required");
+        return position;
+    }
 }

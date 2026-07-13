@@ -3,16 +3,18 @@ package net.createmod.ponder.script.net;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import net.createmod.catnip.platform.CatnipServices;
 import net.createmod.ponder.Ponder;
 import net.createmod.ponder.api.script.ScriptInstructionCodecs;
-import net.createmod.ponder.foundation.PonderIndex;
 import net.createmod.ponder.script.ScriptSceneDefinition;
 import net.createmod.ponder.script.ScriptSceneRegistry;
 import net.createmod.ponder.script.ScriptSceneSnapshot;
 import net.createmod.ponder.script.ScriptSceneSync;
+import net.createmod.ponder.script.ScriptSyncNotices;
 import net.minecraft.util.ResourceLocation;
 
 public final class ScriptSnapshotReceiver {
@@ -25,19 +27,17 @@ public final class ScriptSnapshotReceiver {
                                           int uncompressedBytes, byte[] hash,
                                           List<ResourceLocation> requiredCodecs) {
         if (protocol != ScriptSceneSnapshot.PROTOCOL) {
-            reject(transferId, "Unsupported protocol " + protocol + ", expected " + ScriptSceneSnapshot.PROTOCOL);
-            active = null;
+            rejectBegin(transferId, "Unsupported protocol " + protocol + ", expected "
+                + ScriptSceneSnapshot.PROTOCOL);
             return;
         }
         if (requiredCodecs == null || requiredCodecs.size() > ScriptSceneSnapshot.MAX_REQUIRED_CODECS) {
-            reject(transferId, "Invalid required codec list");
-            active = null;
+            rejectBegin(transferId, "Invalid required codec list");
             return;
         }
         for (ResourceLocation codec : requiredCodecs) {
             if (codec == null || ScriptInstructionCodecs.get(codec) == null) {
-                reject(transferId, "Missing required codec " + codec);
-                active = null;
+                rejectBegin(transferId, "Missing required codec " + codec);
                 return;
             }
         }
@@ -45,23 +45,42 @@ public final class ScriptSnapshotReceiver {
             || compressedBytes > ScriptSceneSnapshot.MAX_COMPRESSED_BYTES
             || uncompressedBytes < 0 || uncompressedBytes > ScriptSceneSnapshot.MAX_UNCOMPRESSED_BYTES
             || hash == null || hash.length != 32) {
-            reject(transferId, "Invalid snapshot header");
-            active = null;
+            rejectBegin(transferId, "Invalid snapshot header");
             return;
         }
-        active = new Transfer(transferId, chunks, compressedBytes, uncompressedBytes, hash);
+        if (active != null && active.id != transferId)
+            result(active.id, false, "Superseded by Ponder script snapshot #" + transferId);
+        active = new Transfer(transferId, chunks, compressedBytes, uncompressedBytes, hash,
+            System.currentTimeMillis());
     }
 
     public static synchronized void accept(int transferId, int index, byte[] bytes) {
-        if (active == null || active.id != transferId || index < 0 || index >= active.parts.length
-            || active.parts[index] != null || bytes == null || bytes.length > ScriptSceneSync.CHUNK_BYTES) {
+        if (active == null || active.id != transferId) {
+            Ponder.LOGGER.debug("Ignoring stale Ponder script snapshot chunk #{} for transfer {}",
+                index, transferId);
+            return;
+        }
+        if (index < 0 || index >= active.parts.length || active.parts[index] != null
+            || bytes == null || bytes.length > ScriptSceneSync.CHUNK_BYTES
+            || active.received + bytes.length > active.compressedBytes) {
             reject(transferId, "Invalid or duplicate snapshot chunk");
             active = null;
             return;
         }
         active.parts[index] = bytes.clone();
         active.received += bytes.length;
-        if (!active.complete()) return;
+    }
+
+    public static synchronized void complete(int transferId) {
+        if (active == null || active.id != transferId) {
+            Ponder.LOGGER.debug("Ignoring stale Ponder script snapshot completion for transfer {}", transferId);
+            return;
+        }
+        if (!active.hasAllParts()) {
+            reject(transferId, "Ponder script snapshot completed with missing chunks");
+            active = null;
+            return;
+        }
         Transfer completed = active;
         active = null;
         try {
@@ -71,14 +90,45 @@ public final class ScriptSnapshotReceiver {
                 throw new IOException("Ponder script snapshot hash or length mismatch");
             List<ScriptSceneDefinition> definitions =
                 ScriptSceneSnapshot.decode(compressed, completed.uncompressedBytes);
-            ScriptSceneRegistry.replaceServerScenes(definitions);
-            PonderIndex.reload();
+            ScriptSceneRegistry.replaceServerScenesAndReload(definitions);
             result(completed.id, true, "Applied " + definitions.size() + " scene(s)");
             Ponder.LOGGER.info("Applied {} server Ponder script scene(s)", definitions.size());
         } catch (IOException | RuntimeException exception) {
             reject(completed.id, exception.getMessage());
             Ponder.LOGGER.error("Rejected server Ponder script scene snapshot", exception);
         }
+    }
+
+    public static synchronized void status(int transferId, String status, String message) {
+        if (ClientboundScriptSnapshotStatusPacket.REQUEST_CAPABILITIES.equals(status)) {
+            if (active != null) {
+                result(active.id, false, "Superseded by a new Ponder script capability request");
+                active = null;
+            }
+            List<ResourceLocation> codecs =
+                new ArrayList<ResourceLocation>(ScriptInstructionCodecs.snapshot().keySet());
+            Collections.sort(codecs, (left, right) -> left.toString().compareTo(right.toString()));
+            CatnipServices.NETWORK.sendToServer(new ServerboundScriptCapabilitiesPacket(
+                ScriptSceneSnapshot.PROTOCOL, codecs));
+            return;
+        }
+        if (ClientboundScriptSnapshotStatusPacket.REJECTED.equals(status)) {
+            if (active != null && (transferId == 0 || active.id == transferId))
+                active = null;
+            String notice = "Ponder server scenes were not applied"
+                + (message == null || message.isEmpty() ? "." : ": " + message);
+            ScriptSyncNotices.record(notice);
+            Ponder.LOGGER.warn(notice);
+        }
+    }
+
+    public static synchronized void tick() {
+        if (active == null) return;
+        if (System.currentTimeMillis() - active.startedAt <= ScriptSceneSync.TRANSFER_TIMEOUT_MILLIS) return;
+        int transferId = active.id;
+        active = null;
+        reject(transferId, "Ponder script snapshot transfer timed out");
+        ScriptSyncNotices.record("Ponder server scene transfer timed out; local scenes remain available.");
     }
 
     public static synchronized void reset() {
@@ -88,6 +138,12 @@ public final class ScriptSnapshotReceiver {
     private static void reject(int transferId, String message) {
         result(transferId, false, message);
         Ponder.LOGGER.error("Rejected server Ponder script scene snapshot #{}: {}", transferId, message);
+    }
+
+    private static void rejectBegin(int transferId, String message) {
+        reject(transferId, message);
+        if (active != null && active.id == transferId)
+            active = null;
     }
 
     private static void result(int transferId, boolean accepted, String message) {
@@ -105,15 +161,15 @@ public final class ScriptSnapshotReceiver {
         final int compressedBytes;
         final int uncompressedBytes;
         final byte[] hash;
+        final long startedAt;
         int received;
 
-        Transfer(int id, int chunks, int compressedBytes, int uncompressedBytes, byte[] hash) {
+        Transfer(int id, int chunks, int compressedBytes, int uncompressedBytes, byte[] hash, long startedAt) {
             this.id = id; this.parts = new byte[chunks][]; this.compressedBytes = compressedBytes;
-            this.uncompressedBytes = uncompressedBytes; this.hash = hash.clone();
+            this.uncompressedBytes = uncompressedBytes; this.hash = hash.clone(); this.startedAt = startedAt;
         }
 
-        boolean complete() {
-            if (received > compressedBytes) return true;
+        boolean hasAllParts() {
             for (byte[] part : parts) if (part == null) return false;
             return true;
         }

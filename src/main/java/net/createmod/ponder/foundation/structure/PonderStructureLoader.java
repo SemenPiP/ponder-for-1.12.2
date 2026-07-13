@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -71,8 +72,13 @@ public final class PonderStructureLoader {
         PonderStructure external = loadExternal(id);
         if (external != null) return external;
         InputStream stream = null;
-        if (resourceProvider != null)
-            stream = resourceProvider.open(asset);
+        if (resourceProvider != null) {
+            try {
+                stream = resourceProvider.open(asset);
+            } catch (FileNotFoundException missing) {
+                stream = null;
+            }
+        }
         if (stream == null) {
             String path = "assets/" + asset.getNamespace() + "/" + asset.getPath();
             ClassLoader context = Thread.currentThread().getContextClassLoader();
@@ -92,10 +98,12 @@ public final class PonderStructureLoader {
         Path candidate = root.resolve(id.getNamespace()).resolve(id.getPath() + ".nbt").normalize();
         if (!candidate.startsWith(root))
             throw new IOException("Ponder structure path escapes scripts root: " + id);
-        if (!Files.exists(candidate)) return null;
-        if (!Files.isRegularFile(candidate) || Files.isSymbolicLink(candidate))
+        rejectLinkedSegments(root, id);
+        if (!Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)) return null;
+        rejectLinkedSegments(candidate, id);
+        if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(candidate))
             throw new IOException("Ponder structure is not a regular NBT file: " + candidate);
-        Path realRoot = Files.exists(root) ? root.toRealPath() : root;
+        Path realRoot = Files.exists(root, LinkOption.NOFOLLOW_LINKS) ? root.toRealPath() : root;
         Path realCandidate = candidate.toRealPath();
         if (!realCandidate.startsWith(realRoot))
             throw new IOException("Ponder structure resolves outside scripts root: " + id);
@@ -116,6 +124,25 @@ public final class PonderStructureLoader {
             EXTERNAL_CACHE.put(key, new CachedExternalStructure(modified, length, hash, parsed));
         }
         return parsed;
+    }
+
+    private static void rejectLinkedSegments(Path path, ResourceLocation id) throws IOException {
+        Path absolute = path.toAbsolutePath().normalize();
+        Path current = absolute.getRoot();
+        if (current == null)
+            throw new IOException("Ponder structure path has no filesystem root: " + absolute);
+        for (Path segment : absolute) {
+            current = current.resolve(segment);
+            if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS))
+                continue;
+            if (Files.isSymbolicLink(current))
+                throw new IOException("Ponder structure path contains a symbolic link: " + id + " at " + current);
+            Path noFollow = current.toRealPath(LinkOption.NOFOLLOW_LINKS);
+            Path followed = current.toRealPath();
+            if (!noFollow.equals(followed))
+                throw new IOException("Ponder structure path contains a linked directory or junction: "
+                    + id + " at " + current);
+        }
     }
 
     private static String sha256(byte[] bytes) throws IOException {
