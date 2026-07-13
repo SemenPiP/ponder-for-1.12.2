@@ -68,7 +68,7 @@ jobs:
             }
 
       - name: Upload release jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ponder-1.1.0-${{ github.sha }}
           path: build/libs/*.jar
@@ -77,7 +77,7 @@ jobs:
 
       - name: Upload build reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-reports-${{ github.sha }}
           path: |
@@ -103,7 +103,7 @@ jobs:
           java-version: "8"
 
       - name: Download release jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ponder-1.1.0-${{ github.sha }}
           path: build/libs
@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload server reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: forge-server-reports-${{ github.sha }}
           path: |

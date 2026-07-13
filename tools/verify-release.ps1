@@ -216,7 +216,12 @@ $forbiddenReferences = @(
     "net/neoforged/"
 )
 
-$mappingPath = Join-Path $env:USERPROFILE ".gradle\caches\minecraft\de\oceanlabs\mcp\mcp_stable\39\rfg_srgs\srg-mcp.srg"
+$gradleHome = if ([string]::IsNullOrWhiteSpace($env:GRADLE_USER_HOME)) {
+    Join-Path $env:USERPROFILE ".gradle"
+} else {
+    $env:GRADLE_USER_HOME
+}
+$mappingPath = Join-Path $gradleHome "caches\minecraft\de\oceanlabs\mcp\mcp_stable\39\rfg_srgs\srg-mcp.srg"
 $mcpMembers = $null
 if (Test-Path -LiteralPath $mappingPath -PathType Leaf) {
     $mcpMembers = Get-McpMemberSet $mappingPath
@@ -420,11 +425,6 @@ if ($null -eq $packMetadata) {
     }
 }
 
-$gradleHome = if ([string]::IsNullOrWhiteSpace($env:GRADLE_USER_HOME)) {
-    Join-Path $env:USERPROFILE ".gradle"
-} else {
-    $env:GRADLE_USER_HOME
-}
 $mixinBooterCache = Join-Path $gradleHome "caches\modules-2\files-2.1\zone.rong\mixinbooter\$mixinBooterVersion"
 $mixinBooterArtifact = Get-ChildItem -LiteralPath $mixinBooterCache -Filter "mixinbooter-$mixinBooterVersion.jar" `
     -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
