@@ -1,0 +1,130 @@
+name: Build and Verify
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dfile.encoding=UTF-8
+
+jobs:
+  build-test:
+    name: Build, Test, and Package
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Build and run tests
+        shell: powershell
+        run: |
+          .\gradlew.bat clean test build compileClientHarnessJava `
+            --no-daemon `
+            --max-workers=1 `
+            --console=plain `
+            --stacktrace
+
+      - name: Verify release artifacts
+        shell: powershell
+        run: |
+          .\tools\verify-release.ps1
+
+      - name: Write artifact summary
+        shell: powershell
+        run: |
+          "## Ponder 1.1.0 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "| File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "| --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          Get-ChildItem -LiteralPath "build\libs" -Filter "*.jar" -File |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+              "| ``$($_.Name)`` | ``$hash`` |" |
+                Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            }
+
+      - name: Upload release jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: ponder-1.1.0-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports-${{ github.sha }}
+          path: |
+            build/reports/**
+            build/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  forge-server:
+    name: Standard Forge Server
+    needs: build-test
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Download release jars
+        uses: actions/download-artifact@v4
+        with:
+          name: ponder-1.1.0-${{ github.sha }}
+          path: build/libs
+
+      - name: Run dedicated-server verification
+        shell: powershell
+        run: |
+          .\tools\test-standard-forge.ps1 `
+            -JavaExecutable "$env:JAVA_HOME\bin\java.exe" `
+            -TimeoutSeconds 600 `
+            -ServerPort 25576
+
+      - name: Upload server reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-server-reports-${{ github.sha }}
+          path: |
+            build/reports/standard-forge-verification-*.md
+            build/standard-forge-smoke/**/*-console.log
+            build/standard-forge-smoke/**/crash-reports/**
+            build/standard-forge-smoke/**/logs/**
+          if-no-files-found: warn
+          retention-days: 14
