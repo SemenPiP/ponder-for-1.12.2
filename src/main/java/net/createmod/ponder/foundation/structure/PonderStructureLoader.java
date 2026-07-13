@@ -3,9 +3,15 @@ package net.createmod.ponder.foundation.structure;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +30,11 @@ public final class PonderStructureLoader {
 
     private static final int MAX_PALETTE = 65536;
     private static final int MAX_BLOCKS = 16 * 1024 * 1024;
+    private static final long MAX_EXTERNAL_BYTES = 16L * 1024L * 1024L;
     private static volatile ResourceProvider resourceProvider;
+    private static volatile File externalRoot;
+    private static final Map<String, CachedExternalStructure> EXTERNAL_CACHE =
+        new HashMap<String, CachedExternalStructure>();
     private final LegacyStateResolver resolver;
 
     public PonderStructureLoader() {
@@ -39,8 +49,27 @@ public final class PonderStructureLoader {
         resourceProvider = provider;
     }
 
+    public static synchronized void setExternalRoot(File root) {
+        externalRoot = root;
+        EXTERNAL_CACHE.clear();
+    }
+
+    public static synchronized void invalidateCaches() {
+        EXTERNAL_CACHE.clear();
+    }
+
+    public static String expectedExternalPath(ResourceLocation id) {
+        File configuredRoot = externalRoot;
+        if (configuredRoot == null)
+            return "scripts/ponder/structures/" + id.getNamespace() + "/" + id.getPath() + ".nbt";
+        return configuredRoot.toPath().toAbsolutePath().normalize()
+            .resolve(id.getNamespace()).resolve(id.getPath() + ".nbt").normalize().toString();
+    }
+
     public PonderStructure load(ResourceLocation id) throws IOException {
         ResourceLocation asset = new ResourceLocation(id.getNamespace(), "ponder/" + id.getPath() + ".nbt");
+        PonderStructure external = loadExternal(id);
+        if (external != null) return external;
         InputStream stream = null;
         if (resourceProvider != null)
             stream = resourceProvider.open(asset);
@@ -53,6 +82,61 @@ public final class PonderStructureLoader {
         if (stream == null) throw new FileNotFoundException(asset.toString());
         try (InputStream closeable = stream) {
             return load(closeable, id);
+        }
+    }
+
+    private PonderStructure loadExternal(ResourceLocation id) throws IOException {
+        File configuredRoot = externalRoot;
+        if (configuredRoot == null) return null;
+        Path root = configuredRoot.toPath().toAbsolutePath().normalize();
+        Path candidate = root.resolve(id.getNamespace()).resolve(id.getPath() + ".nbt").normalize();
+        if (!candidate.startsWith(root))
+            throw new IOException("Ponder structure path escapes scripts root: " + id);
+        if (!Files.exists(candidate)) return null;
+        if (!Files.isRegularFile(candidate) || Files.isSymbolicLink(candidate))
+            throw new IOException("Ponder structure is not a regular NBT file: " + candidate);
+        Path realRoot = Files.exists(root) ? root.toRealPath() : root;
+        Path realCandidate = candidate.toRealPath();
+        if (!realCandidate.startsWith(realRoot))
+            throw new IOException("Ponder structure resolves outside scripts root: " + id);
+        long length = Files.size(realCandidate);
+        if (length > MAX_EXTERNAL_BYTES)
+            throw new IOException("Ponder structure exceeds " + MAX_EXTERNAL_BYTES + " bytes: " + id);
+        long modified = Files.getLastModifiedTime(realCandidate).toMillis();
+        String key = realCandidate.toString();
+        byte[] bytes = Files.readAllBytes(realCandidate);
+        String hash = sha256(bytes);
+        synchronized (PonderStructureLoader.class) {
+            CachedExternalStructure cached = EXTERNAL_CACHE.get(key);
+            if (cached != null && cached.modified == modified && cached.length == length && cached.hash.equals(hash))
+                return cached.structure;
+        }
+        PonderStructure parsed = load(new java.io.ByteArrayInputStream(bytes), id);
+        synchronized (PonderStructureLoader.class) {
+            EXTERNAL_CACHE.put(key, new CachedExternalStructure(modified, length, hash, parsed));
+        }
+        return parsed;
+    }
+
+    private static String sha256(byte[] bytes) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            StringBuilder result = new StringBuilder();
+            for (byte value : digest.digest(bytes)) result.append(String.format("%02x", value & 0xff));
+            return result.toString();
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IOException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    private static final class CachedExternalStructure {
+        final long modified;
+        final long length;
+        final String hash;
+        final PonderStructure structure;
+
+        CachedExternalStructure(long modified, long length, String hash, PonderStructure structure) {
+            this.modified = modified; this.length = length; this.hash = hash; this.structure = structure;
         }
     }
 

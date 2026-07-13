@@ -5,11 +5,14 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLLoadCompleteEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.createmod.ponder.script.ScriptSyncEvents;
 
 public class CommonProxy {
 
     public void preInit(FMLPreInitializationEvent event) {
         CatnipPackets.register();
+        FMLCommonHandler.instance().bus().register(new ScriptSyncEvents());
     }
 
     public void init(FMLInitializationEvent event) {

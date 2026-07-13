@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.0.3'
+version = '1.1.0'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.0.3-mc1.12.2'
+def modVersion = '1.1.0-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -48,6 +48,13 @@ minecraft {
 repositories {
     mavenCentral()
     maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
+    }
+    maven {
         name = 'CleanroomMC'
         url = 'https://maven.cleanroommc.com'
         content {
@@ -69,6 +76,9 @@ def mixinBooterProcessor = "zone.rong:mixinbooter:${mixinBooterProcessorVersion}
 
 dependencies {
     implementation(mixinBooter) {
+        transitive = false
+    }
+    implementation('maven.modrinth:crafttweaker:4.1.20.698') {
         transitive = false
     }
     // Older MixinBooter releases expose the same runtime loader API but do not
@@ -238,6 +248,16 @@ tasks.register('verifyReleaseContents') {
             'assets/ponder/ponder/demo/fluids.nbt',
             'assets/ponder/ponder/demo/rail.nbt'
         ]
+        List<String> requiredBuiltinScripts = [
+            'assets/ponder/scripts/builtin/basics.zs',
+            'assets/ponder/scripts/builtin/fluids.zs',
+            'assets/ponder/scripts/builtin/piston.zs',
+            'assets/ponder/scripts/builtin/rail.zs',
+            'assets/ponder/scripts/builtin/redstone.zs',
+            'assets/ponder/scripts/builtin/render_layers.zs',
+            'assets/ponder/scripts/builtin/smelting.zs',
+            'assets/ponder/scripts/builtin/storage.zs'
+        ]
         java.util.jar.JarFile releaseJar = new java.util.jar.JarFile(release)
         try {
             def attributes = releaseJar.manifest.mainAttributes
@@ -252,19 +272,32 @@ tasks.register('verifyReleaseContents') {
                     throw new GradleException("Release jar is missing required demo structure ${path}")
                 }
             }
+            requiredBuiltinScripts.each { path ->
+                java.util.jar.JarEntry entry = releaseJar.getJarEntry(path)
+                if (entry == null || entry.directory || entry.size <= 0) {
+                    throw new GradleException("Release jar is missing required builtin ZenScript ${path}")
+                }
+            }
         } finally {
             releaseJar.close()
         }
         String expectedMixinDependency = "required-after:mixinbooter@${mixinBooterRuntimeRange}"
+        String expectedCraftTweakerDependency = "required-after:crafttweaker@[4.1.20,)"
         File mcmodInfo = zipTree(release).matching { include 'mcmod.info' }.singleFile
-        if (!mcmodInfo.getText('UTF-8').contains(expectedMixinDependency)) {
-            throw new GradleException("Release mcmod.info is missing ${expectedMixinDependency}")
+        String mcmodText = mcmodInfo.getText('UTF-8')
+        if (!mcmodText.contains('"modid": "ponder_legacy"')
+            || !mcmodText.contains(expectedMixinDependency)
+            || !mcmodText.contains(expectedCraftTweakerDependency)) {
+            throw new GradleException("Release mcmod.info is missing the expected mod id or a required runtime dependency")
         }
         File ponderModClass = zipTree(release).matching {
             include 'net/createmod/ponder/PonderMod.class'
         }.singleFile
-        if (!new String(ponderModClass.bytes, 'ISO-8859-1').contains(expectedMixinDependency)) {
-            throw new GradleException("Release @Mod metadata is missing ${expectedMixinDependency}")
+        String ponderModConstants = new String(ponderModClass.bytes, 'ISO-8859-1')
+        if (!ponderModConstants.contains('ponder_legacy')
+            || !ponderModConstants.contains(expectedMixinDependency)
+            || !ponderModConstants.contains(expectedCraftTweakerDependency)) {
+            throw new GradleException("Release @Mod metadata is missing the expected mod id or a required runtime dependency")
         }
         File refmap = zipTree(release).matching { include 'mixins.ponder.refmap.json' }.singleFile
         Map refmapJson = new groovy.json.JsonSlurper().parse(refmap) as Map
@@ -295,6 +328,8 @@ tasks.register('verifyReleaseContents') {
 
         List<String> forbiddenPrefixes = [
             'zone/rong/mixinbooter/',
+            'crafttweaker/',
+            'stanhebben/zenscript/',
             'org/spongepowered/asm/',
             'com/llamalad7/mixinextras/',
             'com/cleanroommc/',
@@ -400,6 +435,11 @@ publishing {
                 dependency.appendNode('artifactId', 'mixinbooter')
                 dependency.appendNode('version', mixinBooterRuntimeRange)
                 dependency.appendNode('scope', 'provided')
+                def craftTweaker = dependencies.appendNode('dependency')
+                craftTweaker.appendNode('groupId', 'maven.modrinth')
+                craftTweaker.appendNode('artifactId', 'crafttweaker')
+                craftTweaker.appendNode('version', '4.1.20.698')
+                craftTweaker.appendNode('scope', 'provided')
             }
         }
     }

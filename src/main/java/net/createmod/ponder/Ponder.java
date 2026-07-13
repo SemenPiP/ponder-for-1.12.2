@@ -9,9 +9,10 @@ import net.minecraft.util.ResourceLocation;
 
 public final class Ponder {
 
-    public static final String MOD_ID = "ponder";
+    public static final String MOD_ID = "ponder_legacy";
+    public static final String CONTENT_NAMESPACE = "ponder";
     public static final String MOD_NAME = "Ponder";
-    public static final String VERSION = "1.0.3-mc1.12.2";
+    public static final String VERSION = "1.1.0-mc1.12.2";
     public static final Logger LOGGER = LogManager.getLogger(MOD_NAME);
     public static final Random RANDOM = new Random();
 
@@ -19,6 +20,6 @@ public final class Ponder {
     }
 
     public static ResourceLocation asResource(String path) {
-        return new ResourceLocation(MOD_ID, path);
+        return new ResourceLocation(CONTENT_NAMESPACE, path);
     }
 }

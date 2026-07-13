@@ -150,10 +150,10 @@ function Get-McpMemberSet([string]$MappingPath) {
 
 $libs = Join-Path $ProjectRoot "build\libs"
 $artifacts = [ordered]@{
-    Ponder = Join-Path $libs "Ponder-1.12.2-1.0.3.jar"
-    Sources = Join-Path $libs "Ponder-1.12.2-1.0.3-sources.jar"
-    API = Join-Path $libs "Ponder-1.12.2-1.0.3-api.jar"
-    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.0.3.jar"
+    Ponder = Join-Path $libs "Ponder-1.12.2-1.1.0.jar"
+    Sources = Join-Path $libs "Ponder-1.12.2-1.1.0-sources.jar"
+    API = Join-Path $libs "Ponder-1.12.2-1.1.0-api.jar"
+    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.1.0.jar"
 }
 foreach ($artifact in $artifacts.Values) {
     if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
@@ -182,9 +182,21 @@ $requiredDemoStructures = @(
     "assets/ponder/ponder/demo/fluids.nbt",
     "assets/ponder/ponder/demo/rail.nbt"
 )
+$requiredBuiltinScripts = @(
+    "assets/ponder/scripts/builtin/basics.zs",
+    "assets/ponder/scripts/builtin/fluids.zs",
+    "assets/ponder/scripts/builtin/piston.zs",
+    "assets/ponder/scripts/builtin/rail.zs",
+    "assets/ponder/scripts/builtin/redstone.zs",
+    "assets/ponder/scripts/builtin/render_layers.zs",
+    "assets/ponder/scripts/builtin/smelting.zs",
+    "assets/ponder/scripts/builtin/storage.zs"
+)
 $ponderEntries = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 $forbiddenEntryPrefixes = @(
     "zone/rong/mixinbooter/",
+    "crafttweaker/",
+    "stanhebben/zenscript/",
     "org/spongepowered/asm/",
     "com/llamalad7/mixinextras/",
     "com/cleanroommc/",
@@ -305,6 +317,11 @@ foreach ($structure in $requiredDemoStructures) {
         $errors.Add("required demo structure is missing from Ponder artifact: $structure")
     }
 }
+foreach ($script in $requiredBuiltinScripts) {
+    if (!$ponderEntries.Contains($script)) {
+        $errors.Add("required builtin ZenScript is missing from Ponder artifact: $script")
+    }
+}
 
 if ($null -eq $manifestText) {
     $errors.Add("release manifest is missing")
@@ -356,26 +373,39 @@ if ($null -eq $refmapText) {
 
 if ($languageCount -lt 34) { $errors.Add("expected at least 34 language files, found $languageCount") }
 $mixinBooterRuntimeDependency = "required-after:mixinbooter@[9.1,)"
+$craftTweakerRuntimeDependency = "required-after:crafttweaker@[4.1.20,)"
+if ($null -eq $mcmodText -or !$mcmodText.Contains('"modid": "ponder_legacy"')) {
+    $errors.Add("Ponder mcmod.info does not declare Forge modid ponder_legacy")
+}
 if ($null -eq $mcmodText -or !$mcmodText.Contains($mixinBooterRuntimeDependency)) {
     $errors.Add("mcmod.info does not declare supported MixinBooter range [9.1,)")
 }
-if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.0.3-mc1.12.2"')) {
-    $errors.Add("Ponder mcmod.info does not declare version 1.0.3-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains($craftTweakerRuntimeDependency)) {
+    $errors.Add("mcmod.info does not declare CraftTweaker 4.1.20+")
 }
-if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.0.3-mc1.12.2")) {
-    $errors.Add("Ponder.VERSION is not 1.0.3-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.1.0-mc1.12.2"')) {
+    $errors.Add("Ponder mcmod.info does not declare version 1.1.0-mc1.12.2")
+}
+if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.1.0-mc1.12.2")) {
+    $errors.Add("Ponder.VERSION is not 1.1.0-mc1.12.2")
+}
+if ($null -eq $ponderConstants -or !$ponderConstants.Contains("ponder_legacy") -or
+    !$ponderConstants.Contains("ponder")) {
+    $errors.Add("Ponder identity constants do not preserve ponder_legacy modid and ponder content namespace")
 }
 if ($null -eq $ponderModConstants -or
-    !$ponderModConstants.Contains($mixinBooterRuntimeDependency)) {
-    $errors.Add("PonderMod @Mod metadata does not declare supported MixinBooter range [9.1,)")
+    !$ponderModConstants.Contains("ponder_legacy") -or
+    !$ponderModConstants.Contains($mixinBooterRuntimeDependency) -or
+    !$ponderModConstants.Contains($craftTweakerRuntimeDependency)) {
+    $errors.Add("PonderMod @Mod metadata does not declare ponder_legacy and required runtime dependencies")
 }
-if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.0.3"') -or
-    !$exampleMcmodText.Contains("required-after:ponder@[1.0.3-mc1.12.2]")) {
-    $errors.Add("example mcmod.info does not declare 1.0.3 and require Ponder 1.0.3-mc1.12.2")
+if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.1.0"') -or
+    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.1.0-mc1.12.2]")) {
+    $errors.Add("example mcmod.info does not declare 1.1.0 and require Ponder 1.1.0-mc1.12.2")
 }
-if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.0.3") -or
-    !$exampleAddonConstants.Contains("required-after:ponder@[1.0.3-mc1.12.2]")) {
-    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.0.3")
+if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.1.0") -or
+    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.1.0-mc1.12.2]")) {
+    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.1.0")
 }
 if ($null -eq $packMetadata) {
     $errors.Add("pack.mcmeta is missing")
@@ -435,6 +465,7 @@ $lines = @(
     "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example))",
     "- Language files: $languageCount",
     "- Supported MixinBooter range: [9.1,)",
+    "- Required CraftTweaker range: [4.1.20,)",
     "- Build MixinBooter version: $MixinBooterVersion",
     "- MixinBooter SHA256: $mixinBooterHash",
     "- Ponder SHA256: $($hashes.Ponder)",

@@ -1,6 +1,6 @@
 [
   {
-    "modid": "ponder",
+    "modid": "ponder_legacy",
     "name": "Ponder",
     "description": "Visual in-game documentation, independently rewritten for Minecraft 1.12.2.",
     "version": "${version}",
@@ -12,7 +12,8 @@
     "screenshots": [],
     "dependencies": [
       "required-after:forge@[14.23.5.2847,)",
-      "required-after:mixinbooter@${mixinBooterRuntimeRange}"
+      "required-after:mixinbooter@${mixinBooterRuntimeRange}",
+      "required-after:crafttweaker@[4.1.20,)"
     ]
   }
 ]

@@ -35,6 +35,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import net.createmod.ponder.Ponder;
 import net.createmod.ponder.api.element.EntityElement;
 import net.createmod.ponder.api.element.MinecartElement;
 import net.createmod.ponder.api.element.PonderElement;
@@ -1124,7 +1125,7 @@ public final class ClientSmokeController {
             report.addProperty("minecraft", "1.12.2");
             report.addProperty("forge", ForgeVersion.getVersion());
             report.addProperty("mixinBooter", loadedVersion("mixinbooter"));
-            report.addProperty("ponderDiscoveredByFml", Loader.isModLoaded("ponder"));
+            report.addProperty("ponderDiscoveredByFml", Loader.isModLoaded(Ponder.MOD_ID));
             report.addProperty("outputDirectory", outputDirectory.getAbsolutePath());
             if (stepIndex < steps.size()) report.addProperty("currentStep", steps.get(stepIndex).name);
 

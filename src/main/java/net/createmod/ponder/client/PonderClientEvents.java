@@ -12,6 +12,11 @@ import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import net.createmod.ponder.script.ScriptSceneSync;
+import net.createmod.ponder.script.ScriptMissingStructures;
+import net.createmod.ponder.script.net.ScriptSnapshotReceiver;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -26,6 +31,11 @@ public final class PonderClientEvents {
         }
         PonderClient.onTick();
         PonderTooltipHandler.tick();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.player != null) {
+            for (String notice : ScriptMissingStructures.drain())
+                minecraft.player.sendMessage(new TextComponentString(notice));
+        }
     }
 
     @SubscribeEvent
@@ -47,6 +57,12 @@ public final class PonderClientEvents {
             cameraEntity.lastTickPosZ + (cameraEntity.posZ - cameraEntity.lastTickPosZ) * partial);
         PonderClient.GHOST_BLOCKS.renderAll(camera);
         net.createmod.catnip.outliner.Outliner.getInstance().renderOutlines(camera, partial);
+    }
+
+    @SubscribeEvent
+    public void onDisconnect(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+        ScriptSnapshotReceiver.reset();
+        ScriptSceneSync.clearServerScenes();
     }
 
     public static void onWindowResize(int width, int height) {

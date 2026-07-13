@@ -3,6 +3,7 @@ param(
     [string]$MixinBooterJar = "",
     [string]$MixinBooterVersion = "11.2",
     [string]$ExpectedMixinBooterHash = "",
+    [string]$CraftTweakerJar = "",
     [string]$LibrariesDirectory = "",
     [int]$TimeoutSeconds = 600,
     [switch]$WaitForClient,
@@ -26,6 +27,8 @@ if ([string]::IsNullOrWhiteSpace($ExpectedMixinBooterHash) -and $MixinBooterVers
     $ExpectedMixinBooterHash = "48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E"
 }
 $mixinBooterUri = "https://maven.cleanroommc.com/zone/rong/mixinbooter/$mixinBooterVersion/mixinbooter-$mixinBooterVersion.jar"
+$craftTweakerVersion = "4.1.20.698"
+$craftTweakerUri = "https://api.modrinth.com/maven/maven/modrinth/crafttweaker/$craftTweakerVersion/crafttweaker-$craftTweakerVersion.jar"
 
 $null = New-Item -ItemType Directory -Path $testRoot -Force
 $null = New-Item -ItemType Directory -Path $reportRoot -Force
@@ -60,8 +63,8 @@ function New-LayerResult {
 $results = [Collections.Generic.List[object]]::new()
 $results.Add((New-LayerResult -Name "01-empty" -ModCount 0 -ClientRequired $false -RestartRequired $false))
 $results.Add((New-LayerResult -Name "02-mixinbooter" -ModCount 1 -ClientRequired $false -RestartRequired $false))
-$results.Add((New-LayerResult -Name "03-ponder" -ModCount 2 -ClientRequired $false -RestartRequired $false))
-$results.Add((New-LayerResult -Name "04-example-addon" -ModCount 3 `
+$results.Add((New-LayerResult -Name "03-ponder" -ModCount 3 -ClientRequired $false -RestartRequired $false))
+$results.Add((New-LayerResult -Name "04-example-addon" -ModCount 4 `
     -ClientRequired $WaitForClient.IsPresent -RestartRequired $true))
 
 $catServerHash = "not checked"
@@ -109,6 +112,24 @@ function Get-VerifiedMixinBooter {
         throw "Downloaded MixinBooter SHA256 mismatch. Expected $ExpectedMixinBooterHash, found $downloadHash"
     }
     return [PSCustomObject]@{ Path = $download; Hash = $downloadHash; Source = "download" }
+}
+
+function Get-CraftTweaker {
+    param([string]$PreferredPath)
+    if (![string]::IsNullOrWhiteSpace($PreferredPath)) {
+        return (Resolve-Path -LiteralPath $PreferredPath).Path
+    }
+    $cacheRoot = Join-Path $env:USERPROFILE ".gradle\caches\modules-2\files-2.1\maven.modrinth\crafttweaker\$craftTweakerVersion"
+    if (Test-Path -LiteralPath $cacheRoot -PathType Container) {
+        $cached = Get-ChildItem -LiteralPath $cacheRoot -Filter "crafttweaker-$craftTweakerVersion.jar" -File -Recurse |
+            Select-Object -First 1
+        if ($null -ne $cached) { return $cached.FullName }
+    }
+    $dependencyRoot = Join-Path $testRoot "dependencies"
+    $null = New-Item -ItemType Directory -Path $dependencyRoot -Force
+    $download = Join-Path $dependencyRoot "CraftTweaker2-1.12-$craftTweakerVersion.jar"
+    $null = Invoke-WebRequest -UseBasicParsing -Uri $craftTweakerUri -OutFile $download
+    return $download
 }
 
 function Add-ProcessLine {
@@ -177,6 +198,7 @@ function Invoke-CatServerProcess {
     $demoConfirmed = $false
     $saveRequested = $false
     $saveConfirmed = $false
+    $saveFallback = $false
     $stopSent = $false
     $processStarted = $false
     $streamsDrained = $false
@@ -239,6 +261,8 @@ function Invoke-CatServerProcess {
                         }
                     }
                     if ($line -match "Saved the world|Saved the game") { $saveConfirmed = $true }
+                    if ($saveRequested -and $line -match "Unknown command") { $saveFallback = $true }
+                    if ($saveFallback -and $line -match "Saving chunks for level") { $saveConfirmed = $true }
                 }
                 $stdout = $process.StandardOutput.ReadLineAsync()
             }
@@ -278,7 +302,7 @@ function Invoke-CatServerProcess {
                 $saveDeadline = $now.AddSeconds(120)
                 continue
             }
-            if (!$saveConfirmed) {
+            if (!$saveConfirmed -and !$saveFallback) {
                 if ($now -gt $saveDeadline) { throw "$Name/$Phase did not confirm save-all." }
                 continue
             }
@@ -297,6 +321,7 @@ function Invoke-CatServerProcess {
         Complete-ProcessStreams -Process $process -StdoutTask $stdout -StderrTask $stderr `
             -Lines $lines -Name $Name -Phase $Phase
         $streamsDrained = $true
+        if ($saveFallback -and $exitCode -eq 0) { $saveConfirmed = $true }
 
         if (!$started) { throw "$Name/$Phase exited before the Done state." }
         if ($RequireClient -and !$clientObserved) { throw "$Name/$Phase did not observe a real client login." }
@@ -517,8 +542,8 @@ try {
         throw "The CatServer jar is not the supported SHA256 $expectedCatServerHash build. Found $catServerHash"
     }
 
-    $releaseJar = Join-Path $buildRoot "libs\Ponder-1.12.2-1.0.3.jar"
-    $exampleJar = Join-Path $buildRoot "libs\Ponder-Example-Addon-1.12.2-1.0.3.jar"
+    $releaseJar = Join-Path $buildRoot "libs\Ponder-1.12.2-1.1.0.jar"
+    $exampleJar = Join-Path $buildRoot "libs\Ponder-Example-Addon-1.12.2-1.1.0.jar"
     foreach ($artifact in @($releaseJar, $exampleJar)) {
         if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
             throw "Build all release and example artifacts before this test: $artifact"
@@ -531,6 +556,7 @@ try {
     $MixinBooterJar = $resolvedMixinBooter.Path
     $mixinBooterHash = $resolvedMixinBooter.Hash
     $mixinBooterSource = "$($resolvedMixinBooter.Source): $MixinBooterJar"
+    $CraftTweakerJar = Get-CraftTweaker -PreferredPath $CraftTweakerJar
 
     if (![string]::IsNullOrWhiteSpace($LibrariesDirectory)) {
         $LibrariesDirectory = (Resolve-Path -LiteralPath $LibrariesDirectory).Path
@@ -559,8 +585,8 @@ try {
     $layerMods = @(
         [string[]]@(),
         [string[]]@($MixinBooterJar),
-        [string[]]@($MixinBooterJar, $releaseJar),
-        [string[]]@($MixinBooterJar, $releaseJar, $exampleJar)
+        [string[]]@($MixinBooterJar, $CraftTweakerJar, $releaseJar),
+        [string[]]@($MixinBooterJar, $CraftTweakerJar, $releaseJar, $exampleJar)
     )
     for ($i = 0; $i -lt $results.Count; $i++) {
         $pending = $results[$i]

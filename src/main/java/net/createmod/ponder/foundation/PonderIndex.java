@@ -26,6 +26,7 @@ import net.createmod.ponder.foundation.registration.PonderLocalization;
 import net.createmod.ponder.foundation.registration.PonderSceneRegistry;
 import net.createmod.ponder.foundation.registration.PonderTagRegistry;
 import net.createmod.ponder.command.PonderCommands;
+import net.createmod.ponder.script.ScriptPonderPlugin;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 
 public final class PonderIndex {
@@ -40,7 +41,8 @@ public final class PonderIndex {
 
     private static final Comparator<PonderPlugin> PLUGIN_ORDER = new Comparator<PonderPlugin>() {
         @Override public int compare(PonderPlugin left, PonderPlugin right) {
-            int base = Boolean.compare(!Ponder.MOD_ID.equals(left.getModId()), !Ponder.MOD_ID.equals(right.getModId()));
+            int base = Boolean.compare(!Ponder.CONTENT_NAMESPACE.equals(left.getModId()),
+                !Ponder.CONTENT_NAMESPACE.equals(right.getModId()));
             if (base != 0) return base;
             int mod = left.getModId().compareTo(right.getModId());
             return mod != 0 ? mod : left.getClass().getName().compareTo(right.getClass().getName());
@@ -49,6 +51,7 @@ public final class PonderIndex {
 
     static {
         addPlugin(new BasePonderPlugin());
+        addPlugin(new ScriptPonderPlugin());
     }
 
     private PonderIndex() {

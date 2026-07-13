@@ -1,13 +1,14 @@
 # Ponder 1.12.2 开发接入
 
 本项目的公开 Ponder API 位于 `net.createmod.ponder.api`；场景所需的 Catnip 适配类位于
-`net.createmod.catnip`。addon 编译时可依赖 `Ponder-1.12.2-1.0.3-api.jar`，但不要把这个
-反混淆 API jar 安装到游戏。运行环境应安装 reobf 的 Ponder 主包与独立的 MixinBooter 9.1 或更高版本；
+`net.createmod.catnip`。addon 编译时可依赖 `Ponder-1.12.2-1.1.0-api.jar`，但不要把这个
+反混淆 API jar 安装到游戏。运行环境应安装 reobf 的 Ponder 主包、MixinBooter 9.1 或更高版本
+以及 CraftTweaker 4.1.20 或更高版本；
 addon 自身也必须经过 Forge 1.12.2 reobf 后才能发布。
 
 ## 当前构建基线
 
-当前开发版本为 `1.0.3-mc1.12.2`。默认构建与当前服务端验收基线使用 MixinBooter 11.2，
+当前开发版本为 `1.1.0-mc1.12.2`。默认构建与当前服务端验收基线使用 MixinBooter 11.2，
 运行元数据接受 9.1 及以上版本。可通过 `-PmixinBooterVersion=<版本>` 切换编译和发布校验所用版本。
 Mixin refmap 的注解处理器固定使用 11.2；较旧 MixinBooter 版本仍可作为运行 API 编译目标，但其自身
 没有携带当前构建链所需的完整 ASM 类路径。
@@ -15,8 +16,8 @@ Mixin refmap 的注解处理器固定使用 11.2；较旧 MixinBooter 版本仍�
 服务端报告不适用于当前版本；每次重新构建后都必须使用新 SHA-256 重新执行发布内容、标准 Forge
 专服、CatServer 与客户端门槛。
 
-1.0.2 的标准 Forge 与 CatServer 报告属于历史成品，不能转移到 1.0.3。当前版本必须重新生成
-发布报告。当前单元测试基线为 34 个测试套件、95 项测试；针对要声明兼容的 MixinBooter 版本还应
+旧版标准 Forge 与 CatServer 报告不能转移到 1.1.0。当前版本必须重新生成发布报告；针对要声明
+兼容的 MixinBooter 和 CraftTweaker 版本还应
 分别执行服务端和客户端门槛。开发或发版时不得把
 专服启动、自动化测试或 `PASS_SERVER_ONLY` 当成标准 Forge 客户端门槛已经通过。实时证据和剩余
 门槛见 [TESTING.md](TESTING.md)。
@@ -96,8 +97,8 @@ FMLInterModComms.sendMessage(
 - 方块修改、实体创建、粒子、摄像机旋转和结束标记。
 
 在项目根目录执行 `gradlew.bat reobfExampleAddonJar` 可单独构建示例。开发环境产物是
-`build/devlibs/Ponder-Example-Addon-1.12.2-1.0.3-dev.jar`；可安装到标准 Forge/CatServer
-的 SRG 成品是 `build/libs/Ponder-Example-Addon-1.12.2-1.0.3.jar`。不要发布或安装带
+`build/devlibs/Ponder-Example-Addon-1.12.2-1.1.0-dev.jar`；可安装到标准 Forge/CatServer
+的 SRG 成品是 `build/libs/Ponder-Example-Addon-1.12.2-1.1.0.jar`。不要发布或安装带
 `-dev` classifier 的示例 jar。示例只依赖 Ponder 的公开 API，且不会被打进 Ponder 主 jar。
 
 ## 打开与操作场景
@@ -108,9 +109,36 @@ FMLInterModComms.sendMessage(
 - 场景内拖动鼠标旋转，滚轮缩放，空格暂停/继续，`R` 重播，左右方向键切换场景，`Q` 切换识别模式。
 - 底部进度条可以拖动；跳转会从最近快照恢复后确定性重放到目标 tick。
 
+## ZenScript 接入
+
+脚本目录为 `scripts/ponder`。静态入口包括 `mods.ponder.SceneRegistry`、
+`mods.ponder.TagRegistry`、`mods.ponder.SharedText`、`mods.ponder.Index` 和
+`mods.ponder.Selection`。
+
+```zenscript
+import mods.ponder.SceneRegistry;
+import mods.ponder.Selection;
+
+val scene = SceneRegistry.create("minecraft:paper", "example:paper", "Paper", "example:paper");
+scene.configureBasePlate(0, 0, 5);
+scene.showBasePlate();
+scene.idle(20);
+scene.world.showSection(Selection.layersFrom(1), "down");
+scene.markAsFinished();
+scene.register();
+```
+
+ZS 在 CraftTweaker 初始化阶段执行并生成不可变场景指令，不保留播放期任意回调。脚本可以使用循环、
+函数和条件生成指令，但修改脚本后必须重启。`/ponder reload` 不重新执行 ZS。
+
+外部结构放在 `scripts/ponder/structures/<namespace>/<path>.nbt`。服务器登录时同步场景 IR，
+同 Scene ID 的服务器版本优先；服务器不发送结构文件。Java addon 可通过
+`ScriptInstructionCodecs.register(...)` 注册确定性、可序列化的扩展指令。
+
 ## 结构文件
 
-场景结构放在 `assets/<namespace>/ponder/<path>.nbt`。注册 `new ResourceLocation(namespace, path)` 时不要添加 `ponder/` 前缀或 `.nbt` 后缀。
+场景结构可以放在 `scripts/ponder/structures/<namespace>/<path>.nbt`，也可以放在
+`assets/<namespace>/ponder/<path>.nbt`。注册结构 ID 时不要添加 `ponder/` 前缀或 `.nbt` 后缀。
 
 加载器接受原版 structure NBT，严格验证 `size`、`palette`、`blocks`、`entities` 和 palette 索引。现代方块名会经过显式 1.12 映射；无法映射的状态显示为 barrier，并在日志中汇总，不会静默替换为空气。
 
