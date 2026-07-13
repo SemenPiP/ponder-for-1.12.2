@@ -18,7 +18,8 @@ public class PonderSceneTimelineTest {
         PonderScene scene = new PonderScene(null, new PonderLocalization(), "test",
             new ResourceLocation("test", "component"), Collections.emptyList(), Collections.emptyList());
         PonderSceneBuilder builder = (PonderSceneBuilder) scene.builder();
-        builder.title("timeline", "Timeline");
+        builder.title("example:timeline", "Timeline");
+        assertEquals(new ResourceLocation("example", "timeline"), scene.getId());
         builder.addInstruction(value -> value.setPointOfInterest(new Vec3d(3, 4, 5)));
         builder.idle(3);
         builder.addKeyframe();

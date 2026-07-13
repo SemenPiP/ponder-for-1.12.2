@@ -313,8 +313,8 @@ public class PonderWorld extends World {
     }
 
     public void tickVirtualWorld() {
-        setTotalWorldTime(getTotalWorldTime() + 1L);
-        setWorldTime(getWorldTime() + 1L);
+        worldInfo.setWorldTotalTime(worldInfo.getWorldTotalTime() + 1L);
+        worldInfo.setWorldTime(worldInfo.getWorldTime() + 1L);
         for (TileEntity tile : new ArrayList<TileEntity>(tickableTileEntities)) {
             if (!tile.isInvalid() && tile instanceof ITickable) {
                 try {
@@ -405,7 +405,7 @@ public class PonderWorld extends World {
         }
         return new Snapshot(blocks, tileData, entityData,
             new LinkedHashMap<Integer, BreakProgress>(blockBreakingProgress), new ArrayList<ParticleEvent>(particles),
-            getTotalWorldTime(), getWorldTime());
+            worldInfo.getWorldTotalTime(), worldInfo.getWorldTime());
     }
 
     public void restoreSnapshot(Snapshot snapshot) {
@@ -437,8 +437,8 @@ public class PonderWorld extends World {
         }
         blockBreakingProgress.putAll(snapshot.breakingProgress);
         particles.addAll(snapshot.particles);
-        setTotalWorldTime(snapshot.totalWorldTime);
-        setWorldTime(snapshot.worldTime);
+        worldInfo.setWorldTotalTime(snapshot.totalWorldTime);
+        worldInfo.setWorldTime(snapshot.worldTime);
         stateVersion++;
     }
 

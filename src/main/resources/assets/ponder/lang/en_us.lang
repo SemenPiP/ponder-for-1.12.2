@@ -77,48 +77,48 @@ ponder.ponder.tag.rendering.description=Compare render layers and transparent fl
 
 ponder.ponder.ponder_basics.header=Ponder for Minecraft 1.12.2
 ponder.ponder.ponder_basics.text_1=Ponder scenes reveal a prepared structure one layer at a time.
-ponder.ponder.ponder_basics.text_2=Blocks can become independent sections that move and rotate without changing the source structure.
-ponder.ponder.ponder_basics.text_3=Overlays, particles and virtual entities call attention to each part of the explanation.
-ponder.ponder.ponder_basics.text_4=Keyframes make replaying and seeking deterministic, so every step can be inspected again.
+ponder.ponder.ponder_basics.text_2=Independent sections can move and rotate without changing the source structure.
+ponder.ponder.ponder_basics.text_3=Overlays, particles and virtual entities call attention to each explanation step.
+ponder.ponder.ponder_basics.text_4=Keyframes make replaying and seeking deterministic.
 
 ponder.ponder.chest_storage.header=Storing Items in a Chest
 ponder.ponder.chest_storage.text_1=Right-click a chest in the world to open its 27 inventory slots.
-ponder.ponder.chest_storage.text_2=Scene scripts can change inventory slots and display matching item entities above the block.
-ponder.ponder.chest_storage.text_3=Block entity NBT can also be edited explicitly, including a chest's custom display name.
-ponder.ponder.chest_storage.text_4=Inventory and NBT changes are restored from the structure whenever this scene is replayed.
+ponder.ponder.chest_storage.text_2=Scene scripts can display matching item entities above the block.
+ponder.ponder.chest_storage.text_3=Block entity presentation can be inspected while the section is transformed.
+ponder.ponder.chest_storage.text_4=Inventory state and section transforms are restored when the scene replays.
 
 ponder.ponder.furnace_smelting.header=Smelting with a Furnace
 ponder.ponder.furnace_smelting.text_1=A furnace combines an input item with fuel to produce a smelted output.
 ponder.ponder.furnace_smelting.text_2=The demonstration explicitly lights the furnace and fills its input and fuel slots.
-ponder.ponder.furnace_smelting.text_3=Cook progress is scripted here for a clear timeline; the virtual world does not simulate a live furnace recipe.
-ponder.ponder.furnace_smelting.text_4=When the scripted progress completes, the iron ingot appears in the output slot.
+ponder.ponder.furnace_smelting.text_3=Cook progress is scripted here for a clear and deterministic timeline.
+ponder.ponder.furnace_smelting.text_4=When scripted progress completes, the iron ingot appears as the output.
 
 ponder.ponder.piston_movement.header=Moving Blocks with a Piston
 ponder.ponder.piston_movement.text_1=This piston faces east toward a slime block with one block of travel space.
-ponder.ponder.piston_movement.text_2=The slime block becomes an independent section and moves into the marked travel position.
-ponder.ponder.piston_movement.text_3=Independent sections can also rotate while a stabilization anchor remains fixed.
-ponder.ponder.piston_movement.text_4=The script retracts the piston and hides the moving section explicitly before replay restores the scene.
+ponder.ponder.piston_movement.text_2=The slime block becomes an independent section and moves into the travel position.
+ponder.ponder.piston_movement.text_3=Independent sections can also rotate while the anchor remains fixed.
+ponder.ponder.piston_movement.text_4=The script retracts the piston and hides the moving section before replay.
 
 ponder.ponder.redstone_lamp_power.header=Powering a Redstone Lamp
 ponder.ponder.redstone_lamp_power.text_1=A redstone block supplies power to the wire leading toward the lamp.
-ponder.ponder.redstone_lamp_power.text_2=The scene sets both wire segments to power level 15 and marks the signal path with particles.
-ponder.ponder.redstone_lamp_power.text_3=The lamp is then replaced with its lit state; no neighbor simulation is required for the demonstration.
-ponder.ponder.redstone_lamp_power.text_4=Finally, the wire and lamp return to their unpowered states so the whole transition is visible.
+ponder.ponder.redstone_lamp_power.text_2=The scene sets the wire signal to powered and marks the path with particles.
+ponder.ponder.redstone_lamp_power.text_3=The lamp is replaced with its lit state without requiring neighbor simulation.
+ponder.ponder.redstone_lamp_power.text_4=Finally, the wire and lamp return to their unpowered states.
 
 ponder.ponder.glass_render_layers.header=Understanding Render Layers
 ponder.ponder.glass_render_layers.text_1=Solid blocks write every visible pixel in the solid render layer.
-ponder.ponder.glass_render_layers.text_2=Cutout blocks discard transparent pixels to produce sharp-edged details.
-ponder.ponder.glass_render_layers.text_3=Mipmap cutout blocks use filtered textures while keeping transparent gaps.
-ponder.ponder.glass_render_layers.text_4=Stained glass uses the translucent layer, blending its surface with geometry behind it.
+ponder.ponder.glass_render_layers.text_2=Cutout textures discard transparent pixels to produce sharp-edged details.
+ponder.ponder.glass_render_layers.text_3=Mipmap cutout textures stay filtered at distance while keeping transparent gaps.
+ponder.ponder.glass_render_layers.text_4=Stained glass uses the translucent layer and blends with geometry behind it.
 
 ponder.ponder.water_handling.header=Handling Water in a Scene
-ponder.ponder.water_handling.text_1=The center block is a full water source, while the side blocks show lower flowing levels.
-ponder.ponder.water_handling.text_2=Picking up the source is represented by explicitly clearing the source and both flow blocks.
-ponder.ponder.water_handling.text_3=Placing the bucket restores the source and two explicitly chosen flow levels.
-ponder.ponder.water_handling.text_4=Transparent glass edges keep the water surface visible while showing the blocks behind it.
+ponder.ponder.water_handling.text_1=The center block is a full water source, with flowing levels on each side.
+ponder.ponder.water_handling.text_2=Picking up the source explicitly clears the source and both flow blocks.
+ponder.ponder.water_handling.text_3=Placing the bucket restores the source and two chosen flow levels.
+ponder.ponder.water_handling.text_4=Transparent edges keep the water surface visible while showing blocks behind it.
 
 ponder.ponder.rail_minecart.header=Moving a Minecart along Rails
 ponder.ponder.rail_minecart.text_1=This rail path travels south, turns at the curve, and then continues east.
 ponder.ponder.rail_minecart.text_2=A virtual minecart is created at the start and animated toward the corner.
 ponder.ponder.rail_minecart.text_3=At the curve, the cart rotates and moves east along the final straight section.
-ponder.ponder.rail_minecart.text_4=Animated elements can be hidden cleanly, and replay creates the cart at its start again.
+ponder.ponder.rail_minecart.text_4=Animated elements remain deterministic, and replay creates the cart at its start.

@@ -17,3 +17,7 @@ crash-reports/
 verification/*
 !verification/client-harness/
 !verification/client-harness/**
+!verification/server-harness/
+!verification/server-harness/**
+!verification/crafttweaker-fixtures/
+!verification/crafttweaker-fixtures/**

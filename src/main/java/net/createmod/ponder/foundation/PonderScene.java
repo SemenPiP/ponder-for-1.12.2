@@ -382,7 +382,7 @@ public final class PonderScene {
     }
 
     public void setSceneTitle(String id, String title) {
-        sceneId = new ResourceLocation(namespace, id);
+        sceneId = id.indexOf(':') >= 0 ? new ResourceLocation(id) : new ResourceLocation(namespace, id);
         localization.registerSpecific(sceneId, TITLE_KEY, title);
     }
 

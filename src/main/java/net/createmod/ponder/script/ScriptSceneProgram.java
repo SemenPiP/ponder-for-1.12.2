@@ -40,7 +40,7 @@ final class ScriptSceneProgram {
     }
 
     static void program(ScriptSceneDefinition definition, SceneBuilder scene, SceneBuildingUtil util) {
-        scene.title(definition.getSceneId().getPath(), definition.getTitle());
+        scene.title(definition.getSceneId().toString(), definition.getTitle());
         Map<String, ElementLink<WorldSectionElement>> sections =
             new HashMap<String, ElementLink<WorldSectionElement>>();
         Map<String, ElementLink<MinecartElement>> minecarts =
