@@ -7,6 +7,10 @@ documentation library, including the Catnip support packages used by Ponder.
 No third-party Ponder 1.12.2 backport source is copied or adapted by this
 project.
 
+The current completion gaps, release priorities, and planned 1.1.1 through
+1.3.0 milestones are tracked in the
+[project roadmap](docs/ROADMAP.md).
+
 The implementation and automated checks are present, but a build is not a
 qualified release until every runtime gate in [docs/TESTING.md](docs/TESTING.md)
 has evidence for that exact jar. In particular, a server-only smoke test does
