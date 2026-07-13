@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.1.0'
+version = '1.1.1'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.1.0-mc1.12.2'
+def modVersion = '1.1.1-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')

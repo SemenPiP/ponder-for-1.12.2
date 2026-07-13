@@ -27,7 +27,7 @@ import net.minecraftforge.fml.common.event.FMLLoadCompleteEvent;
 @Mod(
     modid = ServerFixtureHarness.MOD_ID,
     name = "Ponder Server Fixture Harness",
-    version = "1",
+    version = "1.1.1",
     dependencies = "required-after:ponder_legacy"
 )
 public final class ServerFixtureHarness {

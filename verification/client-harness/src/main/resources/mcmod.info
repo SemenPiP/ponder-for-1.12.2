@@ -3,7 +3,7 @@
     "modid": "ponder_client_harness",
     "name": "Ponder Client Acceptance Harness",
     "description": "Development-only automated OpenGL/UI harness with a programmatic fullscreen round trip. It does not replace manual visual, real-mouse, or ordinary-world acceptance. Never ship this jar.",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "mcversion": "1.12.2",
     "authorList": ["Ponder 1.12.2 verification"],
     "credits": "Independent Forge 1.12.2 acceptance harness",

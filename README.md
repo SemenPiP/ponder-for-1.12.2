@@ -18,17 +18,17 @@ not establish client rendering or full CatServer compatibility.
 
 ## Current verification status
 
-Version 1.1.0 adds CraftTweaker/ZenScript scene authoring, external structures,
-and server-authoritative scene snapshots on top of the 1.0.3 compatibility
-fixes. Runtime metadata accepts MixinBooter 9.1 and newer and requires
+Version 1.1.1 keeps the CraftTweaker/ZenScript scene authoring, external
+structures, and server-authoritative scene snapshot flow introduced in the
+1.1.x line. Runtime metadata accepts MixinBooter 9.1 and newer and requires
 CraftTweaker 4.1.20 or newer. Every generated built-in scene runs for exactly
-32 seconds. Historical reports do not qualify the current 1.1.0 artifact.
+32 seconds. Historical reports do not qualify the current 1.1.1 artifact.
 
 This workspace cannot create a usable hardware OpenGL context for visual
 judgement or real mouse, fullscreen and GUI-scale testing. Standard Forge
-client rendering therefore remains unverified and the complete client sign-off
-is not yet satisfied. A real CatServer client connection was not required for
-this round. Server-only results are recorded separately in
+client rendering therefore remains the release gate and is still unverified.
+CatServer client support is experimental for 1.1.1 and does not block the
+release line. Server-only results are recorded separately in
 [docs/TESTING.md](docs/TESTING.md) and must not be interpreted as client proof.
 
 ## Runtime requirements
@@ -41,23 +41,26 @@ this round. Server-only results are recorded separately in
 - MixinBooter 9.1 or newer
 - CraftTweaker 4.1.20 or newer
 
-Install `Ponder-1.12.2-1.1.0.jar`, a supported MixinBooter jar, and CraftTweaker
-in the same `mods` directory. Runtime dependencies are deliberately not embedded.
+Install `Ponder-1.12.2-1.1.1.jar`, a supported MixinBooter jar, and CraftTweaker
+in the same `mods` directory. When both sides run Ponder, the client and server
+must use the exact same Ponder version. A client with Ponder can still connect
+to a server that does not have Ponder installed. Runtime dependencies are
+deliberately not embedded.
 
 Do not install the `-api`, `-sources`, or `-dev` jars as runtime mods. The API
 jar is a deobfuscated compile-time dependency for addon development. The
-default build and server qualification baseline remains MixinBooter 11.2, whose artifact has SHA-256
-`48667BC07D4F9D54A5C0F808DAA02DEB956128664DB24269EB34460F4CA2462E`.
-The default build resolves it from the
-[CleanroomMC Maven artifact](https://maven.cleanroommc.com/zone/rong/mixinbooter/11.2/mixinbooter-11.2.jar);
-verify the hash before installing a manually downloaded copy.
+default build and server qualification baseline remains MixinBooter 11.2. The
+current 1.1.1 artifact hashes are published in the GitHub Actions build job
+artifact summary and the uploaded release artifact bundle; this README does not
+pin a static hash for a jar that may be rebuilt.
 
 Use `gradlew.bat build -PmixinBooterVersion=10.7` to compile and verify against
 another available MixinBooter runtime API. Refmap generation keeps the 11.2
 annotation processor because older releases do not carry its complete build-time
 ASM classpath. Runtime metadata accepts MixinBooter 9.1 and newer; compatibility
-claims should still name the versions that completed the Forge, CatServer, and
-client acceptance matrix.
+claims should still name the versions that completed the Forge and client
+acceptance matrix, and should treat CatServer as experimental support rather
+than a 1.1.1 release gate.
 
 ## Build
 
@@ -71,13 +74,15 @@ Development launch tasks are `runClient` and `runServer`. The build uses
 RetroFuturaGradle 1.4.9, Gradle 8.14.3, MCP stable_39, and Forge
 14.23.5.2847. `build` already runs the tests and release-content checks and
 produces the reobfuscated artifacts. Before any release compatibility claim,
-the same artifacts must also pass the standard Forge and CatServer gates in
-[docs/TESTING.md](docs/TESTING.md).
+the same artifacts must also pass the standard Forge server checks and real
+standard Forge client gate in [docs/TESTING.md](docs/TESTING.md). CatServer
+server regression remains automated experimental evidence, not a 1.1.1 release
+blocker.
 
-`build/libs/Ponder-1.12.2-1.1.0.jar` is the reobfuscated runtime artifact.
+`build/libs/Ponder-1.12.2-1.1.1.jar` is the reobfuscated runtime artifact.
 Developer jars are isolated under `build/devlibs` and must not be installed on
 a production server. `reobfExampleAddonJar` builds the separately installable
-example as `build/libs/Ponder-Example-Addon-1.12.2-1.1.0.jar`.
+example as `build/libs/Ponder-Example-Addon-1.12.2-1.1.1.jar`.
 
 ## Built-in demonstrations
 
@@ -91,16 +96,21 @@ In a container screen, hover a registered item and hold the displayed Ponder
 key to open its scene. The default is `W` and can be rebound in Controls.
 
 On first launch Ponder writes eight editable scripts to
-`scripts/ponder/builtin`. A marker under
-`config/ponder/builtin-zs-generated.properties` prevents later overwrites or
-restoration, so deleting a generated script disables that built-in scene.
+`scripts/ponder/builtin`. If
+`config/ponder/builtin-zs-generated.properties` exists, the installer leaves
+that directory untouched. If the marker is deleted, Ponder first moves the
+existing builtin folder to a timestamped backup, then atomically restores all
+eight scripts from the bundled resources before writing a fresh marker. A
+failed copy or marker write rolls the old builtin tree back into place.
 
 Custom scenes belong under `scripts/ponder/scenes`. Custom structure NBT belongs
 under `scripts/ponder/structures/<namespace>/<path>.nbt` and is addressed as
 `<namespace>:<path>`. External structures override resource-pack and mod-jar
 resources. Script changes require a restart; `/ponder reload` only reapplies
 compiled definitions and invalidates structure caches. Servers synchronize
-validated scene instructions, not scripts or structure NBT.
+validated scene instructions, not scripts or structure NBT. For the full
+ZenScript surface, see [docs/ZENSCRIPT-API.md](docs/ZENSCRIPT-API.md) and
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Addon development
 
@@ -118,7 +128,7 @@ empty compatibility stubs. This is source migration compatibility, not binary
 compatibility with a 1.21.1 jar or a promise that every scene compiles without
 type substitutions. See [docs/API-COMPATIBILITY.md](docs/API-COMPATIBILITY.md).
 
-Only Forge 1.12.2 is in scope. Fabric, NeoForge, Cleanroom-specific behavior,
-third-party JSON scene formats and third-party backport source compatibility
-are not provided. The CatServer claim is limited to the exact build whose
-SHA-256 is documented in [docs/TESTING.md](docs/TESTING.md).
+Only Forge 1.12.2 is in scope. Fabric, NeoForge, Cleanroom-specific behavior
+and third-party JSON scene formats are not provided. The CatServer path is
+experimental for 1.1.1 and does not block the release line. The standard Forge
+real-client gate remains the release requirement.

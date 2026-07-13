@@ -150,10 +150,10 @@ function Get-McpMemberSet([string]$MappingPath) {
 
 $libs = Join-Path $ProjectRoot "build\libs"
 $artifacts = [ordered]@{
-    Ponder = Join-Path $libs "Ponder-1.12.2-1.1.0.jar"
-    Sources = Join-Path $libs "Ponder-1.12.2-1.1.0-sources.jar"
-    API = Join-Path $libs "Ponder-1.12.2-1.1.0-api.jar"
-    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.1.0.jar"
+    Ponder = Join-Path $libs "Ponder-1.12.2-1.1.1.jar"
+    Sources = Join-Path $libs "Ponder-1.12.2-1.1.1-sources.jar"
+    API = Join-Path $libs "Ponder-1.12.2-1.1.1-api.jar"
+    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.1.1.jar"
 }
 foreach ($artifact in $artifacts.Values) {
     if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
@@ -388,11 +388,11 @@ if ($null -eq $mcmodText -or !$mcmodText.Contains($mixinBooterRuntimeDependency)
 if ($null -eq $mcmodText -or !$mcmodText.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("mcmod.info does not declare CraftTweaker 4.1.20+")
 }
-if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.1.0-mc1.12.2"')) {
-    $errors.Add("Ponder mcmod.info does not declare version 1.1.0-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.1.1-mc1.12.2"')) {
+    $errors.Add("Ponder mcmod.info does not declare version 1.1.1-mc1.12.2")
 }
-if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.1.0-mc1.12.2")) {
-    $errors.Add("Ponder.VERSION is not 1.1.0-mc1.12.2")
+if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.1.1-mc1.12.2")) {
+    $errors.Add("Ponder.VERSION is not 1.1.1-mc1.12.2")
 }
 if ($null -eq $ponderConstants -or !$ponderConstants.Contains("ponder_legacy") -or
     !$ponderConstants.Contains("ponder")) {
@@ -404,13 +404,13 @@ if ($null -eq $ponderModConstants -or
     !$ponderModConstants.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("PonderMod @Mod metadata does not declare ponder_legacy and required runtime dependencies")
 }
-if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.1.0"') -or
-    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.1.0-mc1.12.2]")) {
-    $errors.Add("example mcmod.info does not declare 1.1.0 and require Ponder 1.1.0-mc1.12.2")
+if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.1.1"') -or
+    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.1.1-mc1.12.2]")) {
+    $errors.Add("example mcmod.info does not declare 1.1.1 and require Ponder 1.1.1-mc1.12.2")
 }
-if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.1.0") -or
-    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.1.0-mc1.12.2]")) {
-    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.1.0")
+if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.1.1") -or
+    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.1.1-mc1.12.2]")) {
+    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.1.1")
 }
 if ($null -eq $packMetadata) {
     $errors.Add("pack.mcmeta is missing")
