@@ -19,7 +19,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
 
 public final class ScriptSceneSnapshot {
-    public static final int PROTOCOL = 1;
+    public static final int PROTOCOL = 2;
     public static final int MAX_UNCOMPRESSED_BYTES = 16 * 1024 * 1024;
     public static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
     public static final int MAX_SCENE_BYTES = 1024 * 1024;
@@ -68,7 +68,11 @@ public final class ScriptSceneSnapshot {
         List<ScriptSceneDefinition> result = new ArrayList<ScriptSceneDefinition>();
         for (int i = 0; i < list.tagCount(); i++) {
             try {
-                result.add(ScriptSceneDefinition.deserialize(list.getCompoundTagAt(i)));
+                NBTTagCompound serialized = list.getCompoundTagAt(i);
+                int sceneBytes = uncompressedSize(serialized);
+                if (sceneBytes > MAX_SCENE_BYTES)
+                    throw new IOException("Scene #" + i + " exceeds " + MAX_SCENE_BYTES + " bytes");
+                result.add(ScriptSceneDefinition.deserialize(serialized));
             } catch (RuntimeException malformed) {
                 throw new IOException("Invalid scene #" + i + ": " + malformed.getMessage(), malformed);
             }

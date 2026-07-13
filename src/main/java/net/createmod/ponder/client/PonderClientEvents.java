@@ -15,6 +15,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import net.createmod.ponder.script.ScriptSceneSync;
 import net.createmod.ponder.script.ScriptMissingStructures;
+import net.createmod.ponder.script.ScriptSyncNotices;
 import net.createmod.ponder.script.net.ScriptSnapshotReceiver;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.relauncher.Side;
@@ -35,7 +36,10 @@ public final class PonderClientEvents {
         if (minecraft.player != null) {
             for (String notice : ScriptMissingStructures.drain())
                 minecraft.player.sendMessage(new TextComponentString(notice));
+            for (String notice : ScriptSyncNotices.drain())
+                minecraft.player.sendMessage(new TextComponentString(notice));
         }
+        ScriptSnapshotReceiver.tick();
     }
 
     @SubscribeEvent

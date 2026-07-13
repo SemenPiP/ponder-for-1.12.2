@@ -68,6 +68,9 @@ public final class PonderMod {
 
     @NetworkCheckHandler
     public boolean checkRemoteVersions(Map<String, String> remoteVersions, Side remoteSide) {
-        return true;
+        String remoteVersion = remoteVersions.get(Ponder.MOD_ID);
+        if (remoteSide == Side.CLIENT)
+            return Ponder.VERSION.equals(remoteVersion);
+        return remoteVersion == null || Ponder.VERSION.equals(remoteVersion);
     }
 }
