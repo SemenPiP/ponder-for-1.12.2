@@ -1,5 +1,7 @@
 # Ponder for Minecraft 1.12.2
 
+[![Build and Verify](https://github.com/SemenPiP/ponder-for-1.12.2/actions/workflows/build.yml/badge.svg)](https://github.com/SemenPiP/ponder-for-1.12.2/actions/workflows/build.yml)
+
 Independent Java 8 and Forge 1.12.2 rewrite of the official Ponder visual
 documentation library, including the Catnip support packages used by Ponder.
 No third-party Ponder 1.12.2 backport source is copied or adapted by this
