@@ -331,6 +331,11 @@ public final class PonderScene {
         linkedElements.put(link.getId(), element);
     }
 
+    public void unlinkElement(ElementLink<?> link) {
+        if (link != null)
+            linkedElements.remove(link.getId());
+    }
+
     @Nullable public <E extends PonderElement> E resolve(ElementLink<E> link) {
         return link == null ? null : link.cast(linkedElements.get(link.getId()));
     }

@@ -24,6 +24,7 @@ public final class ScriptSceneBuilder {
     private final ResourceLocation sceneId;
     private final String title;
     private final ResourceLocation structure;
+    private final String source;
     private final List<ScriptInstruction> instructions = new ArrayList<ScriptInstruction>();
     private final Set<ResourceLocation> tags = new LinkedHashSet<ResourceLocation>();
     private final java.util.Map<String, HandleType> handles = new java.util.LinkedHashMap<String, HandleType>();
@@ -37,10 +38,19 @@ public final class ScriptSceneBuilder {
     private boolean registered;
 
     ScriptSceneBuilder(String componentId, String sceneId, String title, String structureId) {
-        this.component = ScriptSceneRegistry.parseId(componentId, "component id");
-        this.sceneId = ScriptSceneRegistry.parseId(sceneId, "scene id");
-        this.title = title;
-        this.structure = ScriptSceneRegistry.parseId(structureId, "structure id");
+        this(componentId, sceneId, title, structureId, captureSource());
+    }
+
+    ScriptSceneBuilder(String componentId, String sceneId, String title, String structureId, String source) {
+        this.source = normalizeSource(source);
+        try {
+            this.component = ScriptSceneRegistry.parseId(componentId, "component id");
+            this.sceneId = ScriptSceneRegistry.parseId(sceneId, "scene id");
+            this.title = title;
+            this.structure = ScriptSceneRegistry.parseId(structureId, "structure id");
+        } catch (RuntimeException exception) {
+            throw withSource("Failed to create Ponder scene builder", exception);
+        }
     }
 
     public ScriptWorldBuilder getWorld() { return world; }
@@ -115,7 +125,14 @@ public final class ScriptSceneBuilder {
 
     @ZenMethod
     public ScriptSceneBuilder movePointOfInterest(double x, double y, double z) {
+        ScriptVector.validate(x, y, z, "Point of interest");
         return add("move_poi", ScriptWorldBuilder.vector(x, y, z));
+    }
+
+    @ZenMethod
+    public ScriptSceneBuilder movePointOfInterest(ScriptVector position) {
+        ScriptVector required = ScriptVector.require(position, "Point of interest");
+        return movePointOfInterest(required.x, required.y, required.z);
     }
 
     @ZenMethod
@@ -138,8 +155,14 @@ public final class ScriptSceneBuilder {
     public void register() {
         ensureMutable();
         ScriptSceneRegistry.registrationAttempted(this);
-        ScriptSceneRegistry.register(new ScriptSceneDefinition(component, sceneId, title, structure,
-            new ArrayList<ResourceLocation>(tags), instructions, clientOnly));
+        String registerSource = source == null ? captureSource() : source;
+        try {
+            ScriptSceneRegistry.register(new ScriptSceneDefinition(component, sceneId, title, structure,
+                new ArrayList<ResourceLocation>(tags), instructions, clientOnly));
+        } catch (RuntimeException exception) {
+            throw withSource("Failed to register Ponder scene", exception,
+                registerSource == null ? source : registerSource);
+        }
         registered = true;
     }
 
@@ -162,7 +185,13 @@ public final class ScriptSceneBuilder {
     void defineHandle(String handle, HandleType type) {
         validateHandle(handle);
         if (type == null) throw new IllegalArgumentException("Handle type is required");
-        if (handles.put(handle, type) != null) throw new IllegalArgumentException("Duplicate scene handle: " + handle);
+        HandleType previous = handles.put(handle, type);
+        if (previous != null) {
+            handles.put(handle, previous);
+            throw new IllegalArgumentException(previous == HandleType.TERMINATED
+                ? "Scene handle is terminated and may not be reused: " + handle
+                : "Duplicate scene handle: " + handle);
+        }
     }
 
     void requireHandle(String handle) {
@@ -173,9 +202,16 @@ public final class ScriptSceneBuilder {
         validateHandle(handle);
         HandleType actual = handles.get(handle);
         if (actual == null) throw new IllegalArgumentException("Unknown scene handle: " + handle);
+        if (actual == HandleType.TERMINATED)
+            throw new IllegalArgumentException("Scene handle is terminated: " + handle);
         if (expected != null && actual != expected)
             throw new IllegalArgumentException("Scene handle '" + handle + "' is " + actual.scriptName
                 + ", expected " + expected.scriptName);
+    }
+
+    void terminateHandle(String handle, HandleType expected) {
+        requireHandle(handle, expected);
+        handles.put(handle, HandleType.TERMINATED);
     }
 
     static void validateHandle(String handle) {
@@ -187,7 +223,8 @@ public final class ScriptSceneBuilder {
         SECTION("section"),
         ITEM("item"),
         MINECART("minecart"),
-        PARROT("parrot");
+        PARROT("parrot"),
+        TERMINATED("terminated");
 
         final String scriptName;
 
@@ -200,7 +237,45 @@ public final class ScriptSceneBuilder {
         return sceneId;
     }
 
+    String getSourceDescription() {
+        return source;
+    }
+
     private void ensureMutable() {
-        if (registered) throw new IllegalStateException("Scene is already registered: " + sceneId);
+        if (registered) throw new IllegalStateException("Scene is already registered: " + sceneId + sourceSuffix());
+    }
+
+    private RuntimeException withSource(String prefix, RuntimeException exception) {
+        return withSource(prefix, exception, source);
+    }
+
+    private RuntimeException withSource(String prefix, RuntimeException exception, String location) {
+        String message = prefix + sourceSuffix(location);
+        if (exception.getMessage() != null && !exception.getMessage().isEmpty()) message += ": " + exception.getMessage();
+        if (exception instanceof IllegalStateException)
+            return new IllegalStateException(message, exception);
+        return new IllegalArgumentException(message, exception);
+    }
+
+    private String sourceSuffix() {
+        return sourceSuffix(source);
+    }
+
+    private static String sourceSuffix(String location) {
+        return location == null ? "" : " at " + location;
+    }
+
+    private static String captureSource() {
+        try {
+            return normalizeSource(crafttweaker.CraftTweakerAPI.getScriptFileAndLine());
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static String normalizeSource(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

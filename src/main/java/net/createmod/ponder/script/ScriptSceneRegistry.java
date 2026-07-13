@@ -69,8 +69,11 @@ public final class ScriptSceneRegistry {
     }
 
     public static synchronized void reportUnregisteredBuilders() {
-        for (ScriptSceneBuilder builder : PENDING)
-            CraftTweakerAPI.logError("Ponder scene builder was not registered: " + builder.getSceneId());
+        for (ScriptSceneBuilder builder : PENDING) {
+            String source = builder.getSourceDescription();
+            CraftTweakerAPI.logError("Ponder scene builder was not registered: " + builder.getSceneId()
+                + (source == null ? "" : " at " + source));
+        }
         PENDING.clear();
     }
 

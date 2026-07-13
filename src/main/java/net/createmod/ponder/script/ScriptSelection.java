@@ -5,6 +5,7 @@ import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenMethod;
 
@@ -30,6 +31,11 @@ public final class ScriptSelection {
     }
 
     @ZenMethod
+    public static ScriptSelection column(int x, int z) {
+        return new ScriptSelection("column", x, z);
+    }
+
+    @ZenMethod
     public static ScriptSelection layer(int y) {
         return new ScriptSelection("layer", y);
     }
@@ -37,6 +43,18 @@ public final class ScriptSelection {
     @ZenMethod
     public static ScriptSelection layersFrom(int y) {
         return new ScriptSelection("layers_from", y);
+    }
+
+    @ZenMethod
+    public static ScriptSelection layers(int y, int height) {
+        if (height <= 0)
+            throw new IllegalArgumentException("Layer height must be greater than zero");
+        return new ScriptSelection("layers", y, height);
+    }
+
+    @ZenMethod
+    public static ScriptSelection cuboid(int x, int y, int z, int offsetX, int offsetY, int offsetZ) {
+        return new ScriptSelection("cuboid", x, y, z, offsetX, offsetY, offsetZ);
     }
 
     @ZenMethod
@@ -60,10 +78,17 @@ public final class ScriptSelection {
             return util.select().position(new BlockPos(values[0], values[1], values[2]));
         if ("from_to".equals(type))
             return util.select().fromTo(values[0], values[1], values[2], values[3], values[4], values[5]);
+        if ("column".equals(type))
+            return util.select().column(values[0], values[1]);
         if ("layer".equals(type))
             return util.select().layer(values[0]);
         if ("layers_from".equals(type))
             return util.select().layersFrom(values[0]);
+        if ("layers".equals(type))
+            return util.select().layers(values[0], values[1]);
+        if ("cuboid".equals(type))
+            return util.select().cuboid(new BlockPos(values[0], values[1], values[2]),
+                new Vec3i(values[3], values[4], values[5]));
         if ("everywhere".equals(type))
             return util.select().everywhere();
         throw new IllegalArgumentException("Unknown script selection type: " + type);

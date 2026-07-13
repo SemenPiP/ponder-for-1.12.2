@@ -17,17 +17,32 @@ public final class ScriptEffectsBuilder {
 
     @ZenMethod
     public void indicateRedstone(int x, int y, int z) {
+        ScriptVector.validate(x, y, z, "Redstone position");
         scene.add("indicate_redstone", ScriptWorldBuilder.position(x, y, z));
     }
 
     @ZenMethod
+    public void indicateRedstone(ScriptPosition position) {
+        ScriptPosition required = ScriptPosition.require(position, "Redstone position");
+        indicateRedstone(required.x, required.y, required.z);
+    }
+
+    @ZenMethod
     public void indicateSuccess(int x, int y, int z) {
+        ScriptVector.validate(x, y, z, "Success position");
         scene.add("indicate_success", ScriptWorldBuilder.position(x, y, z));
+    }
+
+    @ZenMethod
+    public void indicateSuccess(ScriptPosition position) {
+        ScriptPosition required = ScriptPosition.require(position, "Success position");
+        indicateSuccess(required.x, required.y, required.z);
     }
 
     @ZenMethod
     public void createRedstoneParticles(int x, int y, int z, int color, int amount) {
         if (amount < 0 || amount > 4096) throw new IllegalArgumentException("Particle amount must be 0..4096");
+        ScriptVector.validate(x, y, z, "Redstone particle position");
         NBTTagCompound data = ScriptWorldBuilder.position(x, y, z);
         data.setInteger("color", color);
         data.setInteger("amount", amount);
@@ -35,8 +50,16 @@ public final class ScriptEffectsBuilder {
     }
 
     @ZenMethod
+    public void createRedstoneParticles(ScriptPosition position, int color, int amount) {
+        ScriptPosition required = ScriptPosition.require(position, "Redstone particle position");
+        createRedstoneParticles(required.x, required.y, required.z, color, amount);
+    }
+
+    @ZenMethod
     public void emitParticles(String type, double x, double y, double z, double motionX, double motionY,
                               double motionZ, float amount, int cycles) {
+        ScriptVector.validate(x, y, z, "Particle position");
+        ScriptVector.validate(motionX, motionY, motionZ, "Particle motion");
         NBTTagCompound data = ScriptWorldBuilder.vector(x, y, z);
         String normalized = ScriptWorldBuilder.requiredText(type, "particle type")
             .toLowerCase(java.util.Locale.ROOT);
@@ -52,15 +75,41 @@ public final class ScriptEffectsBuilder {
     }
 
     @ZenMethod
+    public void emitParticles(String type, ScriptVector position, ScriptVector motion, float amount, int cycles) {
+        ScriptVector requiredPosition = ScriptVector.require(position, "Particle position");
+        ScriptVector requiredMotion = ScriptVector.require(motion, "Particle motion");
+        emitParticles(type, requiredPosition.x, requiredPosition.y, requiredPosition.z,
+            requiredMotion.x, requiredMotion.y, requiredMotion.z, amount, cycles);
+    }
+
+    @ZenMethod
     public void emitParticlesWithinBlock(String type, double x, double y, double z, double motionX, double motionY,
                                          double motionZ, float amount, int cycles) {
+        ScriptVector.validate(x, y, z, "Particle position");
+        ScriptVector.validate(motionX, motionY, motionZ, "Particle motion");
         NBTTagCompound data = particleData(type, x, y, z, motionX, motionY, motionZ, amount, cycles);
         scene.add("particles_within_block", data);
     }
 
     @ZenMethod
+    public void emitParticlesWithinBlock(String type, ScriptVector position, ScriptVector motion, float amount,
+                                         int cycles) {
+        ScriptVector requiredPosition = ScriptVector.require(position, "Particle position");
+        ScriptVector requiredMotion = ScriptVector.require(motion, "Particle motion");
+        emitParticlesWithinBlock(type, requiredPosition.x, requiredPosition.y, requiredPosition.z,
+            requiredMotion.x, requiredMotion.y, requiredMotion.z, amount, cycles);
+    }
+
+    @ZenMethod
     public void movePointOfInterest(double x, double y, double z) {
+        ScriptVector.validate(x, y, z, "Point of interest");
         scene.add("move_poi", ScriptWorldBuilder.vector(x, y, z));
+    }
+
+    @ZenMethod
+    public void movePointOfInterest(ScriptVector position) {
+        ScriptVector required = ScriptVector.require(position, "Point of interest");
+        movePointOfInterest(required.x, required.y, required.z);
     }
 
     private static NBTTagCompound particleData(String type, double x, double y, double z, double motionX,
