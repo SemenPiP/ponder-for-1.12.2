@@ -26,6 +26,9 @@ $moddedRoot = Join-Path $testRoot "modded"
 $forgeVersion = "14.23.5.2847"
 $forgeFileName = "forge-1.12.2-$forgeVersion-universal.jar"
 $expectedForgeHash = "29A7372B5801C2EA01ACFFA8B238256D131D770BCD18148D6F2D5C2A40BC6A6A"
+$forgeInstallerFileName = "forge-1.12.2-$forgeVersion-installer.jar"
+$forgeInstallerUri = "https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-$forgeVersion/$forgeInstallerFileName"
+$expectedForgeInstallerHash = "3A74473FC62DCF13BAA4130E6EA31A80C6A872B6B25F1A4C9195C8E878415BD0"
 $minecraftServerFileName = "minecraft_server.1.12.2.jar"
 $expectedMinecraftServerHash = "FE1F9274E6DAD9191BF6E6E8E36EE6EBC737F373603DF0946AAFCDED0D53167E"
 $ponderVersion = "1.1.0-mc1.12.2"
@@ -198,6 +201,33 @@ function Resolve-Java8 {
         Path = $candidate
         FileVersion = $fileVersion
         RuntimeVersion = ($runtimeVersion -replace "\r?\n", " | ")
+    }
+}
+
+function Install-ForgeServerSource {
+    param(
+        [string]$Destination,
+        [string]$JavaPath
+    )
+
+    $null = New-Item -ItemType Directory -Path $Destination -Force
+    $installer = Join-Path $Destination $forgeInstallerFileName
+    if (!(Test-Path -LiteralPath $installer -PathType Leaf)) {
+        $null = Invoke-WebRequest -UseBasicParsing -Uri $forgeInstallerUri -OutFile $installer
+    }
+    $installerHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash
+    if ($installerHash -ne $expectedForgeInstallerHash) {
+        throw "Forge installer SHA256 mismatch. Expected $expectedForgeInstallerHash, found $installerHash"
+    }
+
+    Push-Location $Destination
+    try {
+        & $JavaPath -jar $installer --installServer
+        if ($LASTEXITCODE -ne 0) {
+            throw "Forge installer exited with code $LASTEXITCODE."
+        }
+    } finally {
+        Pop-Location
     }
 }
 
@@ -610,17 +640,31 @@ function Write-VerificationReport {
 }
 
 try {
+    $resolvedJava = Resolve-Java8 -PreferredPath $JavaExecutable
+    $JavaExecutable = $resolvedJava.Path
+    $javaVersion = "$($resolvedJava.FileVersion); $($resolvedJava.RuntimeVersion)"
+
+    $bootstrapForgeDirectory = [string]::IsNullOrWhiteSpace($ForgeDirectory)
     if ([string]::IsNullOrWhiteSpace($ForgeDirectory)) {
-        $ForgeDirectory = Join-Path $projectRoot "verification\forge-2847-server"
+        $ForgeDirectory = Join-Path $buildRoot "forge-2847-server-source"
+    }
+    if (!(Test-Path -LiteralPath $ForgeDirectory -PathType Container)) {
+        if (!$bootstrapForgeDirectory) {
+            throw "Forge source directory does not exist: $ForgeDirectory"
+        }
+        $null = New-Item -ItemType Directory -Path $ForgeDirectory -Force
     }
     $ForgeDirectory = (Resolve-Path -LiteralPath $ForgeDirectory).Path
-    if (!(Test-Path -LiteralPath $ForgeDirectory -PathType Container)) {
-        throw "Forge source directory does not exist: $ForgeDirectory"
-    }
 
     $forgeJar = Join-Path $ForgeDirectory $forgeFileName
     $minecraftServerJar = Join-Path $ForgeDirectory $minecraftServerFileName
     $librariesDirectory = Join-Path $ForgeDirectory "libraries"
+    if ($bootstrapForgeDirectory -and
+        (!(Test-Path -LiteralPath $forgeJar -PathType Leaf) -or
+         !(Test-Path -LiteralPath $minecraftServerJar -PathType Leaf) -or
+         !(Test-Path -LiteralPath $librariesDirectory -PathType Container))) {
+        Install-ForgeServerSource -Destination $ForgeDirectory -JavaPath $JavaExecutable
+    }
     foreach ($requiredFile in @($forgeJar, $minecraftServerJar)) {
         if (!(Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
             throw "Forge source directory is missing required file: $requiredFile"
@@ -658,10 +702,6 @@ try {
     $mixinBooterHash = $resolvedMixinBooter.Hash
     $mixinBooterSource = "$($resolvedMixinBooter.Source): $MixinBooterJar"
     $CraftTweakerJar = Get-CraftTweaker -PreferredPath $CraftTweakerJar
-
-    $resolvedJava = Resolve-Java8 -PreferredPath $JavaExecutable
-    $JavaExecutable = $resolvedJava.Path
-    $javaVersion = "$($resolvedJava.FileVersion); $($resolvedJava.RuntimeVersion)"
 
     $ponderHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ponderJar).Hash
     $libraryManifest = Join-Path $testRoot "library-sha256.txt"
