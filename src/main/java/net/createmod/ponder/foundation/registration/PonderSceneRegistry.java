@@ -17,7 +17,9 @@ import org.apache.logging.log4j.Logger;
 import net.createmod.ponder.api.level.PonderLevel;
 import net.createmod.ponder.api.registration.SceneRegistryAccess;
 import net.createmod.ponder.api.registration.StoryBoardEntry;
+import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.foundation.PonderScene;
+import net.createmod.ponder.foundation.PonderSceneBuildingUtil;
 import net.createmod.ponder.foundation.structure.PonderStructure;
 import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.minecraft.util.ResourceLocation;
@@ -135,7 +137,14 @@ public final class PonderSceneRegistry implements SceneRegistryAccess {
                                            PonderLevel level) {
         PonderScene scene = new PonderScene(level, localization, entry.getNamespace(), entry.getComponent(),
             entry.getTags(), entry.getOrderingEntries());
-        entry.getBoard().program(scene.builder(), scene.getSceneBuildingUtil());
+        SceneBuildingUtil util;
+        if (level == null) {
+            util = scene.getSceneBuildingUtil();
+        } else {
+            util = new PonderSceneBuildingUtil(level.getBoundsMin(), level.getBoundsMax(),
+                level.getStructureGroups(), entry.getSchematicLocation());
+        }
+        entry.getBoard().program(scene.builder(), util);
         return scene;
     }
 

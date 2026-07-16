@@ -6,11 +6,12 @@ import java.util.function.Consumer;
 
 import net.createmod.catnip.gui.ScreenOpener;
 import net.createmod.catnip.platform.CatnipClientServices;
+import net.createmod.ponder.api.subject.PonderSubjectResolvers;
+import net.createmod.ponder.api.subject.ResolvedPonderSubject;
 import net.createmod.ponder.enums.PonderKeybinds;
 import net.createmod.ponder.foundation.ui.PonderUI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
@@ -19,6 +20,7 @@ import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 public final class PonderTooltipHandler {
     private static final List<Consumer<ItemStack>> CALLBACKS = new ArrayList<Consumer<ItemStack>>();
     private static ItemStack tracked = ItemStack.EMPTY;
+    private static ResourceLocation trackedComponent;
     private static long lastSeen;
     private static float progress;
 
@@ -28,11 +30,19 @@ public final class PonderTooltipHandler {
     public static void onTooltip(ItemTooltipEvent event) {
         if (event.getEntityPlayer() == null || event.getItemStack().isEmpty()) return;
 
-        ResourceLocation id = Item.REGISTRY.getNameForObject(event.getItemStack().getItem());
-        if (id == null || !PonderIndex.getSceneAccess().doScenesExistForId(id)) return;
+        ResolvedPonderSubject subject = PonderSubjectResolvers.resolve(event.getItemStack());
+        if (!subject.isHandled()) return;
+        ResourceLocation component = subject.getComponent();
+        boolean scenesExist = PonderIndex.getSceneAccess().doScenesExistForId(component);
+        if (!scenesExist) {
+            if (shouldShowMissingSceneMessage(subject, false))
+                event.getToolTip().add(TextFormatting.GRAY + I18n.format("ponder.ui.no_scenes_configured"));
+            return;
+        }
 
-        if (tracked.isEmpty() || tracked.getItem() != event.getItemStack().getItem()) {
+        if (!isTrackedSubject(event.getItemStack(), component)) {
             tracked = event.getItemStack().copy();
+            trackedComponent = component;
             progress = 0;
         }
         lastSeen = System.currentTimeMillis();
@@ -51,15 +61,37 @@ public final class PonderTooltipHandler {
         progress = advanceProgress(progress, held);
 
         if (progress >= 1) {
-            ItemStack opening = tracked.copy();
+            ResourceLocation opening = trackedComponent;
             progress = 0;
-            tracked = ItemStack.EMPTY;
+            clearTrackedSubject();
             try {
-                ScreenOpener.open(PonderUI.of(opening));
+                if (opening != null) ScreenOpener.open(PonderUI.of(opening));
             } catch (RuntimeException ignored) {
             }
         }
-        if (!fresh && progress == 0) tracked = ItemStack.EMPTY;
+        if (!fresh && progress == 0) clearTrackedSubject();
+    }
+
+    static boolean shouldShowMissingSceneMessage(ResolvedPonderSubject subject, boolean scenesExist) {
+        return subject != null && subject.isHandled() && !subject.isDefaultResolver() && !scenesExist;
+    }
+
+    static boolean isSameSubject(ItemStack first, ResourceLocation firstComponent,
+                                 ItemStack second, ResourceLocation secondComponent) {
+        return first != null && second != null && !first.isEmpty() && !second.isEmpty()
+            && firstComponent != null && firstComponent.equals(secondComponent)
+            && first.getItem() == second.getItem()
+            && first.getMetadata() == second.getMetadata()
+            && ItemStack.areItemStackTagsEqual(first, second);
+    }
+
+    private static boolean isTrackedSubject(ItemStack stack, ResourceLocation component) {
+        return isSameSubject(tracked, trackedComponent, stack, component);
+    }
+
+    private static void clearTrackedSubject() {
+        tracked = ItemStack.EMPTY;
+        trackedComponent = null;
     }
 
     static float advanceProgress(float current, boolean held) {

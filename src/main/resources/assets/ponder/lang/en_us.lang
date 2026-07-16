@@ -1,5 +1,6 @@
 #PARSE_ESCAPES
 ponder.ui.hold_to_ponder=Hold [%1$s] to Ponder
+ponder.ui.no_scenes_configured=No Ponder scenes configured
 ponder.ui.subject=Subject of this scene
 ponder.ui.pondering=Pondering about...
 ponder.ui.pondering_tag=Pondering about...

@@ -2,26 +2,47 @@
 
 本项目的公开 Ponder API 位于 `net.createmod.ponder.api`，脚本支持和运行时适配类位于
 `net.createmod.ponder.script` 与 `net.createmod.catnip`。addon 编译时可依赖
-`Ponder-1.12.2-1.1.1-api.jar`，但不要把这个反混淆 API jar 安装到游戏。运行环境应安装 reobf 的
+`Ponder-1.12.2-1.1.2-api.jar`，但不要把这个反混淆 API jar 安装到游戏。运行环境应安装 reobf 的
 Ponder 主包、MixinBooter 9.1 或更高版本以及 CraftTweaker 4.1.20 或更高版本；addon 自身也必须经过
 Forge 1.12.2 reobf 后才能发布。更完整的 ZenScript 参考见 [README](../README.md) 与
 [docs/ZENSCRIPT-API.md](ZENSCRIPT-API.md)。
 
 ## 当前构建基线
 
-当前开发版本为 `1.1.1-mc1.12.2`。默认构建与当前服务端验收基线使用 MixinBooter 11.2，运行元数据接受
+当前开发版本为 `1.1.2-mc1.12.2`。默认构建与当前服务端验收基线使用 MixinBooter 11.2，运行元数据接受
 9.1 及以上版本。可通过 `-PmixinBooterVersion=<版本>` 切换编译和发布校验所用版本。
 Mixin refmap 的注解处理器固定使用 11.2；较旧 MixinBooter 版本仍可作为运行 API 编译目标，但它们自身没有
 携带当前构建链所需的完整 ASM 类路径。
 
 当客户端和服务端都安装 Ponder 时，必须使用完全相同的 Ponder 版本；安装了 Ponder 的客户端也可以连接
-没有 Ponder 的普通服务器。历史 1.0.x/1.1.0 的构建哈希和报告不适用于当前版本；当前 1.1.1
+没有 Ponder 的普通服务器。历史 1.0.x/1.1.0/1.1.1 的构建哈希和报告不适用于当前版本；当前 1.1.2
 成品的 SHA-256 由 GitHub Actions build job summary 和上传的 release artifact bundle 发布，不在这里手写静态值。
 
-旧版标准 Forge 与 CatServer 报告不能转移到 1.1.1。当前版本必须重新生成发布报告；针对要声明兼容的
+旧版标准 Forge 与 CatServer 报告不能转移到 1.1.2。当前版本必须重新生成发布报告；针对要声明兼容的
 MixinBooter 和 CraftTweaker 版本还应分别执行服务端和客户端门槛。开发或发版时不得把专服启动、自动化
 测试或 `PASS_SERVER_ONLY` 当成标准 Forge 客户端门槛已经通过。标准 Forge 真实客户端仍然是发布门槛，
-CatServer 客户端支持只是实验线，不阻塞 1.1.1。实时证据和剩余门槛见 [TESTING.md](TESTING.md)。
+CatServer 客户端支持只是实验线，不阻塞 1.1.2。实时证据和剩余门槛见 [TESTING.md](TESTING.md)。
+
+## Provider/Subject SPI 与 Ponder-MMCE
+
+1.1.2 的 Provider/Subject SPI 位于 Ponder 公开 API 范围。`PonderStructureProvider` 按结构 ID
+返回原始 NBT、内容指纹、命名方块组和诊断，并支持优先级与失效通知；`ItemSubjectResolver` 按优先级
+把悬停的 `ItemStack` 解析为 Ponder 场景注册表使用的 component ID，未处理时返回 `PASS` 并继续回退
+到默认物品注册名。addon 应通过 `PonderStructureProviders` 与 `PonderSubjectResolvers` 注册，
+不能直接修改 Ponder 内部注册表。
+
+`ponder-mmce` 是独立 Gradle 子项目和独立发布 jar，只通过上述 SPI 提供 MMCE 静态/动态结构并解析
+机器代表物品。Ponder 主模组不声明 MMCE 依赖，MMCE 专用类型和实现必须留在子项目内。完整仓库门槛使用：
+
+```powershell
+.\gradlew.bat clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
+```
+
+当前 Ponder-MMCE 版本为 `0.1.0-alpha`，运行 jar 为
+`ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`。addon 另行注册
+`mods.ponder.mmce.MMCEStructures` 与 `mods.ponder.mmce.MMCEStructureRef`，不改变 Ponder 主模组已有
+ZenClass。发布报告必须记录 Ponder 主包和 addon 的 SHA-256，并写明实际验证的 Ponder、Ponder-MMCE
+与 MMCE 版本组合。
 
 ## 注册插件
 

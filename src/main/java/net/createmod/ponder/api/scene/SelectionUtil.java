@@ -22,6 +22,8 @@ public interface SelectionUtil {
 
     Selection layers(int y, int height);
 
+    Selection structureGroup(String name);
+
     /** Size is an inclusive offset, matching the upstream scene DSL. */
     Selection cuboid(BlockPos origin, Vec3i size);
 }

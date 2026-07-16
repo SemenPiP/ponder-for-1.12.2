@@ -1,0 +1,213 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+}
+
+apply plugin: 'com.gtnewhorizons.retrofuturagradle'
+
+version = '0.1.0-alpha'
+group = 'net.createmod.ponder'
+
+def modVersion = '0.1.0-alpha'
+
+base {
+    archivesName.set('Ponder-MMCE-1.12.2')
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
+    withSourcesJar()
+}
+
+minecraft {
+    mcVersion.set('1.12.2')
+    mcpMappingChannel.set('stable')
+    mcpMappingVersion.set('39')
+    username.set('Developer')
+}
+
+repositories {
+    maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+        content {
+            includeGroup 'curse.maven'
+        }
+    }
+    mavenCentral()
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
+    }
+    maven {
+        name = 'CleanroomMC'
+        url = 'https://maven.cleanroommc.com'
+        content {
+            includeGroup 'zone.rong'
+            includeGroup 'com.cleanroommc'
+            includeGroup 'io.github.llamalad7'
+        }
+    }
+}
+
+def mmceJarOverride = providers.gradleProperty('mmceJar').orNull
+def mmceDependency
+if (mmceJarOverride != null && !mmceJarOverride.trim().isEmpty()) {
+    File localMmce = rootProject.file(mmceJarOverride)
+    if (!localMmce.isFile()) {
+        throw new GradleException("MMCE jar override does not exist: ${localMmce}")
+    }
+    logger.lifecycle("Ponder-MMCE compiling against local MMCE jar: ${localMmce}")
+    mmceDependency = files(localMmce)
+} else {
+    mmceDependency = 'curse.maven:modularmachinery-community-edition-817377:7372951'
+}
+
+dependencies {
+    implementation project(':')
+
+    compileOnly mmceDependency
+    compileOnly('maven.modrinth:crafttweaker:4.1.20.698') {
+        transitive = false
+    }
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:2.28.2'
+    testCompileOnly mmceDependency
+    testRuntimeOnly mmceDependency
+    testRuntimeOnly('maven.modrinth:crafttweaker:4.1.20.698') {
+        transitive = false
+    }
+}
+
+processResources {
+    inputs.property 'version', modVersion
+    inputs.property 'mcversion', '1.12.2'
+    filesMatching('mcmod.info') {
+        expand 'version': modVersion, 'mcversion': '1.12.2'
+    }
+}
+
+jar {
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    manifest {
+        attributes([
+            'Specification-Title': 'Ponder-MMCE',
+            'Specification-Vendor': 'Ponder Legacy contributors',
+            'Specification-Version': '1',
+            'Implementation-Title': 'Ponder-MMCE',
+            'Implementation-Version': modVersion,
+            'Implementation-Vendor': 'Ponder Legacy contributors',
+            'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnit()
+}
+
+def reobfMmceJar = tasks.named('reobfJar',
+    com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar)
+reobfMmceJar.configure {
+    archiveBaseName.set('Ponder-MMCE-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('libs'))
+}
+
+tasks.register('verifyJava8Bytecode') {
+    dependsOn tasks.named('classes'), tasks.named('testClasses')
+    doLast {
+        [
+            layout.buildDirectory.dir('classes/java/main'),
+            layout.buildDirectory.dir('classes/java/test')
+        ].each { directory ->
+            fileTree(directory).matching { include '**/*.class' }.each { file ->
+                file.withInputStream { input ->
+                    byte[] header = new byte[8]
+                    if (input.read(header) != 8 || (header[6] & 0xff) != 0 || (header[7] & 0xff) != 52) {
+                        throw new GradleException("Non-Java-8 bytecode: ${file}")
+                    }
+                }
+            }
+        }
+    }
+}
+
+tasks.register('verifyModuleContents') {
+    dependsOn reobfMmceJar
+    doLast {
+        File archive = reobfMmceJar.get().archiveFile.get().asFile
+        File metadata = zipTree(archive).matching { include 'mcmod.info' }.singleFile
+        String text = metadata.getText('UTF-8')
+        [
+            '"modid": "ponder_mmce"',
+            'required-after:ponder_legacy@[1.1.2,)',
+            'required-after:modularmachinery@[2.3.2,)',
+            'required-after:crafttweaker@[4.1.20,)'
+        ].each { expected ->
+            if (!text.contains(expected)) {
+                throw new GradleException("Ponder-MMCE metadata is missing ${expected}")
+            }
+        }
+        [
+            'hellfirepvp/modularmachinery/',
+            'crafttweaker/',
+            'stanhebben/zenscript/',
+            'net/createmod/ponder/api/'
+        ].each { forbidden ->
+            if (!zipTree(archive).matching { include "${forbidden}**" }.isEmpty()) {
+                throw new GradleException("Ponder-MMCE jar embeds provided dependency ${forbidden}")
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyJava8Bytecode')
+}
+
+tasks.named('assemble') {
+    dependsOn reobfMmceJar, tasks.named('verifyModuleContents')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact reobfMmceJar
+            artifact tasks.named('sourcesJar')
+            artifactId = 'Ponder-MMCE-1.12.2'
+            version = modVersion
+            pom.withXml {
+                def dependencies = asNode().appendNode('dependencies')
+                [
+                    ['net.createmod.ponder', 'Ponder-1.12.2', '[1.1.2-mc1.12.2,)', 'provided'],
+                    ['curse.maven', 'modularmachinery-community-edition-817377', '7372951', 'provided'],
+                    ['maven.modrinth', 'crafttweaker', '4.1.20.698', 'provided']
+                ].each { values ->
+                    def dependency = dependencies.appendNode('dependency')
+                    dependency.appendNode('groupId', values[0])
+                    dependency.appendNode('artifactId', values[1])
+                    dependency.appendNode('version', values[2])
+                    dependency.appendNode('scope', values[3])
+                }
+            }
+        }
+    }
+}

@@ -1,6 +1,6 @@
 # Ponder Legacy 项目路线图
 
-最后更新：2026-07-13
+最后更新：2026-07-16
 
 本路线图用于记录 Ponder Legacy 的当前完成度、已知缺口、版本目标和发布门槛。
 它描述的是项目计划，不表示列出的功能已经完成。实际兼容声明仍以
@@ -55,8 +55,8 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 
 ## 1.1.1：稳定性与 ZenScript 补全
 
-代码实施已完成，等待 GitHub Actions 对最终版本提交复验，并等待标准 Forge
-真实客户端人工验收。CatServer 客户端仍为实验支持，不阻塞本版本。
+本版本作为 1.1.x 的稳定性、同步协议与 ZenScript 作者能力基线。历史构建和
+验收结果只适用于对应的 1.1.1 成品，不转移到后续版本。
 
 ### 已完成的 A 线
 
@@ -87,7 +87,24 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 - 对同一 SHA-256 成品完成标准 Forge 真实客户端八场景、GUI Scale 1-4、
   真实键鼠、全屏和资源重载验收。
 
-## 1.1.2：作者工具与诊断
+## 1.1.2：通用 Provider/Subject SPI 与 MMCE 支撑
+
+- 提供不依赖特定内容模组的 Provider/Subject SPI：`PonderStructureProvider`
+  按结构 ID 提供 NBT、指纹、命名组和诊断，`ItemSubjectResolver` 把
+  `ItemStack` 解析为 Ponder 场景 component ID。
+- 明确 Provider/Resolver 注册、优先级、同 ID 替换、PASS/NOT_FOUND、缓存失效、
+  错误隔离和无客户端环境下的生命周期约束。
+- 保留现有 Java `PonderPlugin`、ServiceLoader、IMC、ZenScript 注册和普通物品
+  场景入口；Provider/Subject SPI 是增量扩展面，不替代已有 API。
+- 增加 Provider/Subject 的单元测试、示例接入和发布内容检查，保证第三方 addon
+  不需要访问 Ponder 内部注册表。
+- 引入独立 `ponder-mmce` 子项目，使用通用 SPI 提供 MMCE 动态结构，并把机器
+  代表物品解析到对应 Ponder component；Ponder 主模组不直接依赖 MMCE，未安装
+  addon 时行为保持不变。
+- 主项目与 `ponder-mmce` 分别构建 jar、测试和计算 SHA-256；MMCE addon 的兼容
+  声明必须绑定同一次 CI 构建以及明确的 Ponder/MMCE 版本组合。
+
+## 1.1.3：作者工具与诊断
 
 - 增加 `/ponder list [local|server|effective]`。
 - 增加 `/ponder inspect <scene>`、`/ponder validate` 和
@@ -98,6 +115,32 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 - 客户端只显示一次错误摘要，完整诊断保留在日志和验证报告中。
 - 增加开发用 IR 导出和指令时间轴报告，不改变生产同步格式。
 - 发布完整 ZenScript API 参考、外部结构示例、错误示例和可安装示例包。
+
+## Ponder-MMCE 路线
+
+Ponder-MMCE 是独立发布的附属模组，位于 `ponder-mmce` 子项目。它只通过 Ponder
+公开 SPI 接入，不把 MMCE 专用逻辑放入 Ponder 主模组。
+
+### Ponder-MMCE 0.1：基础桥接（当前 `0.1.0-alpha`）
+
+- 解析 MMCE 已注册机器，为静态/动态结构请求建立稳定、可重载的结构 ID。
+- 将机器控制器/代表物品解析为已有 Ponder component，处理缺失场景、重复注册和
+  可选 MMCE 依赖。
+- 建立 Java 8 单元测试、独立 jar、发布元数据、CI 上传和 SHA-256 清单。
+
+### Ponder-MMCE 0.2：机器定义与变体
+
+- 支撑机器结构、配方或配置变体对应的 Subject 选择和场景覆盖规则。
+- 跟随 MMCE 配置/注册表重载刷新 Provider 缓存，并隔离单台机器定义错误。
+- 增加整合包侧覆盖入口、示例机器和 Ponder/MMCE 兼容矩阵。
+
+### Ponder-MMCE 0.3：扩展与诊断
+
+- 向其他 MMCE 附属模组开放稳定扩展点，允许补充 Subject 元数据、场景选择和
+  自定义显示组件。
+- 与 Ponder 1.1.3 作者诊断对接，报告 Provider 来源、机器 ID、场景覆盖和拒绝
+  原因。
+- 建立公开 API 签名快照、弃用周期、跨版本回归和可重复发布流程。
 
 ## 1.2.0：扩展生态与兼容保障
 
@@ -123,7 +166,7 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 每次提交默认由 GitHub Actions 执行：
 
 ```text
-clean test build compileClientHarnessJava
+clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
 ```
 
 并执行发布内容检查、Java 8 字节码检查和标准 Forge 专服启动及重启。
@@ -138,13 +181,17 @@ clean test build compileClientHarnessJava
   符号链接和缺失结构隔离。
 - API：公开签名变化、示例 addon 编译、ServiceLoader、IMC 和 codec
   协议兼容。
+- Provider/Subject：注册顺序、稳定 ID、PASS/NOT_FOUND、同 ID 替换、刷新失效、
+  错误隔离、服务端安全和 addon 缺失。
+- Ponder-MMCE：静态/动态结构解析、物品到 component 映射、可选依赖、重载和
+  独立 jar 内容。
 
 稳定发布候选还必须满足：
 
 - 所有报告绑定同一 Ponder 成品 SHA-256。
 - 标准 Forge 真实客户端完成八个场景、GUI Scale 1-4、全屏、资源重载、
   真实鼠标和按键验收。
-- CatServer 客户端支持只作为实验线，不阻塞 1.1.1；若要额外声明兼容，
+- CatServer 客户端支持只作为实验线，不阻塞 1.1.2；若要额外声明兼容，
   仍需真实连接、同步和场景播放证据。
 - 测试数量、产物哈希和报告链接由 CI 生成，不再手工维护易漂移的静态值。
 

@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.1.1'
+version = '1.1.2'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.1.1-mc1.12.2'
+def modVersion = '1.1.2-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -444,11 +444,13 @@ tasks.register('verifyReleaseReport', Exec) {
 tasks.named('check') {
     dependsOn tasks.named('verifyJava8Bytecode')
     dependsOn tasks.named('verifyReleaseReport')
+    dependsOn ':ponder-mmce:check'
 }
 
 tasks.named('assemble') {
     dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
     dependsOn reobfServerHarnessJar
+    dependsOn ':ponder-mmce:assemble'
 }
 
 artifacts {

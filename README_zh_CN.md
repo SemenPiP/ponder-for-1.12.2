@@ -15,15 +15,16 @@ CatServer 完整兼容已经通过。
 
 ## 当前验证状态
 
-`1.1.1-mc1.12.2` 继续提供 CraftTweaker/ZenScript 场景编写、外部结构目录和服务端场景快照流程。
+`1.1.2-mc1.12.2` 增加供可选内容桥接使用的结构 Provider 与物品 Subject Resolver SPI，并继续提供
+CraftTweaker/ZenScript 场景编写、外部结构目录和服务端场景快照流程。
 运行元数据接受 MixinBooter 9.1 及以上版本，并要求 CraftTweaker 4.1.20 及以上版本。
-八个内置场景在首次启动时生成，全部保持精确 32 秒。当前 1.1.1 成品的 SHA-256 由
+八个内置场景在首次启动时生成，全部保持精确 32 秒。当前 1.1.2 成品的 SHA-256 由
 GitHub Actions 的 build job summary 和上传的 release artifact bundle 发布，本文件不为尚未构建的成品
 硬写静态哈希。
 
 当前工作区无法提供可可靠判断 Minecraft 画面的桌面，也无法完成真实鼠标、全屏切换和 GUI scale 1-4 的
 人工观感验收。因此，标准 Forge 客户端视觉验证仍是发布门槛。CatServer 客户端支持为实验性，不阻塞
-1.1.1 发布线；服务端单独验证结果只记录在 [TESTING](docs/TESTING.md) 中，不能解释为客户端通过。
+1.1.2 发布线；服务端单独验证结果只记录在 [TESTING](docs/TESTING.md) 中，不能解释为客户端通过。
 
 ## 运行要求
 
@@ -40,13 +41,13 @@ GitHub Actions 的 build job summary 和上传的 release artifact bundle 发布
 
 不要把 `-api`、`-sources` 或 `-dev` jar 当作运行模组安装。`-api` jar 只供 addon 编译，
 `-sources` 只供阅读，`build/devlibs` 下的 jar 只供反混淆开发环境使用。当前成品下载后如需核对版本，
-请查看 GitHub Actions job summary 与 release artifact bundle 中记录的 1.1.1 构建结果。
+请查看 GitHub Actions job summary 与 release artifact bundle 中记录的 1.1.2 构建结果。
 
 ## 构建
 
 ```bat
 set JAVA_HOME=C:\Program Files\Java\jdk-1.8
-gradlew.bat clean test build
+gradlew.bat clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\verify-release.ps1
 ```
 
@@ -54,11 +55,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\verify-release.ps1
 Gradle 8.14.3、MCP stable_39 和 Forge 14.23.5.2847。`build` 已包含测试和发布内容检查，
 并输出 reobf 成品。任何兼容声明发布前，同一组成品还必须通过 [TESTING](docs/TESTING.md) 中的
 标准 Forge 专服检查和真实标准 Forge 客户端门槛。CatServer 服务端回归继续保留，但属于实验性证据，
-不阻塞 1.1.1 发布。
+不阻塞 1.1.2 发布。
 
-`build/libs/Ponder-1.12.2-1.1.1.jar` 是 reobf 运行时成品。开发 jar 只放在 `build/devlibs`，
+`build/libs/Ponder-1.12.2-1.1.2.jar` 是 reobf 运行时成品。开发 jar 只放在 `build/devlibs`，
 不得安装到正式服务器。`reobfExampleAddonJar` 会生成可单独安装的示例 addon：
-`build/libs/Ponder-Example-Addon-1.12.2-1.1.1.jar`。
+`build/libs/Ponder-Example-Addon-1.12.2-1.1.2.jar`。
 
 ## 内置演示
 
@@ -94,6 +95,15 @@ Gradle 8.14.3、MCP stable_39 和 Forge 14.23.5.2847。`build` 已包含测试�
 其他模组通过 `PonderPlugin` 注册组件、标签、共享文本和 Java 场景脚本。开发接入说明见
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)，示例插件位于 `examples/addon`。
 
+## Ponder-MMCE 附属模组
+
+`ponder-mmce` 是独立构建、按需安装的附属模组，通过公开 SPI 提供 MMCE 静态/动态结构，并把机器
+代表物品解析为 Ponder component。Ponder 本体不依赖 MMCE，未安装附属模组时行为保持不变。当前 addon
+版本为 `0.1.0-alpha`，并单独提供 `mods.ponder.mmce.MMCEStructures` ZenScript 命名空间。使用
+`:ponder-mmce:test :ponder-mmce:build` 单独测试和构建，运行 jar 为
+`ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`，GitHub Actions 会单独上传并记录
+SHA-256。兼容声明必须同时写明实际验证的 Ponder、Ponder-MMCE 与 MMCE 版本。
+
 ## 兼容性政策
 
 公开包名和 DSL 名称会尽量跟随当前 Ponder 的语义，只在 Minecraft 1.12.2 有等价类型时才保留。
@@ -102,4 +112,4 @@ Minecraft 和 Forge 类型映射到 MCP 1.12.2 对应类型。现代专有系统
 零修改编译”的承诺。详细映射见 [docs/API-COMPATIBILITY.md](docs/API-COMPATIBILITY.md)。
 
 本项目只支持 Forge 1.12.2，不提供 Fabric、NeoForge、Cleanroom 专用行为或第三方 JSON 场景格式。
-CatServer 路径属于实验性支持，不是 1.1.1 发布门槛；标准 Forge 真实客户端仍然是发布要求。
+CatServer 路径属于实验性支持，不是 1.1.2 发布门槛；标准 Forge 真实客户端仍然是发布要求。

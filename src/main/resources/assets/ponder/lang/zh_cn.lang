@@ -1,5 +1,6 @@
 #PARSE_ESCAPES
 ponder.ui.hold_to_ponder=按住 [%1$s] 开始思索
+ponder.ui.no_scenes_configured=未配置 Ponder 场景
 ponder.ui.subject=情景主题
 ponder.ui.pondering=思索……
 ponder.ui.pondering_tag=思索……
