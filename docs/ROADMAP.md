@@ -170,14 +170,14 @@ Ponder-MMCE 是独立发布的附属模组，位于 `ponder-mmce` 子项目。�
 - 正式弃用 API 至少跨一个次版本保留，再允许删除。
 - 完善服务器自定义标签、场景来源展示和整合包结构依赖清单。
 
-## 1.3.0：多前端与可视化开发
+## 1.3.0：JSON 多前端
 
 - 在同一不可变 IR 上增加可选 JSON 场景前端。
 - 提供 JSON Schema、离线校验器、格式迁移器和场景包清单。
 - JSON 与 ZenScript 生成相同的验证结果和播放行为。
-- 可视化编辑器只负责生成 JSON、ZS 或 IR 预览，不成为运行时依赖。
-- 第一阶段优先提供结构、时间轴、选择器和基础 Overlay 编辑；复杂扩展
-  codec 继续通过文本或 Java addon 配置。
+- JSON 文件支持 `/ponder reload`，ZenScript 继续保持启动时编译。
+- 采用逐文件 last-known-good，坏文件不阻塞其他包更新，删除文件会移除贡献。
+- 可视化编辑器顺延到后续版本，不作为 1.3.0 运行时或发布依赖。
 
 ## 测试与发布门槛
 
@@ -209,7 +209,7 @@ clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
 - 所有报告绑定同一 Ponder 成品 SHA-256。
 - 标准 Forge 真实客户端完成八个场景、GUI Scale 1-4、全屏、资源重载、
   真实鼠标和按键验收。
-- CatServer 客户端支持只作为实验线，不阻塞 1.2.0；若要额外声明兼容，
+- CatServer 客户端支持只作为实验线，不阻塞 1.3.0；若要额外声明兼容，
   仍需真实连接、同步和场景播放证据。
 - 测试数量、产物哈希和报告链接由 CI 生成，不再手工维护易漂移的静态值。
 

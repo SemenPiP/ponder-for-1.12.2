@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.2.0'
+version = '1.3.0'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.2.0-mc1.12.2'
+def modVersion = '1.3.0-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -172,12 +172,12 @@ tasks.register('apiJar', Jar) {
     include 'net/createmod/ponder/foundation/PonderIndex.class'
 }
 
-def apiSignatureOutput = layout.buildDirectory.file('reports/api/ponder-api-1.2.0.sig')
+def apiSignatureOutput = layout.buildDirectory.file('reports/api/ponder-api-1.3.0.sig')
 tasks.register('generateApiSignature', Exec) {
     dependsOn tasks.named('apiJar')
     inputs.file(tasks.named('apiJar', Jar).flatMap { it.archiveFile })
-    inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.1.3.sig'))
     inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.2.0.sig'))
+    inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.3.0.sig'))
     outputs.file(apiSignatureOutput)
     workingDir layout.projectDirectory
     def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
@@ -186,9 +186,9 @@ tasks.register('generateApiSignature', Exec) {
         '-JarPath', tasks.named('apiJar', Jar).get().archiveFile.get().asFile.absolutePath,
         '-OutputPath', apiSignatureOutput.get().asFile.absolutePath,
         '-CompatibilityBaseline',
-        layout.projectDirectory.file('api-signatures/ponder-api-1.1.3.sig').asFile.absolutePath,
-        '-ExpectedSignature',
         layout.projectDirectory.file('api-signatures/ponder-api-1.2.0.sig').asFile.absolutePath,
+        '-ExpectedSignature',
+        layout.projectDirectory.file('api-signatures/ponder-api-1.3.0.sig').asFile.absolutePath,
         '-JavaHome', System.getProperty('java.home')
 }
 
@@ -237,9 +237,41 @@ tasks.register('serverHarnessJar', Jar) {
 }
 
 tasks.register('zenscriptExamplesZip', Zip) {
-    archiveFileName.set('Ponder-ZenScript-Examples-1.2.0.zip')
+    archiveFileName.set('Ponder-ZenScript-Examples-1.3.0.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/zenscript')
+}
+
+tasks.register('jsonExamplesZip', Zip) {
+    archiveFileName.set('Ponder-JSON-Examples-1.3.0.zip')
+    destinationDirectory.set(layout.buildDirectory.dir('distributions'))
+    from layout.projectDirectory.dir('examples/json')
+}
+
+tasks.register('jsonToolsZip', Zip) {
+    archiveFileName.set('Ponder-JSON-Tools-1.3.0.zip')
+    destinationDirectory.set(layout.buildDirectory.dir('distributions'))
+    from(layout.projectDirectory.file('tools/ponder-json.ps1'))
+    from(layout.projectDirectory.dir('schemas')) {
+        into 'schemas'
+    }
+    from(layout.projectDirectory.file('docs/JSON-PACKS.md')) {
+        rename { 'README.md' }
+    }
+}
+
+tasks.register('testPonderJsonTool', Exec) {
+    inputs.files(
+        layout.projectDirectory.file('tools/ponder-json.ps1'),
+        layout.projectDirectory.file('tools/test-ponder-json.ps1'),
+        layout.projectDirectory.dir('tools/fixtures/json'),
+        layout.projectDirectory.file('schemas/ponder-operations-v1.json'),
+        layout.projectDirectory.file('schemas/ponder-pack-v1.schema.json')
+    )
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file('tools/test-ponder-json.ps1').asFile.absolutePath
 }
 
 tasks.register('installClientHarness', Copy) {
@@ -276,7 +308,7 @@ def reobfExampleAddonJar = tasks.register('reobfExampleAddonJar',
 }
 tasks.register('exampleAddonSmokeZip', Zip) {
     dependsOn reobfExampleAddonJar
-    archiveFileName.set('Ponder-Example-Addon-Smoke-1.2.0.zip')
+    archiveFileName.set('Ponder-Example-Addon-Smoke-1.3.0.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/addon/smoke')
     from(reobfExampleAddonJar.flatMap { it.archiveFile }) {
@@ -319,13 +351,17 @@ tasks.register('verifyJava8Bytecode') {
 
 tasks.register('verifyReleaseContents') {
     dependsOn mainReobfJar, reobfExampleAddonJar, tasks.named('apiJar'), tasks.named('sourcesJar'),
-        tasks.named('zenscriptExamplesZip'), tasks.named('exampleAddonSmokeZip')
+        tasks.named('zenscriptExamplesZip'), tasks.named('jsonExamplesZip'),
+        tasks.named('jsonToolsZip'), tasks.named('exampleAddonSmokeZip'),
+        tasks.named('testPonderJsonTool')
     doLast {
         File release = mainReobfJar.get().archiveFile.get().asFile
         File example = reobfExampleAddonJar.get().archiveFile.get().asFile
         File api = tasks.named('apiJar').get().archiveFile.get().asFile
         File sources = tasks.named('sourcesJar').get().archiveFile.get().asFile
         File exampleSmoke = tasks.named('exampleAddonSmokeZip').get().archiveFile.get().asFile
+        File jsonExamples = tasks.named('jsonExamplesZip').get().archiveFile.get().asFile
+        File jsonTools = tasks.named('jsonToolsZip').get().archiveFile.get().asFile
 
         if (zipTree(release).matching { include 'mixins.ponder.refmap.json' }.isEmpty()) {
             throw new GradleException('Release jar is missing mixins.ponder.refmap.json')
@@ -487,12 +523,31 @@ tasks.register('verifyReleaseContents') {
             }
         }
         [
-            'mods/Ponder-Example-Addon-1.12.2-1.2.0.jar',
+            'mods/Ponder-Example-Addon-1.12.2-1.3.0.jar',
             'scripts/ponder/scenes/ponder_example_codec.zs',
             'README.md'
         ].each { path ->
             if (zipTree(exampleSmoke).matching { include path }.isEmpty()) {
                 throw new GradleException("Example addon smoke pack is missing ${path}")
+            }
+        }
+        [
+            'scripts/ponder/packs/ponder_json_demo.ponder.json',
+            'scripts/ponder/structures/ponder/demo/basics.nbt',
+            'README.md'
+        ].each { path ->
+            if (zipTree(jsonExamples).matching { include path }.isEmpty()) {
+                throw new GradleException("JSON example pack is missing ${path}")
+            }
+        }
+        [
+            'ponder-json.ps1',
+            'schemas/ponder-operations-v1.json',
+            'schemas/ponder-pack-v1.schema.json',
+            'README.md'
+        ].each { path ->
+            if (zipTree(jsonTools).matching { include path }.isEmpty()) {
+                throw new GradleException("JSON tools pack is missing ${path}")
             }
         }
     }
@@ -512,6 +567,7 @@ tasks.named('check') {
     dependsOn tasks.named('verifyJava8Bytecode')
     dependsOn tasks.named('verifyReleaseReport')
     dependsOn tasks.named('checkApiCompatibility')
+    dependsOn tasks.named('testPonderJsonTool')
     dependsOn ':ponder-mmce:check'
 }
 
@@ -519,6 +575,8 @@ tasks.named('assemble') {
     dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
     dependsOn reobfServerHarnessJar
     dependsOn tasks.named('zenscriptExamplesZip')
+    dependsOn tasks.named('jsonExamplesZip')
+    dependsOn tasks.named('jsonToolsZip')
     dependsOn tasks.named('exampleAddonSmokeZip')
     dependsOn ':ponder-mmce:assemble'
 }
