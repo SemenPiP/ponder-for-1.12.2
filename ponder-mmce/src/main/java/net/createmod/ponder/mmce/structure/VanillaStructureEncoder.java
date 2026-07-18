@@ -22,6 +22,7 @@ import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagInt;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 
@@ -74,7 +75,7 @@ public final class VanillaStructureEncoder {
             entry.setTag("pos", intVector(normalized));
             entry.setInteger("state", paletteIndices.get(StateKey.of(block.state)));
             if (block.previewNbt != null) {
-                NBTTagCompound preview = block.previewNbt.copy();
+                NBTTagCompound preview = completeTileNbt(block.state, block.previewNbt);
                 preview.setInteger("x", normalized.getX());
                 preview.setInteger("y", normalized.getY());
                 preview.setInteger("z", normalized.getZ());
@@ -102,6 +103,28 @@ public final class VanillaStructureEncoder {
         BlockPos controller = BlockPos.ORIGIN.add(offset);
         return new StructurePayload(ref.asResourceLocation(), nbtBytes,
             fingerprint(nbtBytes, ref, normalizedGroups), normalizedGroups, diagnostics, size, controller);
+    }
+
+    private static NBTTagCompound completeTileNbt(IBlockState state, NBTTagCompound preview)
+        throws IOException {
+        NBTTagCompound completed = preview.copy();
+        if (completed.hasKey("id", 8)) return completed;
+        if (!state.getBlock().hasTileEntity(state))
+            throw new IOException("Preview NBT is present for a block without a TileEntity: "
+                + state.getBlock().getRegistryName());
+        TileEntity tile;
+        try {
+            tile = state.getBlock().createTileEntity(null, state);
+        } catch (RuntimeException failure) {
+            throw new IOException("Could not create preview TileEntity for "
+                + state.getBlock().getRegistryName(), failure);
+        }
+        ResourceLocation tileId = tile == null ? null : TileEntity.getKey(tile.getClass());
+        if (tileId == null)
+            throw new IOException("Could not determine preview TileEntity id for "
+                + state.getBlock().getRegistryName());
+        completed.setString("id", tileId.toString());
+        return completed;
     }
 
     private static Map<String, List<BlockPos>> normalizeGroups(Map<String, List<BlockPos>> inputGroups,

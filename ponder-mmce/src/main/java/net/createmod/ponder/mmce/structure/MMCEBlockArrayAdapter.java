@@ -82,6 +82,26 @@ public final class MMCEBlockArrayAdapter {
     private static void addDynamicAliases(MMCEStructureRef ref, Map<String, List<BlockPos>> groups,
                                           String generatedTag, BlockPos position) {
         if (!ref.dynamic) return;
+        String marker = "_" + ref.dynamicPattern + "_";
+        int markerIndex = generatedTag.lastIndexOf(marker);
+        if (markerIndex > 0) {
+            String tag = generatedTag.substring(0, markerIndex);
+            String suffix = generatedTag.substring(markerIndex + marker.length());
+            if ("end".equals(suffix)) {
+                add(groups, "mmce:dynamic/" + ref.dynamicPattern + "/end/" + tag, position);
+                return;
+            }
+            try {
+                int parsed = Integer.parseInt(suffix);
+                if (parsed >= 0)
+                    add(groups, "mmce:dynamic/" + ref.dynamicPattern + "/segment/"
+                        + parsed + "/" + tag, position);
+            } catch (NumberFormatException ignored) {
+                // Not an MMCE-generated dynamic segment tag.
+            }
+            return;
+        }
+
         String prefix = ref.dynamicPattern + "_";
         if (!generatedTag.startsWith(prefix)) return;
         String body = generatedTag.substring(prefix.length());

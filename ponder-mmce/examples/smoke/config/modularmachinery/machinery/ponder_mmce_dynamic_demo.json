@@ -1,0 +1,104 @@
+{
+  "registryname": "ponder_mmce_dynamic_demo",
+  "localizedname": "Ponder MMCE Dynamic Demo",
+  "requires-blueprint": false,
+  "color": "8C6F3D",
+  "parts": [
+    {
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "selector-tag": "frame",
+      "elements": [
+        "modularmachinery:blockcasing@0"
+      ]
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "selector-tag": "frame",
+      "elements": [
+        "modularmachinery:blockcasing@0"
+      ]
+    }
+  ],
+  "dynamic-patterns": [
+    {
+      "name": "line",
+      "faces": [
+        "north"
+      ],
+      "minSize": 2,
+      "maxSize": 4,
+      "structure-size-offset-start": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      },
+      "structure-size-offset": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      },
+      "parts": [
+        {
+          "x": -1,
+          "y": 0,
+          "z": 0,
+          "selector-tag": "frame",
+          "elements": [
+            "minecraft:iron_block@0"
+          ]
+        },
+        {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "selector-tag": "channel",
+          "elements": [
+            "minecraft:glass@0"
+          ]
+        },
+        {
+          "x": 1,
+          "y": 0,
+          "z": 0,
+          "selector-tag": "frame",
+          "elements": [
+            "minecraft:iron_block@0"
+          ]
+        }
+      ],
+      "parts-end": [
+        {
+          "x": -1,
+          "y": 0,
+          "z": 0,
+          "selector-tag": "frame",
+          "elements": [
+            "modularmachinery:blockcasing@0"
+          ]
+        },
+        {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "selector-tag": "output",
+          "elements": [
+            "modularmachinery:blockoutputbus@0"
+          ]
+        },
+        {
+          "x": 1,
+          "y": 0,
+          "z": 0,
+          "selector-tag": "frame",
+          "elements": [
+            "modularmachinery:blockcasing@0"
+          ]
+        }
+      ]
+    }
+  ]
+}

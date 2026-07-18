@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 
 import github.kasuminova.mmce.common.util.DynamicPattern;
+import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.machine.TaggedPositionBlockArray;
+import hellfirepvp.modularmachinery.common.util.BlockArray;
 import net.createmod.ponder.api.structure.PonderStructureProvider;
 import net.createmod.ponder.api.structure.PonderStructureProviderResult;
 import net.createmod.ponder.mmce.PonderMMCE;
@@ -104,11 +106,11 @@ public final class MMCEStructureProvider implements PonderStructureProvider {
     }
 
     private StructurePayload load(MMCEStructureRef ref) throws IOException {
-        DynamicMachine machine = MachineRegistry.getRegistry().getMachine(ref.getMachineResourceLocation());
-        if (machine == null)
-            throw new IOException("MMCE machine is not loaded: " + ref.machineId);
-        if (machine.getPattern() == null)
-            throw new IOException("MMCE machine has no static BlockArray: " + ref.machineId);
+        DynamicMachine machine = findMachine(ref.getMachineResourceLocation());
+        if (!hasBlocks(machine))
+            machine = MMCEPreviewMachineLoader.find(ref.getMachineResourceLocation());
+        if (!hasBlocks(machine))
+            throw new IOException("MMCE machine structure is not available: " + ref.machineId);
 
         TaggedPositionBlockArray source;
         List<String> diagnostics = new ArrayList<String>();
@@ -134,36 +136,106 @@ public final class MMCEStructureProvider implements PonderStructureProvider {
         return blockArrayAdapter.convert(ref, source, diagnostics);
     }
 
+    private static DynamicMachine findMachine(ResourceLocation machineId) {
+        DynamicMachine registered = MachineRegistry.getRegistry().getMachine(machineId);
+        if (hasBlocks(registered)) return registered;
+        DynamicMachine loaded = findMachine(MachineRegistry.getLoadedMachines(), machineId);
+        if (hasBlocks(loaded)) return loaded;
+        return findMachine(MachineRegistry.getWaitForLoadMachines(), machineId);
+    }
+
+    static DynamicMachine findMachine(Iterable<DynamicMachine> machines, ResourceLocation machineId) {
+        if (machines == null || machineId == null) return null;
+        for (DynamicMachine machine : machines)
+            if (machine != null && machineId.equals(machine.getRegistryName()))
+                return machine;
+        return null;
+    }
+
+    private static boolean hasBlocks(DynamicMachine machine) {
+        return machine != null && machine.getPattern() != null
+            && machine.getPattern().getPattern() != null
+            && !machine.getPattern().getPattern().isEmpty();
+    }
+
     @Override
     public void invalidate() {
         synchronized (cache) {
             cache.clear();
         }
+        MMCEPreviewMachineLoader.invalidate();
     }
 
     static TaggedPositionBlockArray expandDynamic(TaggedPositionBlockArray base, DynamicPattern pattern,
                                                   MMCEStructureRef ref) {
-        return expandDynamic(base, ref, TaggedPositionBlockArray::new,
-            (expanded, repetitions, dynamicFacing, machineFacing) ->
-                pattern.addPatternToBlockArray(expanded, repetitions, dynamicFacing, machineFacing));
-    }
+        if (base == null || pattern == null || ref == null)
+            throw new IllegalArgumentException("MMCE dynamic expansion inputs are required");
+        TaggedPositionBlockArray expanded = new TaggedPositionBlockArray(base);
+        net.minecraft.util.EnumFacing facing = ref.getFacingValue();
+        TaggedPositionBlockArray repeated = rotateTo(pattern.getPattern(), facing);
+        TaggedPositionBlockArray ending = rotateTo(pattern.getPatternEnd(), facing);
+        net.minecraft.util.math.BlockPos offset = pattern.getStructureSizeOffsetStart(facing);
+        net.minecraft.util.math.BlockPos step = pattern.getStructureSizeOffset(facing);
 
-    static TaggedPositionBlockArray expandDynamic(TaggedPositionBlockArray base, MMCEStructureRef ref,
-                                                  BlockArrayCopier copier,
-                                                  DynamicPatternInvoker invoker) {
-        TaggedPositionBlockArray expanded = copier.copy(base);
-        invoker.expand(expanded, ref.repetitions,
-            ref.getPatternOffsetValue(), ref.getFacingValue());
+        List<net.minecraft.util.math.BlockPos> offsets =
+            dynamicOffsets(ref.repetitions, offset, step);
+        for (int index = 0; index < offsets.size(); index++)
+            addPattern(expanded, repeated, offsets.get(index), pattern.getName(), Integer.toString(index));
+        if (ending != null)
+            addPattern(expanded, ending,
+                offsets.isEmpty() ? offset.add(step) : offsets.get(offsets.size() - 1).add(step),
+                pattern.getName(), "end");
         return expanded;
     }
 
-    interface BlockArrayCopier {
-        TaggedPositionBlockArray copy(TaggedPositionBlockArray source);
+    static List<net.minecraft.util.math.BlockPos> dynamicOffsets(
+            int repetitions, net.minecraft.util.math.BlockPos start,
+            net.minecraft.util.math.BlockPos step) {
+        if (repetitions < 0) throw new IllegalArgumentException("repetitions must not be negative");
+        if (start == null || step == null)
+            throw new IllegalArgumentException("dynamic offsets are required");
+        List<net.minecraft.util.math.BlockPos> offsets =
+            new ArrayList<net.minecraft.util.math.BlockPos>(repetitions);
+        net.minecraft.util.math.BlockPos current = start;
+        for (int index = 0; index < repetitions; index++) {
+            if (index > 0) current = current.add(step);
+            offsets.add(current);
+        }
+        return offsets;
     }
 
-    interface DynamicPatternInvoker {
-        void expand(TaggedPositionBlockArray target, int repetitions,
-                    net.minecraft.util.EnumFacing dynamicFacing,
-                    net.minecraft.util.EnumFacing machineFacing);
+    private static TaggedPositionBlockArray rotateTo(TaggedPositionBlockArray source,
+                                                     net.minecraft.util.EnumFacing facing) {
+        if (source == null) return null;
+        TaggedPositionBlockArray rotated = new TaggedPositionBlockArray(source);
+        net.minecraft.util.EnumFacing current = net.minecraft.util.EnumFacing.NORTH;
+        while (current != facing) {
+            current = current.rotateYCCW();
+            rotated = rotated.rotateYCCW();
+        }
+        return rotated;
+    }
+
+    private static void addPattern(TaggedPositionBlockArray target, TaggedPositionBlockArray source,
+                                   net.minecraft.util.math.BlockPos offset, String patternName,
+                                   String segment) {
+        for (Map.Entry<net.minecraft.util.math.BlockPos, BlockArray.BlockInformation> entry
+                : source.getPattern().entrySet())
+            target.addBlock(entry.getKey().add(offset), entry.getValue());
+        for (Map.Entry<net.minecraft.util.math.BlockPos, ComponentSelectorTag> entry
+                : source.getTaggedPositions().entrySet()) {
+            ComponentSelectorTag tag = entry.getValue();
+            if (tag == null || tag.getTag() == null || tag.getTag().trim().isEmpty()) continue;
+            target.setTag(entry.getKey().add(offset),
+                new ComponentSelectorTag(dynamicTag(tag.getTag(), patternName, segment)));
+        }
+    }
+
+    static String dynamicTag(String originalTag, String patternName, String segment) {
+        if (originalTag == null || originalTag.trim().isEmpty()
+            || patternName == null || patternName.trim().isEmpty()
+            || segment == null || segment.trim().isEmpty())
+            throw new IllegalArgumentException("MMCE dynamic tag parts are required");
+        return originalTag + "_" + patternName + "_" + segment;
     }
 }
