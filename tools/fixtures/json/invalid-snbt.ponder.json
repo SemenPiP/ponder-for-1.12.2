@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "id": "ponder_test:invalid_snbt",
+  "scenes": [
+    {
+      "id": "ponder_test:invalid_snbt",
+      "component": "minecraft:paper",
+      "title": "Invalid SNBT",
+      "structure": "ponder:demo/basics",
+      "instructions": [
+        {
+          "op": "world.tile_nbt",
+          "selection": {
+            "type": "position",
+            "pos": [1, 1, 1]
+          },
+          "nbt": "[1,2,3]",
+          "replace": false,
+          "redraw": false
+        }
+      ]
+    }
+  ]
+}

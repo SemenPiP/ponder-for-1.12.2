@@ -34,6 +34,19 @@ public class PonderDiagnosticRegistryTest {
         assertFalse(merged.effective.contains(localScript));
     }
 
+    @Test
+    public void clientEffectiveViewTreatsJsonAsAFirstClassLocalSource() {
+        PonderSceneDiagnostic localJson = scene("json_shared", PonderSceneSource.LOCAL_JSON);
+        PonderSceneDiagnostic server = scene("json_shared", PonderSceneSource.SERVER_SNAPSHOT);
+
+        PonderDiagnosticRegistry.ClientViews merged = PonderDiagnosticRegistry.mergeClientViews(
+            Collections.singletonList(localJson), Collections.singletonList(server));
+
+        assertEquals(PonderSceneSource.LOCAL_JSON, merged.local.get(0).getSource());
+        assertTrue(merged.local.get(0).isOverridden());
+        assertEquals(Collections.singletonList(server), merged.effective);
+    }
+
     private static PonderSceneDiagnostic scene(String path, PonderSceneSource source) {
         ResourceLocation id = new ResourceLocation("test", path);
         return new PonderSceneDiagnostic(source.name() + ":" + path, id,

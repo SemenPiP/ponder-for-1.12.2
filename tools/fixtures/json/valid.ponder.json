@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "id": "ponder_test:valid",
+  "sharedText": {
+    "ponder_test.step": "Step %s"
+  },
+  "scenes": [
+    {
+      "id": "ponder_test:valid",
+      "component": "minecraft:paper",
+      "title": "Valid JSON fixture",
+      "structure": "ponder:demo/basics",
+      "instructions": [
+        {
+          "op": "scene.configure_base_plate",
+          "x": 0,
+          "z": 0,
+          "size": 5
+        },
+        {
+          "op": "world.show_section",
+          "selection": {
+            "type": "layers",
+            "y": 1,
+            "height": 2
+          },
+          "direction": "down"
+        },
+        {
+          "op": "world.tile_nbt",
+          "selection": {
+            "type": "position",
+            "pos": [2, 1, 2]
+          },
+          "nbt": "{Lock:\"fixture\"}",
+          "replace": false,
+          "redraw": false
+        },
+        {
+          "op": "scene.finish"
+        }
+      ]
+    }
+  ]
+}

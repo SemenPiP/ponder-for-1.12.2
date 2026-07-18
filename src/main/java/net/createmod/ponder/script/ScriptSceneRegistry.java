@@ -22,7 +22,9 @@ import stanhebben.zenscript.annotations.ZenMethod;
 @ZenClass("mods.ponder.SceneRegistry")
 public final class ScriptSceneRegistry {
     public static final int MAX_SCENES = 2048;
-    private static final Map<ResourceLocation, ScriptSceneDefinition> LOCAL =
+    private static final Map<ResourceLocation, ScriptSceneDefinition> ZS_LOCAL =
+        new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
+    private static final Map<ResourceLocation, ScriptSceneDefinition> JSON_LOCAL =
         new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
     private static final Map<ResourceLocation, ScriptSceneDefinition> SERVER =
         new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
@@ -47,7 +49,7 @@ public final class ScriptSceneRegistry {
     public static void removeScene(String sceneId) {
         ResourceLocation id = parseId(sceneId, "scene id");
         synchronized (ScriptSceneRegistry.class) {
-            LOCAL.remove(id);
+            ZS_LOCAL.remove(id);
         }
     }
 
@@ -55,16 +57,17 @@ public final class ScriptSceneRegistry {
     public static void removeComponent(String componentId) {
         ResourceLocation component = parseId(componentId, "component id");
         synchronized (ScriptSceneRegistry.class) {
-            LOCAL.values().removeIf(definition -> definition.getComponent().equals(component));
+            ZS_LOCAL.values().removeIf(definition -> definition.getComponent().equals(component));
         }
     }
 
     static synchronized void register(ScriptSceneDefinition definition) {
-        if (LOCAL.size() >= MAX_SCENES)
+        if (ZS_LOCAL.size() + JSON_LOCAL.size() >= MAX_SCENES)
             throw new IllegalStateException("Ponder script scene limit reached: " + MAX_SCENES);
-        if (LOCAL.containsKey(definition.getSceneId()))
+        if (ZS_LOCAL.containsKey(definition.getSceneId())
+            || JSON_LOCAL.containsKey(definition.getSceneId()))
             throw new IllegalArgumentException("Duplicate Ponder script scene id: " + definition.getSceneId());
-        LOCAL.put(definition.getSceneId(), definition);
+        ZS_LOCAL.put(definition.getSceneId(), definition);
         CraftTweakerAPI.logInfo("Registered Ponder scene " + definition.getSceneId()
             + " for " + definition.getComponent());
     }
@@ -115,14 +118,14 @@ public final class ScriptSceneRegistry {
 
     public static synchronized Collection<ScriptSceneDefinition> effectiveScenes() {
         Map<ResourceLocation, ScriptSceneDefinition> merged =
-            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>(LOCAL);
+            localMap();
         merged.putAll(SERVER);
         return Collections.unmodifiableCollection(new ArrayList<ScriptSceneDefinition>(merged.values()));
     }
 
     public static synchronized List<ScriptSceneDefinition> localSnapshot(boolean includeClientOnly) {
         List<ScriptSceneDefinition> result = new ArrayList<ScriptSceneDefinition>();
-        for (ScriptSceneDefinition definition : LOCAL.values())
+        for (ScriptSceneDefinition definition : localMap().values())
             if (includeClientOnly || !definition.isClientOnly()) result.add(definition);
         return Collections.unmodifiableList(result);
     }
@@ -217,9 +220,24 @@ public final class ScriptSceneRegistry {
         if (view == PonderDiagnosticView.SERVER)
             return SERVER.get(sceneId);
         if (view == PonderDiagnosticView.LOCAL)
-            return LOCAL.get(sceneId);
+            return localMap().get(sceneId);
         ScriptSceneDefinition server = SERVER.get(sceneId);
-        return server == null ? LOCAL.get(sceneId) : server;
+        return server == null ? localMap().get(sceneId) : server;
+    }
+
+    static synchronized List<ScriptSceneDefinition> jsonSnapshot() {
+        return Collections.unmodifiableList(new ArrayList<ScriptSceneDefinition>(JSON_LOCAL.values()));
+    }
+
+    static synchronized void replaceJsonScenes(Collection<ScriptSceneDefinition> definitions) {
+        Map<ResourceLocation, ScriptSceneDefinition> replacement =
+            validateJsonScenes(definitions);
+        JSON_LOCAL.clear();
+        JSON_LOCAL.putAll(replacement);
+    }
+
+    static synchronized boolean containsZenScene(ResourceLocation sceneId) {
+        return ZS_LOCAL.containsKey(sceneId);
     }
 
     private static Map<ResourceLocation, ScriptSceneDefinition> validateServerScenes(
@@ -235,6 +253,38 @@ public final class ScriptSceneRegistry {
                 throw new IllegalArgumentException("Duplicate server Ponder scene id: " + definition.getSceneId());
         }
         return replacement;
+    }
+
+    private static Map<ResourceLocation, ScriptSceneDefinition> validateJsonScenes(
+            Collection<ScriptSceneDefinition> definitions) {
+        if (definitions == null || definitions.size() + ZS_LOCAL.size() > MAX_SCENES)
+            throw new IllegalArgumentException("Invalid local JSON Ponder scene collection");
+        Map<ResourceLocation, ScriptSceneDefinition> replacement =
+            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
+        for (ScriptSceneDefinition definition : definitions) {
+            if (definition == null)
+                throw new IllegalArgumentException("Local JSON Ponder scene may not be null");
+            ResourceLocation sceneId = definition.getSceneId();
+            if (ZS_LOCAL.containsKey(sceneId))
+                throw new IllegalArgumentException("JSON scene conflicts with ZenScript scene " + sceneId);
+            if (replacement.put(sceneId, definition) != null)
+                throw new IllegalArgumentException("Duplicate local JSON Ponder scene id: " + sceneId);
+        }
+        return replacement;
+    }
+
+    private static Map<ResourceLocation, ScriptSceneDefinition> localMap() {
+        Map<ResourceLocation, ScriptSceneDefinition> merged =
+            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>(ZS_LOCAL);
+        merged.putAll(JSON_LOCAL);
+        return merged;
+    }
+
+    static synchronized void recordJsonIssue(String code, PonderDiagnosticSeverity severity,
+                                             String message, ResourceLocation sceneId,
+                                             int instructionIndex) {
+        addRegistrationIssue(new PonderDiagnosticIssue(code, severity, message,
+            sceneId, instructionIndex));
     }
 
     private static void addRegistrationIssue(PonderDiagnosticIssue issue) {

@@ -542,8 +542,8 @@ try {
         throw "The CatServer jar is not the supported SHA256 $expectedCatServerHash build. Found $catServerHash"
     }
 
-    $releaseJar = Join-Path $buildRoot "libs\Ponder-1.12.2-1.2.0.jar"
-    $exampleJar = Join-Path $buildRoot "libs\Ponder-Example-Addon-1.12.2-1.2.0.jar"
+    $releaseJar = Join-Path $buildRoot "libs\Ponder-1.12.2-1.3.0.jar"
+    $exampleJar = Join-Path $buildRoot "libs\Ponder-Example-Addon-1.12.2-1.3.0.jar"
     foreach ($artifact in @($releaseJar, $exampleJar)) {
         if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
             throw "Build all release and example artifacts before this test: $artifact"

@@ -1,0 +1,23 @@
+{
+  "format": 1,
+  "id": "ponder_test:invalid_selection",
+  "scenes": [
+    {
+      "id": "ponder_test:invalid_selection",
+      "component": "minecraft:paper",
+      "title": "Invalid selection",
+      "structure": "ponder:demo/basics",
+      "instructions": [
+        {
+          "op": "world.show_section",
+          "selection": {
+            "type": "layers",
+            "y": 1,
+            "height": 0
+          },
+          "direction": "down"
+        }
+      ]
+    }
+  ]
+}

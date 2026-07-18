@@ -133,7 +133,7 @@ evidence that a release contains modern sample content.
 
 ## Loader boundary
 
-Only Forge 1.12.2 is implemented. Fabric, NeoForge, Cleanroom-specific behavior, third-party JSON
+Only Forge 1.12.2 is implemented. Fabric, NeoForge, Cleanroom-specific behavior, unrelated third-party
 scene formats and third-party backport source compatibility are outside this artifact.
 
 Runtime qualification is separate from this source inventory. See [TESTING.md](TESTING.md) for the
@@ -144,8 +144,8 @@ exact Forge, MixinBooter and CatServer versions and for the current client/serve
 Starting with 1.2.0, the repository tracks deterministic signatures generated from the actual API jar
 with JDK 8 `javap -protected -s -constants`:
 
-- `api-signatures/ponder-api-1.1.3.sig` is the compatibility baseline.
-- `api-signatures/ponder-api-1.2.0.sig` is the exact current signature.
+- `api-signatures/ponder-api-1.2.0.sig` is the compatibility baseline.
+- `api-signatures/ponder-api-1.3.0.sig` is the exact current signature.
 
 `generateApiSignature` rejects drift from the current snapshot, while `checkApiCompatibility` rejects
 removed types or members, changed descriptors or inheritance, reduced visibility, and new abstract

@@ -1,0 +1,270 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ponder:schemas/ponder-pack-v1",
+  "title": "Ponder Legacy JSON Scene Pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": 1 },
+    "id": { "$ref": "#/definitions/resourceId" },
+    "scenes": {
+      "type": "array",
+      "maxItems": 2048,
+      "items": { "$ref": "#/definitions/scene" }
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": { "$ref": "#/definitions/tag" }
+    },
+    "sharedText": {
+      "type": "object",
+      "maxProperties": 4096,
+      "additionalProperties": { "type": "string", "maxLength": 8192 }
+    },
+    "indexExclusions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/resourceId" }
+    }
+  },
+  "definitions": {
+    "resourceId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 256,
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "vector3i": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "integer" }
+    },
+    "selection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "pos"],
+          "properties": {
+            "type": { "const": "position" },
+            "pos": { "$ref": "#/definitions/vector3i" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "from", "to"],
+          "properties": {
+            "type": { "const": "from_to" },
+            "from": { "$ref": "#/definitions/vector3i" },
+            "to": { "$ref": "#/definitions/vector3i" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "x", "z"],
+          "properties": {
+            "type": { "const": "column" },
+            "x": { "type": "integer" },
+            "z": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "y"],
+          "properties": {
+            "type": { "enum": ["layer", "layers_from"] },
+            "y": { "type": "integer" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "y", "height"],
+          "properties": {
+            "type": { "const": "layers" },
+            "y": { "type": "integer" },
+            "height": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "origin", "offset"],
+          "properties": {
+            "type": { "const": "cuboid" },
+            "origin": { "$ref": "#/definitions/vector3i" },
+            "offset": { "$ref": "#/definitions/vector3i" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "everywhere" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "name"],
+          "properties": {
+            "type": { "const": "structure_group" },
+            "name": { "type": "string", "minLength": 1, "maxLength": 256 }
+          }
+        }
+      ]
+    },
+    "instruction": {
+      "type": "object",
+      "required": ["op"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "scene.configure_base_plate",
+            "scene.show_base_plate",
+            "scene.remove_shadow",
+            "scene.scale",
+            "scene.offset_y",
+            "scene.idle",
+            "scene.rotate_camera",
+            "scene.keyframe",
+            "scene.lazy_keyframe",
+            "scene.finish",
+            "scene.next_up",
+            "scene.move_poi",
+            "scene.custom",
+            "world.show_section",
+            "world.hide_section",
+            "world.restore_blocks",
+            "world.show_independent",
+            "world.show_independent_immediate",
+            "world.hide_independent",
+            "world.make_independent",
+            "world.show_section_merge",
+            "world.glue_block",
+            "world.move_section",
+            "world.rotate_section",
+            "world.center_section",
+            "world.stabilize_section",
+            "world.set_block",
+            "world.set_blocks",
+            "world.destroy_block",
+            "world.break_progress",
+            "world.cycle_property",
+            "world.toggle_redstone",
+            "world.create_item",
+            "world.move_item",
+            "world.set_item_visible",
+            "world.remove_item",
+            "world.create_minecart",
+            "world.move_minecart",
+            "world.rotate_minecart",
+            "world.hide_minecart",
+            "world.create_parrot",
+            "world.change_parrot_pose",
+            "world.move_parrot",
+            "world.rotate_parrot",
+            "world.hide_parrot",
+            "world.tile_nbt",
+            "overlay.show_text",
+            "overlay.show_shared_text",
+            "overlay.show_independent_text",
+            "overlay.show_controls",
+            "overlay.show_line",
+            "overlay.show_outline",
+            "overlay.show_outline_text",
+            "overlay.show_bounding_box",
+            "overlay.show_scroll_input",
+            "overlay.show_centered_scroll_input",
+            "overlay.show_repeater_scroll_input",
+            "overlay.show_filter_slot_input",
+            "effects.indicate_redstone",
+            "effects.indicate_success",
+            "effects.redstone_particles",
+            "effects.particles",
+            "effects.particles_within_block"
+          ]
+        },
+        "selection": { "$ref": "#/definitions/selection" },
+        "nbt": { "type": "string", "minLength": 2, "maxLength": 262144 },
+        "payload": { "type": "string", "minLength": 2, "maxLength": 262144 },
+        "params": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 8192 }
+        },
+        "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" },
+        "x1": { "type": "number" }, "y1": { "type": "number" }, "z1": { "type": "number" },
+        "x2": { "type": "number" }, "y2": { "type": "number" }, "z2": { "type": "number" },
+        "mx": { "type": "number" }, "my": { "type": "number" }, "mz": { "type": "number" },
+        "minX": { "type": "number" }, "minY": { "type": "number" }, "minZ": { "type": "number" },
+        "maxX": { "type": "number" }, "maxY": { "type": "number" }, "maxZ": { "type": "number" },
+        "value": { "type": "number" }, "degrees": { "type": "number" },
+        "angle": { "type": "number" }, "amount": { "type": "number" },
+        "size": { "type": "integer" }, "ticks": { "type": "integer" },
+        "duration": { "type": "integer" }, "count": { "type": "integer" },
+        "meta": { "type": "integer" }, "cycles": { "type": "integer" },
+        "color": {}, "enabled": { "type": "boolean" }, "particles": { "type": "boolean" },
+        "replace": { "type": "boolean" }, "redraw": { "type": "boolean" },
+        "near": { "type": "boolean" }, "keyframe": { "type": "boolean" },
+        "big": { "type": "boolean" }, "visible": { "type": "boolean" },
+        "handle": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "direction": { "type": "string" }, "side": { "type": "string" },
+        "state": { "type": "string" }, "property": { "type": "string" },
+        "item": { "$ref": "#/definitions/resourceId" }, "codec": { "$ref": "#/definitions/resourceId" },
+        "type": { "type": "string" }, "pose": { "type": "string" },
+        "text": { "type": "string", "maxLength": 8192 },
+        "key": { "type": "string", "maxLength": 256 },
+        "slot": { "type": "string" }, "pointing": { "type": "string" },
+        "action": { "type": "string" }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "component", "title", "structure", "instructions"],
+      "properties": {
+        "id": { "$ref": "#/definitions/resourceId" },
+        "component": { "$ref": "#/definitions/resourceId" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "structure": { "$ref": "#/definitions/resourceId" },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/resourceId" }
+        },
+        "clientOnly": { "type": "boolean", "default": false },
+        "instructions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": { "$ref": "#/definitions/instruction" }
+        }
+      }
+    },
+    "tag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "icon", "title", "description"],
+      "properties": {
+        "id": { "$ref": "#/definitions/resourceId" },
+        "icon": { "$ref": "#/definitions/resourceId" },
+        "title": { "type": "string", "maxLength": 8192 },
+        "description": { "type": "string", "maxLength": 8192 },
+        "indexed": { "type": "boolean", "default": true },
+        "components": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/resourceId" }
+        }
+      }
+    }
+  }
+}

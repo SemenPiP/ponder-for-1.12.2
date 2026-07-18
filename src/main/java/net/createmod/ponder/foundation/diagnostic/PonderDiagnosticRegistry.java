@@ -77,15 +77,11 @@ public final class PonderDiagnosticRegistry {
             localScenes.add(buildJava(registry, entry, javaIndex++, nextJavaTimelines));
         }
         for (ScriptSceneDefinition definition : ScriptSceneRegistry.localSnapshot(true))
-            localScenes.add(buildScript(registry, definition,
-                ScriptSourceMetadata.isBuiltin(definition.getSourceDescription())
-                    ? PonderSceneSource.BUILTIN_ZS : PonderSceneSource.LOCAL_ZS));
+            localScenes.add(buildScript(registry, definition, definition.getLocalSource()));
         boolean serverProcess = isServerProcess();
         if (serverProcess) {
             for (ScriptSceneDefinition definition : ScriptSceneRegistry.localSnapshot(false))
-                serverScenes.add(buildScript(registry, definition,
-                    ScriptSourceMetadata.isBuiltin(definition.getSourceDescription())
-                        ? PonderSceneSource.BUILTIN_ZS : PonderSceneSource.LOCAL_ZS));
+                serverScenes.add(buildScript(registry, definition, definition.getLocalSource()));
         } else {
             for (ScriptSceneDefinition definition : ScriptSceneRegistry.serverSnapshot())
                 serverScenes.add(buildScript(registry, definition, PonderSceneSource.SERVER_SNAPSHOT));
@@ -174,7 +170,8 @@ public final class PonderDiagnosticRegistry {
             new ArrayList<PonderSceneDiagnostic>(localScenes.size());
         for (PonderSceneDiagnostic scene : localScenes) {
             boolean script = scene.getSource() == PonderSceneSource.BUILTIN_ZS
-                || scene.getSource() == PonderSceneSource.LOCAL_ZS;
+                || scene.getSource() == PonderSceneSource.LOCAL_ZS
+                || scene.getSource() == PonderSceneSource.LOCAL_JSON;
             if (script && scene.getSceneId() != null && serverById.containsKey(scene.getSceneId())) {
                 markedLocalScenes.add(scene.overriddenBy(PonderSceneSource.SERVER_SNAPSHOT)
                     .withIssue(issue("override.server_scene", PonderDiagnosticSeverity.INFO,

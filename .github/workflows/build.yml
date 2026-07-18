@@ -93,7 +93,7 @@ jobs:
       - name: Write artifact summary
         shell: powershell
         run: |
-          "## Ponder 1.2.0 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "## Ponder 1.3.0 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| Project | File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| --- | --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -106,11 +106,17 @@ jobs:
             "ponder-mmce\build\distributions\Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "Smoke Pack"; File = $smoke })
           $examples = Get-Item -LiteralPath `
-            "build\distributions\Ponder-ZenScript-Examples-1.2.0.zip"
+            "build\distributions\Ponder-ZenScript-Examples-1.3.0.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "ZenScript Examples"; File = $examples })
           $addonSmoke = Get-Item -LiteralPath `
-            "build\distributions\Ponder-Example-Addon-Smoke-1.2.0.zip"
+            "build\distributions\Ponder-Example-Addon-Smoke-1.3.0.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "Example Addon Smoke"; File = $addonSmoke })
+          $jsonExamples = Get-Item -LiteralPath `
+            "build\distributions\Ponder-JSON-Examples-1.3.0.zip"
+          $artifacts.Add([PSCustomObject]@{ Project = "JSON Examples"; File = $jsonExamples })
+          $jsonTools = Get-Item -LiteralPath `
+            "build\distributions\Ponder-JSON-Tools-1.3.0.zip"
+          $artifacts.Add([PSCustomObject]@{ Project = "JSON Tools"; File = $jsonTools })
 
           $checksumLines = [Collections.Generic.List[string]]::new()
           foreach ($artifact in @($artifacts | Sort-Object { $_.File.Name })) {
@@ -126,7 +132,7 @@ jobs:
       - name: Upload release jars
         uses: actions/upload-artifact@v7
         with:
-          name: ponder-1.2.0-${{ github.sha }}
+          name: ponder-1.3.0-${{ github.sha }}
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 30
@@ -151,7 +157,25 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-zenscript-examples-${{ github.sha }}
-          path: build/distributions/Ponder-ZenScript-Examples-1.2.0.zip
+          path: build/distributions/Ponder-ZenScript-Examples-1.3.0.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Ponder JSON Examples
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-json-examples-${{ github.sha }}
+          path: build/distributions/Ponder-JSON-Examples-1.3.0.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Ponder JSON Tools
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-json-tools-${{ github.sha }}
+          path: |
+            build/distributions/Ponder-JSON-Tools-1.3.0.zip
+            schemas/*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -159,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-example-addon-smoke-${{ github.sha }}
-          path: build/distributions/Ponder-Example-Addon-Smoke-1.2.0.zip
+          path: build/distributions/Ponder-Example-Addon-Smoke-1.3.0.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -169,8 +193,8 @@ jobs:
           name: ponder-api-signature-${{ github.sha }}
           path: |
             build/reports/api/**
-            api-signatures/ponder-api-1.1.3.sig
             api-signatures/ponder-api-1.2.0.sig
+            api-signatures/ponder-api-1.3.0.sig
           if-no-files-found: error
           retention-days: 30
 
@@ -239,7 +263,7 @@ jobs:
       - name: Download release jars
         uses: actions/download-artifact@v8
         with:
-          name: ponder-1.2.0-${{ github.sha }}
+          name: ponder-1.3.0-${{ github.sha }}
           path: build/libs
 
       - name: Download server fixture harness
