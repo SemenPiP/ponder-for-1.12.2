@@ -93,7 +93,7 @@ jobs:
       - name: Write artifact summary
         shell: powershell
         run: |
-          "## Ponder 1.1.3 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "## Ponder 1.2.0 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| Project | File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| --- | --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -106,8 +106,11 @@ jobs:
             "ponder-mmce\build\distributions\Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "Smoke Pack"; File = $smoke })
           $examples = Get-Item -LiteralPath `
-            "build\distributions\Ponder-ZenScript-Examples-1.1.3.zip"
+            "build\distributions\Ponder-ZenScript-Examples-1.2.0.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "ZenScript Examples"; File = $examples })
+          $addonSmoke = Get-Item -LiteralPath `
+            "build\distributions\Ponder-Example-Addon-Smoke-1.2.0.zip"
+          $artifacts.Add([PSCustomObject]@{ Project = "Example Addon Smoke"; File = $addonSmoke })
 
           $checksumLines = [Collections.Generic.List[string]]::new()
           foreach ($artifact in @($artifacts | Sort-Object { $_.File.Name })) {
@@ -123,7 +126,7 @@ jobs:
       - name: Upload release jars
         uses: actions/upload-artifact@v7
         with:
-          name: ponder-1.1.3-${{ github.sha }}
+          name: ponder-1.2.0-${{ github.sha }}
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 30
@@ -148,7 +151,26 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-zenscript-examples-${{ github.sha }}
-          path: build/distributions/Ponder-ZenScript-Examples-1.1.3.zip
+          path: build/distributions/Ponder-ZenScript-Examples-1.2.0.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Ponder Example Addon Smoke Pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-example-addon-smoke-${{ github.sha }}
+          path: build/distributions/Ponder-Example-Addon-Smoke-1.2.0.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload API compatibility report
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-api-signature-${{ github.sha }}
+          path: |
+            build/reports/api/**
+            api-signatures/ponder-api-1.1.3.sig
+            api-signatures/ponder-api-1.2.0.sig
           if-no-files-found: error
           retention-days: 30
 
@@ -217,7 +239,7 @@ jobs:
       - name: Download release jars
         uses: actions/download-artifact@v8
         with:
-          name: ponder-1.1.3-${{ github.sha }}
+          name: ponder-1.2.0-${{ github.sha }}
           path: build/libs
 
       - name: Download server fixture harness

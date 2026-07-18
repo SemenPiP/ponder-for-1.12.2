@@ -29,7 +29,8 @@ public final class ExamplePonderPlugin implements PonderPlugin {
     @Override
     public void registerScenes(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         helper.addStoryBoard(new ResourceLocation("minecraft", "piston"),
-            new ResourceLocation("ponder", "demo/basics"), ExamplePonderPlugin::pistonScene, MECHANISMS)
+            id("codec_demo"), ExamplePonderPlugin::pistonScene, MECHANISMS)
+            .identifiedBy(id("service_loader"))
             .orderBefore("ponder", "ponder_basics");
     }
 

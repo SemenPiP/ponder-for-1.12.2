@@ -3,22 +3,22 @@ package net.createmod.ponder.script;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.createmod.catnip.platform.CatnipServices;
 import net.createmod.ponder.Ponder;
 import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotBeginPacket;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotChunkPacket;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotCompletePacket;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotStatusPacket;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.ResourceLocation;
 
 public final class ScriptSceneSync {
     public static final int CHUNK_BYTES = 256 * 1024;
@@ -42,7 +42,7 @@ public final class ScriptSceneSync {
     }
 
     public static synchronized void receiveCapabilities(EntityPlayerMP player, int protocol,
-                                                        List<ResourceLocation> codecs) {
+                                                        List<ScriptInstructionCodecDescriptor> codecs) {
         if (player == null) return;
         if (!CLIENTS.contains(player.getUniqueID())) {
             rejectAndTrack(player, protocol, codecs, 0,
@@ -63,32 +63,31 @@ public final class ScriptSceneSync {
                 "Invalid Ponder script codec capability list");
             return;
         }
-        Set<ResourceLocation> supported = new HashSet<ResourceLocation>();
-        for (ResourceLocation codec : codecs) {
-            if (codec == null || !supported.add(codec)) {
-                rejectAndTrack(player, protocol, codecs, 0,
-                    "Invalid or duplicate Ponder script codec capability");
-                return;
-            }
+        Map<net.minecraft.util.ResourceLocation, ScriptInstructionCodecDescriptor> supported;
+        try {
+            supported = ScriptCodecDescriptors.byId(codecs);
+        } catch (RuntimeException invalid) {
+            rejectAndTrack(player, protocol, codecs, 0,
+                "Invalid Ponder script codec capability list: " + invalid.getMessage());
+            return;
         }
         long now = System.currentTimeMillis();
-        CLIENTS.recordCapabilities(player.getUniqueID(), protocol, new ArrayList<ResourceLocation>(supported),
-            now);
+        CLIENTS.recordCapabilities(player.getUniqueID(), protocol,
+            new ArrayList<ScriptInstructionCodecDescriptor>(supported.values()), now);
         try {
             List<ScriptSceneDefinition> scenes = ScriptSceneRegistry.localSnapshot(false);
-            ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encode(scenes);
-            List<ResourceLocation> requiredCodecs = ScriptSceneSnapshot.requiredCodecs(scenes);
-            for (ResourceLocation required : requiredCodecs) {
-                if (!supported.contains(required)) {
-                    rejectAndTrack(player, protocol, codecs, 0,
-                        "Missing required Ponder script codec " + required);
-                    return;
-                }
+            ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encodeLocal(scenes);
+            List<ScriptInstructionCodecDescriptor> requiredCodecs = encoded.requirements;
+            String compatibilityError =
+                ScriptCodecDescriptors.compatibilityError(supported.values(), requiredCodecs);
+            if (!compatibilityError.isEmpty()) {
+                rejectAndTrack(player, protocol, codecs, 0, compatibilityError);
+                return;
             }
             int transfer = nextTransferId();
             int chunks = Math.max(1, (encoded.bytes.length + CHUNK_BYTES - 1) / CHUNK_BYTES);
             CLIENTS.startTransfer(player.getUniqueID(), transfer, encoded.bytes.length, encoded.uncompressedBytes,
-                System.currentTimeMillis());
+                requiredCodecs, System.currentTimeMillis());
             CatnipServices.NETWORK.sendToClient(player, new ClientboundScriptSnapshotBeginPacket(transfer,
                 ScriptSceneSnapshot.PROTOCOL, chunks, encoded.bytes.length, encoded.uncompressedBytes,
                 encoded.hash, requiredCodecs));
@@ -151,7 +150,8 @@ public final class ScriptSceneSync {
         Ponder.LOGGER.warn("Rejected Ponder script sync for {}: {}", player.getName(), message);
     }
 
-    private static void rejectAndTrack(EntityPlayerMP player, int protocol, List<ResourceLocation> codecs,
+    private static void rejectAndTrack(EntityPlayerMP player, int protocol,
+                                       List<ScriptInstructionCodecDescriptor> codecs,
                                        int transferId, String message) {
         CLIENTS.reject(player.getUniqueID(), player.getName(), protocol, codecs, transferId, message,
             System.currentTimeMillis());

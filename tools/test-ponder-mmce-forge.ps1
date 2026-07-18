@@ -268,7 +268,7 @@ try {
     }
 
     $PonderJar = Resolve-FirstFile -Preferred $PonderJar -SearchRoot (Join-Path $buildRoot "libs") `
-        -Filter "Ponder-1.12.2-1.1.3.jar" -Label "Ponder jar"
+        -Filter "Ponder-1.12.2-1.2.0.jar" -Label "Ponder jar"
     $PonderMMCEJar = Resolve-FirstFile -Preferred $PonderMMCEJar `
         -SearchRoot (Join-Path $addonBuild "libs") -Filter "Ponder-MMCE-1.12.2-0.1.0-alpha.jar" `
         -Label "Ponder-MMCE jar"

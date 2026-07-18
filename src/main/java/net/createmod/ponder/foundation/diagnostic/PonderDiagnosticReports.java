@@ -17,6 +17,7 @@ import com.google.gson.JsonObject;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticIssue;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
 import net.createmod.ponder.api.diagnostic.PonderSceneDiagnostic;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependency;
 import net.createmod.ponder.foundation.PonderScene;
 import net.createmod.ponder.script.ScriptInstruction;
 import net.createmod.ponder.script.ScriptSceneDefinition;
@@ -31,6 +32,42 @@ public final class PonderDiagnosticReports {
     public static File writeValidation(PonderDiagnosticSnapshot snapshot) throws IOException {
         JsonObject root = snapshotJson(snapshot);
         return writeJson("validate-" + snapshot.getView().name().toLowerCase(Locale.ROOT), root);
+    }
+
+    public static File writeDependencies(net.createmod.ponder.api.diagnostic.PonderDiagnosticView view,
+                                         java.util.List<PonderStructureDependency> dependencies)
+            throws IOException {
+        return writeJson("structure-dependencies-" + view.name().toLowerCase(Locale.ROOT),
+            dependenciesJson(view, dependencies));
+    }
+
+    static JsonObject dependenciesJson(
+            net.createmod.ponder.api.diagnostic.PonderDiagnosticView view,
+            java.util.List<PonderStructureDependency> dependencies) {
+        JsonObject root = new JsonObject();
+        root.addProperty("format", 1);
+        root.addProperty("view", view.name());
+        root.addProperty("createdAt", System.currentTimeMillis());
+        JsonArray structures = new JsonArray();
+        for (PonderStructureDependency dependency : dependencies) {
+            JsonObject value = new JsonObject();
+            value.addProperty("structure", dependency.getStructureId().toString());
+            if (dependency.getProviderId() != null)
+                value.addProperty("provider", dependency.getProviderId().toString());
+            value.addProperty("fingerprint", dependency.getFingerprint());
+            value.addProperty("status", dependency.getStatus().name());
+            if (dependency.getContributorId() != null)
+                value.addProperty("contributor", dependency.getContributorId().toString());
+            value.add("scenes", resourceIds(dependency.getSceneIds()));
+            value.add("components", resourceIds(dependency.getComponents()));
+            JsonArray sources = new JsonArray();
+            for (net.createmod.ponder.api.diagnostic.PonderSceneSource source : dependency.getSources())
+                sources.add(source.name());
+            value.add("sources", sources);
+            structures.add(value);
+        }
+        root.add("structures", structures);
+        return root;
     }
 
     public static File writeTimeline(PonderSceneDiagnostic scene, ScriptSceneDefinition definition)
@@ -154,6 +191,14 @@ public final class PonderDiagnosticReports {
         if (issue.hasInstructionIndex())
             entry.addProperty("instructionIndex", issue.getInstructionIndex());
         return entry;
+    }
+
+    private static JsonArray resourceIds(
+            java.util.Collection<net.minecraft.util.ResourceLocation> ids) {
+        JsonArray result = new JsonArray();
+        for (net.minecraft.util.ResourceLocation id : ids)
+            result.add(id.toString());
+        return result;
     }
 
     private static File writeJson(String name, JsonObject value) throws IOException {

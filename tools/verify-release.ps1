@@ -150,13 +150,19 @@ function Get-McpMemberSet([string]$MappingPath) {
 
 $libs = Join-Path $ProjectRoot "build\libs"
 $artifacts = [ordered]@{
-    Ponder = Join-Path $libs "Ponder-1.12.2-1.1.3.jar"
-    Sources = Join-Path $libs "Ponder-1.12.2-1.1.3-sources.jar"
-    API = Join-Path $libs "Ponder-1.12.2-1.1.3-api.jar"
-    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.1.3.jar"
+    Ponder = Join-Path $libs "Ponder-1.12.2-1.2.0.jar"
+    Sources = Join-Path $libs "Ponder-1.12.2-1.2.0-sources.jar"
+    API = Join-Path $libs "Ponder-1.12.2-1.2.0-api.jar"
+    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.2.0.jar"
 }
 $zenScriptExamples = Join-Path $ProjectRoot `
-    "build\distributions\Ponder-ZenScript-Examples-1.1.3.zip"
+    "build\distributions\Ponder-ZenScript-Examples-1.2.0.zip"
+$exampleAddonSmoke = Join-Path $ProjectRoot `
+    "build\distributions\Ponder-Example-Addon-Smoke-1.2.0.zip"
+$apiBaselineSignature = Join-Path $ProjectRoot "api-signatures\ponder-api-1.1.3.sig"
+$apiCurrentSignature = Join-Path $ProjectRoot "api-signatures\ponder-api-1.2.0.sig"
+$apiGeneratedSignature = Join-Path $ProjectRoot "build\reports\api\ponder-api-1.2.0.sig"
+$apiFixtureReport = Join-Path $ProjectRoot "build\reports\api\api-signature-fixture.txt"
 $mmceLibs = Join-Path $ProjectRoot "ponder-mmce\build\libs"
 $mmceArtifacts = @(
     Get-ChildItem -LiteralPath $mmceLibs -Filter "*.jar" -File -ErrorAction SilentlyContinue |
@@ -173,6 +179,17 @@ foreach ($artifact in $artifacts.Values) {
 }
 if (!(Test-Path -LiteralPath $zenScriptExamples -PathType Leaf)) {
     throw "Missing ZenScript examples archive: $zenScriptExamples"
+}
+foreach ($requiredFile in @(
+    $exampleAddonSmoke,
+    $apiBaselineSignature,
+    $apiCurrentSignature,
+    $apiGeneratedSignature,
+    $apiFixtureReport
+)) {
+    if (!(Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
+        throw "Missing release verification input: $requiredFile"
+    }
 }
 
 $errors = [Collections.Generic.List[string]]::new()
@@ -437,11 +454,42 @@ if ($null -eq $mcmodText -or !$mcmodText.Contains($mixinBooterRuntimeDependency)
 if ($null -eq $mcmodText -or !$mcmodText.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("mcmod.info does not declare CraftTweaker 4.1.20+")
 }
-if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.1.3-mc1.12.2"')) {
-    $errors.Add("Ponder mcmod.info does not declare version 1.1.3-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.2.0-mc1.12.2"')) {
+    $errors.Add("Ponder mcmod.info does not declare version 1.2.0-mc1.12.2")
 }
-if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.1.3-mc1.12.2")) {
-    $errors.Add("Ponder.VERSION is not 1.1.3-mc1.12.2")
+
+$exampleSmokeEntries = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$exampleSmokeArchive = [IO.Compression.ZipFile]::OpenRead($exampleAddonSmoke)
+try {
+    foreach ($entry in $exampleSmokeArchive.Entries) {
+        if (!$entry.FullName.EndsWith("/", [StringComparison]::Ordinal)) {
+            $null = $exampleSmokeEntries.Add($entry.FullName)
+        }
+    }
+} finally {
+    $exampleSmokeArchive.Dispose()
+}
+foreach ($required in @(
+    "README.md",
+    "mods/Ponder-Example-Addon-1.12.2-1.2.0.jar",
+    "scripts/ponder/scenes/ponder_example_codec.zs"
+)) {
+    if (!$exampleSmokeEntries.Contains($required)) {
+        $errors.Add("Example addon smoke archive is missing $required")
+    }
+}
+
+$generatedSignatureHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $apiGeneratedSignature).Hash
+$currentSignatureHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $apiCurrentSignature).Hash
+if ($generatedSignatureHash -ne $currentSignatureHash) {
+    $errors.Add("generated API signature does not match the tracked 1.2.0 snapshot")
+}
+$fixtureText = [IO.File]::ReadAllText($apiFixtureReport)
+if (!$fixtureText.Contains("Ponder API signature fixture: PASS")) {
+    $errors.Add("API signature compatibility fixture did not report PASS")
+}
+if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.2.0-mc1.12.2")) {
+    $errors.Add("Ponder.VERSION is not 1.2.0-mc1.12.2")
 }
 if ($null -eq $ponderConstants -or !$ponderConstants.Contains("ponder_legacy") -or
     !$ponderConstants.Contains("ponder")) {
@@ -453,13 +501,13 @@ if ($null -eq $ponderModConstants -or
     !$ponderModConstants.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("PonderMod @Mod metadata does not declare ponder_legacy and required runtime dependencies")
 }
-if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.1.3"') -or
-    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.1.3-mc1.12.2]")) {
-    $errors.Add("example mcmod.info does not declare 1.1.3 and require Ponder 1.1.3-mc1.12.2")
+if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.2.0"') -or
+    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.2.0-mc1.12.2]")) {
+    $errors.Add("example mcmod.info does not declare 1.2.0 and require Ponder 1.2.0-mc1.12.2")
 }
-if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.1.3") -or
-    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.1.3-mc1.12.2]")) {
-    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.1.3")
+if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.2.0") -or
+    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.2.0-mc1.12.2]")) {
+    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.2.0")
 }
 if ($null -eq $packMetadata) {
     $errors.Add("pack.mcmeta is missing")
@@ -522,6 +570,10 @@ $lines = @(
     "- Sources SHA256: $($hashes.Sources)",
     "- Example addon SHA256: $($hashes.Example)",
     "- Ponder-MMCE SHA256: $($hashes['Ponder-MMCE'])",
+    "- ZenScript examples SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $zenScriptExamples).Hash)",
+    "- Example addon smoke SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $exampleAddonSmoke).Hash)",
+    "- API 1.1.3 baseline signature SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $apiBaselineSignature).Hash)",
+    "- API 1.2.0 signature SHA256: $currentSignatureHash",
     "- CatServer SHA256: $catServerHash"
 )
 if ($errors.Count -gt 0) {

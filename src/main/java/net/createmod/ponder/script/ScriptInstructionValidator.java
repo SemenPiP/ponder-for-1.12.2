@@ -18,7 +18,7 @@ import net.minecraft.util.ResourceLocation;
 
 /** Shared structural validation for local builders and untrusted network IR. */
 public final class ScriptInstructionValidator {
-    private static final int MAX_TEXT = 8192;
+    private static final int MAX_TEXT = ScriptSceneSnapshot.MAX_TEXT_LENGTH;
     private static final int MAX_RESOURCE_ID = 256;
     private static final int MAX_DURATION = 72000;
 
@@ -247,6 +247,7 @@ public final class ScriptInstructionValidator {
             if (codec == null)
                 throw new IllegalArgumentException("Missing custom instruction codec " + codecId);
             codec.validate(payload.copy());
+            ScriptCodecDescriptors.requirement(codec, payload);
         } else {
             throw new IllegalArgumentException("Unknown Ponder script instruction " + op);
         }

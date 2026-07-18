@@ -10,11 +10,17 @@ import java.util.Map;
 
 import net.createmod.ponder.Ponder;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticIssue;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticContext;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticContributor;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticContributors;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticSink;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSeverity;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
 import net.createmod.ponder.api.diagnostic.PonderSceneDiagnostic;
 import net.createmod.ponder.api.diagnostic.PonderSceneSource;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependency;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependencyStatus;
 import net.createmod.ponder.api.registration.StoryBoardEntry;
 import net.createmod.ponder.foundation.PonderScene;
 import net.createmod.ponder.foundation.PonderStoryBoardEntry;
@@ -48,6 +54,9 @@ public final class PonderDiagnosticRegistry {
         PonderDiagnosticSnapshot.empty(PonderDiagnosticView.EFFECTIVE);
     private static volatile Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> javaTimelines =
         Collections.emptyMap();
+    private static volatile List<PonderStructureDependency> localDependencies = Collections.emptyList();
+    private static volatile List<PonderStructureDependency> serverDependencies = Collections.emptyList();
+    private static volatile List<PonderStructureDependency> effectiveDependencies = Collections.emptyList();
 
     private PonderDiagnosticRegistry() {
     }
@@ -71,7 +80,7 @@ public final class PonderDiagnosticRegistry {
             localScenes.add(buildScript(registry, definition,
                 ScriptSourceMetadata.isBuiltin(definition.getSourceDescription())
                     ? PonderSceneSource.BUILTIN_ZS : PonderSceneSource.LOCAL_ZS));
-        boolean serverProcess = FMLCommonHandler.instance().getSide().isServer();
+        boolean serverProcess = isServerProcess();
         if (serverProcess) {
             for (ScriptSceneDefinition definition : ScriptSceneRegistry.localSnapshot(false))
                 serverScenes.add(buildScript(registry, definition,
@@ -101,6 +110,15 @@ public final class PonderDiagnosticRegistry {
         local = snapshot(PonderDiagnosticView.LOCAL, nextGeneration, now, localScenes);
         server = snapshot(PonderDiagnosticView.SERVER, nextGeneration, now, serverScenes);
         effective = snapshot(PonderDiagnosticView.EFFECTIVE, nextGeneration, now, effectiveScenes);
+        ContributionResult localContribution = contribute(local);
+        ContributionResult serverContribution = contribute(server);
+        ContributionResult effectiveContribution = contribute(effective);
+        local = localContribution.snapshot;
+        server = serverContribution.snapshot;
+        effective = effectiveContribution.snapshot;
+        localDependencies = localContribution.dependencies;
+        serverDependencies = serverContribution.dependencies;
+        effectiveDependencies = effectiveContribution.dependencies;
         javaTimelines = immutableTimelines(nextJavaTimelines);
         for (PonderDiagnosticIssue issue : effective.getIssues())
             PonderDiagnosticNotices.record(issue);
@@ -125,6 +143,14 @@ public final class PonderDiagnosticRegistry {
         if (view == PonderDiagnosticView.SERVER)
             return server;
         return effective;
+    }
+
+    public static List<PonderStructureDependency> structureDependencies(PonderDiagnosticView view) {
+        if (view == PonderDiagnosticView.LOCAL)
+            return localDependencies;
+        if (view == PonderDiagnosticView.SERVER)
+            return serverDependencies;
+        return effectiveDependencies;
     }
 
     public static List<PonderScene.ScheduledInstructionDiagnostic> javaTimeline(
@@ -324,6 +350,149 @@ public final class PonderDiagnosticRegistry {
         return new PonderDiagnosticIssue(code, severity, message, sceneId, instructionIndex);
     }
 
+    private static boolean isServerProcess() {
+        try {
+            net.minecraftforge.fml.relauncher.Side side = FMLCommonHandler.instance().getSide();
+            return side != null && side.isServer();
+        } catch (RuntimeException unavailableOutsideForgeLifecycle) {
+            return false;
+        }
+    }
+
+    private static ContributionResult contribute(PonderDiagnosticSnapshot base) {
+        final List<PonderDiagnosticIssue> additions = new ArrayList<PonderDiagnosticIssue>();
+        final List<PonderStructureDependency> dependencies = coreDependencies(base);
+        for (final PonderDiagnosticContributor contributor : PonderDiagnosticContributors.snapshot()) {
+            final ResourceLocation contributorId = contributor.getId();
+            PonderDiagnosticSink sink = new PonderDiagnosticSink() {
+                @Override
+                public void reportIssue(String localCode, PonderDiagnosticSeverity severity,
+                                        String message, ResourceLocation sceneId,
+                                        int instructionIndex) {
+                    additions.add(new PonderDiagnosticIssue(
+                        contributorCode(contributorId, localCode), severity, message,
+                        sceneId, instructionIndex));
+                }
+
+                @Override
+                public void reportStructureDependency(ResourceLocation structureId,
+                                                      ResourceLocation providerId,
+                                                      String fingerprint,
+                                                      PonderStructureDependencyStatus status,
+                                                      java.util.Collection<ResourceLocation> sceneIds,
+                                                      java.util.Collection<ResourceLocation> components) {
+                    dependencies.add(new PonderStructureDependency(structureId, providerId,
+                        fingerprint, status, sceneIds, components,
+                        sourcesFor(base, sceneIds), contributorId));
+                }
+            };
+            try {
+                contributor.contribute(new PonderDiagnosticContext(base), sink);
+            } catch (RuntimeException failure) {
+                additions.add(issue("diagnostic.contributor_failed",
+                    PonderDiagnosticSeverity.ERROR,
+                    "Ponder diagnostic contributor " + contributorId + " failed: " + message(failure),
+                    null, -1));
+            }
+        }
+        PonderDiagnosticSnapshot result = base;
+        for (PonderDiagnosticIssue addition : additions)
+            result = withIssue(result, addition);
+        return new ContributionResult(result, mergeDependencies(dependencies));
+    }
+
+    private static List<PonderStructureDependency> coreDependencies(
+            PonderDiagnosticSnapshot snapshot) {
+        List<PonderStructureDependency> result = new ArrayList<PonderStructureDependency>();
+        for (PonderSceneDiagnostic scene : snapshot.getScenes()) {
+            PonderStructureDependencyStatus status =
+                net.createmod.ponder.api.structure.PonderStructureProviders.MISSING_ID.equals(
+                    scene.getProviderId())
+                    ? PonderStructureDependencyStatus.MISSING
+                    : hasStructureError(scene)
+                        ? PonderStructureDependencyStatus.ERROR
+                        : PonderStructureDependencyStatus.AVAILABLE;
+            result.add(new PonderStructureDependency(scene.getStructure(), scene.getProviderId(),
+                scene.getFingerprint(), status,
+                scene.getSceneId() == null
+                    ? Collections.<ResourceLocation>emptyList()
+                    : Collections.singletonList(scene.getSceneId()),
+                Collections.singletonList(scene.getComponent()),
+                Collections.singletonList(scene.getSource()), null));
+        }
+        return result;
+    }
+
+    private static boolean hasStructureError(PonderSceneDiagnostic scene) {
+        for (PonderDiagnosticIssue diagnostic : scene.getIssues())
+            if (diagnostic.getSeverity() == PonderDiagnosticSeverity.ERROR
+                && diagnostic.getCode().startsWith("structure."))
+                return true;
+        return false;
+    }
+
+    private static List<PonderSceneSource> sourcesFor(PonderDiagnosticSnapshot snapshot,
+                                                     java.util.Collection<ResourceLocation> sceneIds) {
+        if (sceneIds == null || sceneIds.isEmpty())
+            return Collections.emptyList();
+        java.util.LinkedHashSet<PonderSceneSource> result =
+            new java.util.LinkedHashSet<PonderSceneSource>();
+        for (ResourceLocation sceneId : sceneIds) {
+            PonderSceneDiagnostic scene = snapshot.findScene(sceneId);
+            if (scene != null)
+                result.add(scene.getSource());
+        }
+        return new ArrayList<PonderSceneSource>(result);
+    }
+
+    private static String contributorCode(ResourceLocation contributorId, String localCode) {
+        if (localCode == null || !localCode.matches("[a-z0-9_.-]{1,48}"))
+            throw new IllegalArgumentException("Invalid contributor diagnostic code: " + localCode);
+        String owner = (contributorId.getNamespace() + "." + contributorId.getPath())
+            .replaceAll("[^a-z0-9_.-]", ".");
+        String result = "addon." + owner + "." + localCode;
+        if (result.length() > 96)
+            throw new IllegalArgumentException("Contributor diagnostic code is too long: " + result);
+        return result;
+    }
+
+    private static List<PonderStructureDependency> mergeDependencies(
+            List<PonderStructureDependency> source) {
+        Map<String, MutableDependency> merged = new LinkedHashMap<String, MutableDependency>();
+        for (PonderStructureDependency dependency : source) {
+            String key = dependency.getStructureId() + "|"
+                + String.valueOf(dependency.getProviderId()) + "|"
+                + dependency.getFingerprint() + "|" + dependency.getStatus() + "|"
+                + String.valueOf(dependency.getContributorId());
+            MutableDependency value = merged.get(key);
+            if (value == null) {
+                value = new MutableDependency(dependency);
+                merged.put(key, value);
+            } else {
+                value.sceneIds.addAll(dependency.getSceneIds());
+                value.components.addAll(dependency.getComponents());
+                value.sources.addAll(dependency.getSources());
+            }
+        }
+        List<PonderStructureDependency> result =
+            new ArrayList<PonderStructureDependency>(merged.size());
+        for (MutableDependency value : merged.values())
+            result.add(value.build());
+        Collections.sort(result, new Comparator<PonderStructureDependency>() {
+            @Override
+            public int compare(PonderStructureDependency left,
+                               PonderStructureDependency right) {
+                int structure = left.getStructureId().toString()
+                    .compareTo(right.getStructureId().toString());
+                if (structure != 0)
+                    return structure;
+                return String.valueOf(left.getContributorId())
+                    .compareTo(String.valueOf(right.getContributorId()));
+            }
+        });
+        return Collections.unmodifiableList(result);
+    }
+
     private static Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> immutableTimelines(
             Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> source) {
         if (source.isEmpty())
@@ -364,6 +533,47 @@ public final class PonderDiagnosticRegistry {
         ClientViews(List<PonderSceneDiagnostic> local, List<PonderSceneDiagnostic> effective) {
             this.local = local;
             this.effective = effective;
+        }
+    }
+
+    private static final class ContributionResult {
+        final PonderDiagnosticSnapshot snapshot;
+        final List<PonderStructureDependency> dependencies;
+
+        ContributionResult(PonderDiagnosticSnapshot snapshot,
+                           List<PonderStructureDependency> dependencies) {
+            this.snapshot = snapshot;
+            this.dependencies = dependencies;
+        }
+    }
+
+    private static final class MutableDependency {
+        final ResourceLocation structureId;
+        final ResourceLocation providerId;
+        final String fingerprint;
+        final PonderStructureDependencyStatus status;
+        final ResourceLocation contributorId;
+        final java.util.LinkedHashSet<ResourceLocation> sceneIds =
+            new java.util.LinkedHashSet<ResourceLocation>();
+        final java.util.LinkedHashSet<ResourceLocation> components =
+            new java.util.LinkedHashSet<ResourceLocation>();
+        final java.util.LinkedHashSet<PonderSceneSource> sources =
+            new java.util.LinkedHashSet<PonderSceneSource>();
+
+        MutableDependency(PonderStructureDependency source) {
+            structureId = source.getStructureId();
+            providerId = source.getProviderId();
+            fingerprint = source.getFingerprint();
+            status = source.getStatus();
+            contributorId = source.getContributorId();
+            sceneIds.addAll(source.getSceneIds());
+            components.addAll(source.getComponents());
+            sources.addAll(source.getSources());
+        }
+
+        PonderStructureDependency build() {
+            return new PonderStructureDependency(structureId, providerId, fingerprint, status,
+                sceneIds, components, sources, contributorId);
         }
     }
 }

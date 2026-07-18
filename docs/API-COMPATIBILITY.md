@@ -138,3 +138,22 @@ scene formats and third-party backport source compatibility are outside this art
 
 Runtime qualification is separate from this source inventory. See [TESTING.md](TESTING.md) for the
 exact Forge, MixinBooter and CatServer versions and for the current client/server verification state.
+
+## Tracked binary compatibility
+
+Starting with 1.2.0, the repository tracks deterministic signatures generated from the actual API jar
+with JDK 8 `javap -protected -s -constants`:
+
+- `api-signatures/ponder-api-1.1.3.sig` is the compatibility baseline.
+- `api-signatures/ponder-api-1.2.0.sig` is the exact current signature.
+
+`generateApiSignature` rejects drift from the current snapshot, while `checkApiCompatibility` rejects
+removed types or members, changed descriptors or inheritance, reduced visibility, and new abstract
+members on existing API types. New types, overloads, and Java 8 default/static interface methods are
+allowed. Constant values remain visible in exact snapshots, but changing a value is not treated as a
+binary linkage break when the field declaration and descriptor remain stable.
+
+An API scheduled for removal must carry both `@Deprecated` and Javadoc naming the version where
+deprecation began and the earliest removal version. Removal is allowed only after at least one complete
+minor release has retained the deprecated API. The signature gate is a binary-compatibility floor, not
+a substitute for behavioral tests or documented migration notes.

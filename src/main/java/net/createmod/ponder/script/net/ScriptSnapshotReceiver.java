@@ -9,7 +9,9 @@ import java.util.List;
 
 import net.createmod.catnip.platform.CatnipServices;
 import net.createmod.ponder.Ponder;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.createmod.ponder.api.script.ScriptInstructionCodecs;
+import net.createmod.ponder.script.ScriptCodecDescriptors;
 import net.createmod.ponder.script.ScriptSceneDefinition;
 import net.createmod.ponder.script.ScriptSceneRegistry;
 import net.createmod.ponder.script.ScriptSceneSnapshot;
@@ -25,7 +27,7 @@ public final class ScriptSnapshotReceiver {
 
     public static synchronized void begin(int transferId, int protocol, int chunks, int compressedBytes,
                                           int uncompressedBytes, byte[] hash,
-                                          List<ResourceLocation> requiredCodecs) {
+                                          List<ScriptInstructionCodecDescriptor> requiredCodecs) {
         if (protocol != ScriptSceneSnapshot.PROTOCOL) {
             rejectBegin(transferId, "Unsupported protocol " + protocol + ", expected "
                 + ScriptSceneSnapshot.PROTOCOL);
@@ -35,9 +37,26 @@ public final class ScriptSnapshotReceiver {
             rejectBegin(transferId, "Invalid required codec list");
             return;
         }
-        for (ResourceLocation codec : requiredCodecs) {
-            if (codec == null || ScriptInstructionCodecs.get(codec) == null) {
-                rejectBegin(transferId, "Missing required codec " + codec);
+        List<ScriptInstructionCodecDescriptor> requirements;
+        try {
+            requirements = ScriptCodecDescriptors.validate(requiredCodecs);
+        } catch (RuntimeException invalid) {
+            rejectBegin(transferId, "Invalid required codec list: " + invalid.getMessage());
+            return;
+        }
+        for (ScriptInstructionCodecDescriptor required : requirements) {
+            ScriptInstructionCodecDescriptor capability =
+                ScriptInstructionCodecs.getDescriptor(required.getId());
+            if (capability == null) {
+                rejectBegin(transferId, "Missing required codec " + required.getId());
+                return;
+            }
+            if (capability.getProtocolVersion() != required.getProtocolVersion()) {
+                rejectBegin(transferId, "Codec version mismatch for " + required.getId());
+                return;
+            }
+            if (!capability.satisfies(required)) {
+                rejectBegin(transferId, "Missing required codec capabilities for " + required.getId());
                 return;
             }
         }
@@ -50,7 +69,7 @@ public final class ScriptSnapshotReceiver {
         }
         if (active != null && active.id != transferId)
             result(active.id, false, "Superseded by Ponder script snapshot #" + transferId);
-        active = new Transfer(transferId, chunks, compressedBytes, uncompressedBytes, hash,
+        active = new Transfer(transferId, chunks, compressedBytes, uncompressedBytes, hash, requirements,
             System.currentTimeMillis());
     }
 
@@ -88,11 +107,13 @@ public final class ScriptSnapshotReceiver {
             if (compressed.length != completed.compressedBytes
                 || !Arrays.equals(ScriptSceneSnapshot.sha256(compressed), completed.hash))
                 throw new IOException("Ponder script snapshot hash or length mismatch");
-            List<ScriptSceneDefinition> definitions =
-                ScriptSceneSnapshot.decode(compressed, completed.uncompressedBytes);
-            ScriptSceneRegistry.replaceServerScenesAndReload(definitions);
-            result(completed.id, true, "Applied " + definitions.size() + " scene(s)");
-            Ponder.LOGGER.info("Applied {} server Ponder script scene(s)", definitions.size());
+            ScriptSceneSnapshot.Decoded decoded =
+                ScriptSceneSnapshot.decodeContent(compressed, completed.uncompressedBytes);
+            if (!completed.requirements.equals(decoded.requirements))
+                throw new IOException("Snapshot Begin codec requirements do not match snapshot body");
+            ScriptSceneRegistry.replaceServerSnapshotAndReload(decoded);
+            result(completed.id, true, "Applied " + decoded.scenes.size() + " scene(s)");
+            Ponder.LOGGER.info("Applied {} server Ponder script scene(s)", decoded.scenes.size());
         } catch (IOException | RuntimeException exception) {
             reject(completed.id, exception.getMessage());
             Ponder.LOGGER.error("Rejected server Ponder script scene snapshot", exception);
@@ -105,11 +126,8 @@ public final class ScriptSnapshotReceiver {
                 result(active.id, false, "Superseded by a new Ponder script capability request");
                 active = null;
             }
-            List<ResourceLocation> codecs =
-                new ArrayList<ResourceLocation>(ScriptInstructionCodecs.snapshot().keySet());
-            Collections.sort(codecs, (left, right) -> left.toString().compareTo(right.toString()));
             CatnipServices.NETWORK.sendToServer(new ServerboundScriptCapabilitiesPacket(
-                ScriptSceneSnapshot.PROTOCOL, codecs));
+                ScriptSceneSnapshot.PROTOCOL, ScriptCodecDescriptors.localCapabilities()));
             return;
         }
         if (ClientboundScriptSnapshotStatusPacket.REJECTED.equals(status)) {
@@ -161,12 +179,16 @@ public final class ScriptSnapshotReceiver {
         final int compressedBytes;
         final int uncompressedBytes;
         final byte[] hash;
+        final List<ScriptInstructionCodecDescriptor> requirements;
         final long startedAt;
         int received;
 
-        Transfer(int id, int chunks, int compressedBytes, int uncompressedBytes, byte[] hash, long startedAt) {
+        Transfer(int id, int chunks, int compressedBytes, int uncompressedBytes, byte[] hash,
+                 List<ScriptInstructionCodecDescriptor> requirements, long startedAt) {
             this.id = id; this.parts = new byte[chunks][]; this.compressedBytes = compressedBytes;
-            this.uncompressedBytes = uncompressedBytes; this.hash = hash.clone(); this.startedAt = startedAt;
+            this.uncompressedBytes = uncompressedBytes; this.hash = hash.clone();
+            this.requirements = requirements;
+            this.startedAt = startedAt;
         }
 
         boolean hasAllParts() {

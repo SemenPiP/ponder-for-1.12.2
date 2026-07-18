@@ -15,4 +15,9 @@ public final class PonderDiagnostics {
     public static List<PonderSyncDiagnostic> syncStatuses() {
         return PonderIndex.getSyncDiagnostics();
     }
+
+    public static List<PonderStructureDependency> structureDependencies(PonderDiagnosticView view) {
+        return PonderIndex.getStructureDependencies(
+            view == null ? PonderDiagnosticView.EFFECTIVE : view);
+    }
 }

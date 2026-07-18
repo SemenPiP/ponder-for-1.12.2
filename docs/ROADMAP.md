@@ -209,7 +209,7 @@ clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
 - 所有报告绑定同一 Ponder 成品 SHA-256。
 - 标准 Forge 真实客户端完成八个场景、GUI Scale 1-4、全屏、资源重载、
   真实鼠标和按键验收。
-- CatServer 客户端支持只作为实验线，不阻塞 1.1.3；若要额外声明兼容，
+- CatServer 客户端支持只作为实验线，不阻塞 1.2.0；若要额外声明兼容，
   仍需真实连接、同步和场景播放证据。
 - 测试数量、产物哈希和报告链接由 CI 生成，不再手工维护易漂移的静态值。
 

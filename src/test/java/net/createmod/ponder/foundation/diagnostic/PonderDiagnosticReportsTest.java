@@ -16,6 +16,8 @@ import net.createmod.ponder.api.diagnostic.PonderDiagnosticSeverity;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
 import net.createmod.ponder.api.diagnostic.PonderSceneDiagnostic;
 import net.createmod.ponder.api.diagnostic.PonderSceneSource;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependency;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependencyStatus;
 import net.minecraft.util.ResourceLocation;
 
 public class PonderDiagnosticReportsTest {
@@ -40,5 +42,25 @@ public class PonderDiagnosticReportsTest {
         assertTrue(encoded.contains("\"overriddenBy\":\"SERVER_SNAPSHOT\""));
         assertTrue(encoded.contains("\"tags\":[\"test:tag\"]"));
         assertTrue(encoded.contains("\"instructionIndex\":2"));
+    }
+
+    @Test
+    public void dependencyReportIsStableAndDoesNotExposePaths() {
+        PonderStructureDependency dependency = new PonderStructureDependency(
+            new ResourceLocation("test", "structure"),
+            new ResourceLocation("test", "provider"), "fingerprint",
+            PonderStructureDependencyStatus.AVAILABLE,
+            Collections.singletonList(new ResourceLocation("test", "scene")),
+            Collections.singletonList(new ResourceLocation("test", "component")),
+            Collections.singletonList(PonderSceneSource.SERVER_SNAPSHOT),
+            new ResourceLocation("test", "contributor"));
+        JsonObject json = PonderDiagnosticReports.dependenciesJson(PonderDiagnosticView.SERVER,
+            Collections.singletonList(dependency));
+        String encoded = json.toString();
+        assertTrue(encoded.contains("\"format\":1"));
+        assertTrue(encoded.contains("\"structure\":\"test:structure\""));
+        assertTrue(encoded.contains("\"contributor\":\"test:contributor\""));
+        assertFalse(encoded.contains("C:\\\\"));
+        assertFalse(encoded.contains("/home/"));
     }
 }

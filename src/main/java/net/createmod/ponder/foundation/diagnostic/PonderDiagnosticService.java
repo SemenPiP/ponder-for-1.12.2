@@ -11,9 +11,13 @@ import net.createmod.ponder.api.diagnostic.PonderDiagnosticIssue;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
 import net.createmod.ponder.api.diagnostic.PonderSceneDiagnostic;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependency;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependencyStatus;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.createmod.ponder.foundation.PonderIndex;
 import net.createmod.ponder.script.ScriptSceneDefinition;
 import net.createmod.ponder.script.ScriptSceneRegistry;
+import net.createmod.ponder.script.ScriptSceneSnapshot;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextComponentTranslation;
 
@@ -54,6 +58,11 @@ public final class PonderDiagnosticService {
             PonderDiagnosticView view = view(side, arguments, 3);
             export(side, PonderIndex.getDiagnosticSnapshot(view),
                 new ResourceLocation(arguments[1]), mode, view, output);
+            return;
+        }
+        if ("dependencies".equals(command)) {
+            PonderDiagnosticView view = view(side, arguments, 1);
+            dependencies(side, view, output);
             return;
         }
         throw new IllegalArgumentException(text(side, "ponder.diagnostic.unknown_command", command));
@@ -103,10 +112,44 @@ public final class PonderDiagnosticService {
             output.accept(text(side, "ponder.diagnostic.overridden_by", scene.getOverriddenBy()));
         output.accept(text(side, "ponder.diagnostic.instructions", scene.getInstructionCount(),
             scene.getTotalTicks(), scene.getKeyframes()));
+        output.accept(text(side, "ponder.diagnostic.tags", scene.getTags()));
+        ScriptSceneDefinition definition = ScriptSceneRegistry.find(snapshot.getView(), sceneId);
+        if (definition != null) {
+            try {
+                List<ScriptInstructionCodecDescriptor> codecs =
+                    ScriptSceneSnapshot.requiredCodecs(Collections.singletonList(definition));
+                if (!codecs.isEmpty())
+                    output.accept(text(side, "ponder.diagnostic.codecs", codecs));
+            } catch (java.io.IOException failure) {
+                output.accept(text(side, "ponder.diagnostic.codecs_failed", failure.getMessage()));
+            }
+        }
         for (PonderDiagnosticIssue issue : scene.getIssues())
             output.accept(text(side, "ponder.diagnostic.issue",
                 text(side, "ponder.diagnostic.severity." + issue.getSeverity().name().toLowerCase(Locale.ROOT)),
                 issue.getCode(), issue.getMessage()));
+    }
+
+    private static void dependencies(String side, PonderDiagnosticView view,
+                                     Consumer<String> output) {
+        List<PonderStructureDependency> dependencies =
+            PonderIndex.getStructureDependencies(view);
+        try {
+            File report = PonderDiagnosticReports.writeDependencies(view, dependencies);
+            int missing = 0;
+            int errors = 0;
+            for (PonderStructureDependency dependency : dependencies) {
+                if (dependency.getStatus() == PonderStructureDependencyStatus.MISSING)
+                    missing++;
+                else if (dependency.getStatus() == PonderStructureDependencyStatus.ERROR)
+                    errors++;
+            }
+            output.accept(text(side, "ponder.diagnostic.dependencies_exported",
+                dependencies.size(), missing, errors, report.getPath()));
+        } catch (java.io.IOException failure) {
+            throw new IllegalArgumentException(text(side,
+                "ponder.diagnostic.dependencies_failed", failure.getMessage()), failure);
+        }
     }
 
     private static void export(String side, PonderDiagnosticSnapshot snapshot, ResourceLocation sceneId,
@@ -226,6 +269,12 @@ public final class PonderDiagnosticService {
             format = "Overridden by: %1$s";
         else if ("ponder.diagnostic.instructions".equals(key))
             format = "Instructions: %1$s; ticks: %2$s; keyframes: %3$s";
+        else if ("ponder.diagnostic.tags".equals(key))
+            format = "Tags: %1$s";
+        else if ("ponder.diagnostic.codecs".equals(key))
+            format = "Required codecs: %1$s";
+        else if ("ponder.diagnostic.codecs_failed".equals(key))
+            format = "Could not inspect required codecs: %1$s";
         else if ("ponder.diagnostic.issue".equals(key))
             format = "%1$s %2$s: %3$s";
         else if (key.startsWith("ponder.diagnostic.severity."))
@@ -244,6 +293,10 @@ public final class PonderDiagnosticService {
             format = "Ponder timeline exported to %1$s";
         else if ("ponder.diagnostic.export_failed".equals(key))
             format = "Could not export Ponder scene %1$s: %2$s";
+        else if ("ponder.diagnostic.dependencies_exported".equals(key))
+            format = "Ponder structure dependencies: %1$s total, %2$s missing, %3$s error(s). Report: %4$s";
+        else if ("ponder.diagnostic.dependencies_failed".equals(key))
+            format = "Could not export Ponder structure dependencies: %1$s";
         else if ("ponder.diagnostic.summary".equals(key))
             format = "Ponder detected %1$s diagnostic issue(s) (%2$s error(s), %3$s warning(s)). Run /ponder validate for details.";
         else if ("ponder.diagnostic.command_failed".equals(key))

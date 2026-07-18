@@ -279,6 +279,7 @@ final class ScriptSceneProgram {
             ScriptInstructionCodec codec = ScriptInstructionCodecs.get(id);
             if (codec == null) throw new IllegalArgumentException("Missing custom instruction codec " + id);
             codec.validate(data.getCompoundTag("payload").copy());
+            ScriptCodecDescriptors.requirement(codec, data.getCompoundTag("payload"));
             codec.program(data.getCompoundTag("payload").copy(), scene, util);
         } else {
             throw new IllegalArgumentException("Unknown Ponder script instruction " + op);

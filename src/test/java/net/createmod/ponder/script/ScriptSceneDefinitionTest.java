@@ -5,10 +5,17 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.Test;
 
+import net.createmod.ponder.api.scene.SceneBuilder;
+import net.createmod.ponder.api.scene.SceneBuildingUtil;
+import net.createmod.ponder.api.script.ScriptInstructionCodec;
+import net.createmod.ponder.api.script.ScriptInstructionCodecs;
+import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 
@@ -53,6 +60,63 @@ public class ScriptSceneDefinitionTest {
         assertEquals(definition.getSceneId(), decoded.get(0).getSceneId());
         assertEquals(32, encoded.hash.length);
         assertTrue(encoded.bytes.length > 0);
+    }
+
+    @Test
+    public void snapshotCarriesAndVerifiesCodecRequirements() throws Exception {
+        ResourceLocation codecId = new ResourceLocation("snapshot_test", "requirements");
+        ResourceLocation capability = new ResourceLocation("snapshot_test", "pulse");
+        ScriptInstructionCodecs.register(new ScriptInstructionCodec() {
+            @Override public ResourceLocation getId() { return codecId; }
+            @Override public int getProtocolVersion() { return 4; }
+            @Override public Set<ResourceLocation> getCapabilities() {
+                return Collections.singleton(capability);
+            }
+            @Override public Set<ResourceLocation> getRequiredCapabilities(NBTTagCompound data) {
+                return data.getBoolean("pulse") ? Collections.singleton(capability)
+                    : Collections.<ResourceLocation>emptySet();
+            }
+            @Override public void validate(NBTTagCompound data) {
+            }
+            @Override public void program(NBTTagCompound data, SceneBuilder scene, SceneBuildingUtil util) {
+            }
+        });
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setBoolean("pulse", true);
+        NBTTagCompound custom = new NBTTagCompound();
+        custom.setString("codec", codecId.toString());
+        custom.setTag("payload", payload);
+        ScriptSceneDefinition definition = new ScriptSceneDefinition(
+            new ResourceLocation("minecraft", "paper"),
+            new ResourceLocation("snapshot_test", "scene"),
+            "Codec",
+            new ResourceLocation("snapshot_test", "scene"),
+            Collections.<ResourceLocation>emptyList(),
+            Arrays.asList(new ScriptInstruction("custom", custom), new ScriptInstruction("finish", null)),
+            false);
+
+        ScriptSceneSnapshot.Encoded encoded =
+            ScriptSceneSnapshot.encode(Collections.singletonList(definition));
+        assertEquals(1, encoded.requirements.size());
+        assertEquals(4, encoded.requirements.get(0).getProtocolVersion());
+        assertEquals(Collections.singleton(capability),
+            encoded.requirements.get(0).getCapabilities());
+        ScriptSceneSnapshot.Decoded decoded =
+            ScriptSceneSnapshot.decodeContent(encoded.bytes, encoded.uncompressedBytes);
+        assertEquals(encoded.requirements, decoded.requirements);
+
+        NBTTagCompound root = CompressedStreamTools.readCompressed(
+            new java.io.ByteArrayInputStream(encoded.bytes));
+        root.setTag("codecRequirements", new net.minecraft.nbt.NBTTagList());
+        java.io.ByteArrayOutputStream changed = new java.io.ByteArrayOutputStream();
+        CompressedStreamTools.writeCompressed(root, changed);
+        try {
+            ScriptSceneSnapshot.decodeContent(changed.toByteArray(),
+                ScriptSceneSnapshot.uncompressedSize(root));
+            throw new AssertionError("Snapshot body accepted mismatched codec requirements");
+        } catch (java.io.IOException expected) {
+            assertTrue(expected.getMessage().contains("requirements"));
+        }
     }
 
     @Test(expected = IllegalArgumentException.class)

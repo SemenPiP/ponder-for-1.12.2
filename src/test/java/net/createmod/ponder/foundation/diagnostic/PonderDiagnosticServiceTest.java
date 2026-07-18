@@ -27,4 +27,12 @@ public class PonderDiagnosticServiceTest {
         PonderDiagnosticService.execute("test", "export test:missing executable effective", ignored -> {
         });
     }
+
+    @Test
+    public void dependenciesCommandWritesVersionedReport() {
+        List<String> output = new ArrayList<String>();
+        PonderDiagnosticService.execute("test", "dependencies effective", output::add);
+        assertTrue(output.get(0).contains("structure dependencies"));
+        assertTrue(output.get(0).contains("Report:"));
+    }
 }

@@ -26,7 +26,7 @@ import net.minecraftforge.server.command.TextComponentHelper;
 public final class PonderCommand extends CommandBase {
     @Override public String getName() { return "ponder"; }
     @Override public String getUsage(ICommandSender sender) {
-        return "/ponder <index|tags|reload|sync|list|inspect|validate|export|namespace:path>";
+        return "/ponder <index|tags|reload|sync|list|inspect|validate|export|dependencies|namespace:path>";
     }
     @Override public int getRequiredPermissionLevel() { return 0; }
 
@@ -52,6 +52,10 @@ public final class PonderCommand extends CommandBase {
                             status.getUncompressedBytes(), status.getStartedAt(), status.getUpdatedAt(),
                             status.getLastResult());
                     }
+                    if (!status.getCodecDescriptors().isEmpty()
+                        || !status.getRequiredCodecDescriptors().isEmpty())
+                        send(sender, "ponder.command.sync_codecs",
+                            status.getCodecDescriptors(), status.getRequiredCodecDescriptors());
                     count++;
                 }
                 if (count == 0)
@@ -110,14 +114,15 @@ public final class PonderCommand extends CommandBase {
         if (args.length == 1) {
             java.util.ArrayList<String> options = new java.util.ArrayList<String>();
             options.add("index"); options.add("tags"); options.add("list"); options.add("inspect");
-            options.add("validate"); options.add("export");
+            options.add("validate"); options.add("export"); options.add("dependencies");
             if (sender.canUseCommand(2, getName())) { options.add("reload"); options.add("sync"); }
             PonderIndex.getSceneAccess().getRegisteredEntries()
                 .forEach(entry -> options.add(entry.getKey().toString()));
             return getListOfStringsMatchingLastWord(args, options);
         }
         if (args.length == 2 && ("list".equalsIgnoreCase(args[0])
-            || "validate".equalsIgnoreCase(args[0])))
+            || "validate".equalsIgnoreCase(args[0])
+            || "dependencies".equalsIgnoreCase(args[0])))
             return getListOfStringsMatchingLastWord(args, "local", "server", "effective");
         if (args.length == 2 && ("inspect".equalsIgnoreCase(args[0])
             || "export".equalsIgnoreCase(args[0])))
@@ -139,7 +144,8 @@ public final class PonderCommand extends CommandBase {
 
     private static boolean isDiagnostic(String command) {
         return "list".equalsIgnoreCase(command) || "inspect".equalsIgnoreCase(command)
-            || "validate".equalsIgnoreCase(command) || "export".equalsIgnoreCase(command);
+            || "validate".equalsIgnoreCase(command) || "export".equalsIgnoreCase(command)
+            || "dependencies".equalsIgnoreCase(command);
     }
 
     private static String join(String[] arguments) {
@@ -170,6 +176,8 @@ public final class PonderCommand extends CommandBase {
             message = "No matching Ponder sync status is available.";
         else if ("ponder.command.sync_sent".equals(key))
             message = "Ponder scene snapshot sent to all online clients.";
+        else if ("ponder.command.sync_codecs".equals(key))
+            message = "Client codecs: %1$s; snapshot requirements: %2$s";
         else if ("ponder.command.reload_complete".equals(key))
             message = "Ponder reapplied compiled scenes and refreshed structures. ZenScript changes require a restart.";
         else

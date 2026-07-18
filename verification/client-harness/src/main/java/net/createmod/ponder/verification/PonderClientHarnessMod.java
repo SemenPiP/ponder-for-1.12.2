@@ -21,7 +21,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 @Mod(
     modid = PonderClientHarnessMod.MOD_ID,
     name = "Ponder Client Acceptance Harness",
-    version = "1.1.3",
+    version = "1.2.0",
     acceptedMinecraftVersions = "[1.12.2]",
     dependencies = "required-after:forge@[14.23.5.2847,);required-after:mixinbooter@[9.1,);"
         + "required-after:crafttweaker@[4.1.20,);after:ponder_legacy",

@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.1.3'
+version = '1.2.0'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.1.3-mc1.12.2'
+def modVersion = '1.2.0-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -94,6 +94,10 @@ sourceSets {
         resources.srcDir 'examples/addon/src/main/resources'
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += output + compileClasspath
+    }
+    test {
+        compileClasspath += sourceSets.exampleAddon.output
+        runtimeClasspath += sourceSets.exampleAddon.output
     }
     clientHarness {
         java.srcDir 'verification/client-harness/src/main/java'
@@ -168,6 +172,43 @@ tasks.register('apiJar', Jar) {
     include 'net/createmod/ponder/foundation/PonderIndex.class'
 }
 
+def apiSignatureOutput = layout.buildDirectory.file('reports/api/ponder-api-1.2.0.sig')
+tasks.register('generateApiSignature', Exec) {
+    dependsOn tasks.named('apiJar')
+    inputs.file(tasks.named('apiJar', Jar).flatMap { it.archiveFile })
+    inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.1.3.sig'))
+    inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.2.0.sig'))
+    outputs.file(apiSignatureOutput)
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file('tools/api-signature.ps1').asFile.absolutePath,
+        '-JarPath', tasks.named('apiJar', Jar).get().archiveFile.get().asFile.absolutePath,
+        '-OutputPath', apiSignatureOutput.get().asFile.absolutePath,
+        '-CompatibilityBaseline',
+        layout.projectDirectory.file('api-signatures/ponder-api-1.1.3.sig').asFile.absolutePath,
+        '-ExpectedSignature',
+        layout.projectDirectory.file('api-signatures/ponder-api-1.2.0.sig').asFile.absolutePath,
+        '-JavaHome', System.getProperty('java.home')
+}
+
+tasks.register('checkApiCompatibility') {
+    dependsOn 'generateApiSignature', 'testApiSignatureTool'
+}
+
+tasks.register('testApiSignatureTool', Exec) {
+    inputs.files(
+        layout.projectDirectory.file('tools/api-signature.ps1'),
+        layout.projectDirectory.file('tools/test-api-signature.ps1')
+    )
+    outputs.file(layout.buildDirectory.file('reports/api/api-signature-fixture.txt'))
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file('tools/test-api-signature.ps1').asFile.absolutePath,
+        '-JavaHome', System.getProperty('java.home')
+}
+
 tasks.register('exampleAddonJar', Jar) {
     dependsOn tasks.named('exampleAddonClasses')
     archiveBaseName.set('Ponder-Example-Addon-1.12.2')
@@ -196,7 +237,7 @@ tasks.register('serverHarnessJar', Jar) {
 }
 
 tasks.register('zenscriptExamplesZip', Zip) {
-    archiveFileName.set('Ponder-ZenScript-Examples-1.1.3.zip')
+    archiveFileName.set('Ponder-ZenScript-Examples-1.2.0.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/zenscript')
 }
@@ -232,6 +273,15 @@ def reobfExampleAddonJar = tasks.register('reobfExampleAddonJar',
     archiveVersion.set(project.version.toString())
     archiveClassifier.set('')
     destinationDirectory.set(layout.buildDirectory.dir('libs'))
+}
+tasks.register('exampleAddonSmokeZip', Zip) {
+    dependsOn reobfExampleAddonJar
+    archiveFileName.set('Ponder-Example-Addon-Smoke-1.2.0.zip')
+    destinationDirectory.set(layout.buildDirectory.dir('distributions'))
+    from layout.projectDirectory.dir('examples/addon/smoke')
+    from(reobfExampleAddonJar.flatMap { it.archiveFile }) {
+        into 'mods'
+    }
 }
 def reobfServerHarnessJar = tasks.register('reobfServerHarnessJar',
     com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
@@ -269,12 +319,13 @@ tasks.register('verifyJava8Bytecode') {
 
 tasks.register('verifyReleaseContents') {
     dependsOn mainReobfJar, reobfExampleAddonJar, tasks.named('apiJar'), tasks.named('sourcesJar'),
-        tasks.named('zenscriptExamplesZip')
+        tasks.named('zenscriptExamplesZip'), tasks.named('exampleAddonSmokeZip')
     doLast {
         File release = mainReobfJar.get().archiveFile.get().asFile
         File example = reobfExampleAddonJar.get().archiveFile.get().asFile
         File api = tasks.named('apiJar').get().archiveFile.get().asFile
         File sources = tasks.named('sourcesJar').get().archiveFile.get().asFile
+        File exampleSmoke = tasks.named('exampleAddonSmokeZip').get().archiveFile.get().asFile
 
         if (zipTree(release).matching { include 'mixins.ponder.refmap.json' }.isEmpty()) {
             throw new GradleException('Release jar is missing mixins.ponder.refmap.json')
@@ -435,11 +486,20 @@ tasks.register('verifyReleaseContents') {
                 throw new GradleException("Non-API entry in API classifier: ${details.path}")
             }
         }
+        [
+            'mods/Ponder-Example-Addon-1.12.2-1.2.0.jar',
+            'scripts/ponder/scenes/ponder_example_codec.zs',
+            'README.md'
+        ].each { path ->
+            if (zipTree(exampleSmoke).matching { include path }.isEmpty()) {
+                throw new GradleException("Example addon smoke pack is missing ${path}")
+            }
+        }
     }
 }
 
 tasks.register('verifyReleaseReport', Exec) {
-    dependsOn tasks.named('verifyReleaseContents')
+    dependsOn tasks.named('verifyReleaseContents'), tasks.named('checkApiCompatibility')
     workingDir layout.projectDirectory
     def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
     commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
@@ -451,6 +511,7 @@ tasks.register('verifyReleaseReport', Exec) {
 tasks.named('check') {
     dependsOn tasks.named('verifyJava8Bytecode')
     dependsOn tasks.named('verifyReleaseReport')
+    dependsOn tasks.named('checkApiCompatibility')
     dependsOn ':ponder-mmce:check'
 }
 
@@ -458,6 +519,7 @@ tasks.named('assemble') {
     dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
     dependsOn reobfServerHarnessJar
     dependsOn tasks.named('zenscriptExamplesZip')
+    dependsOn tasks.named('exampleAddonSmokeZip')
     dependsOn ':ponder-mmce:assemble'
 }
 

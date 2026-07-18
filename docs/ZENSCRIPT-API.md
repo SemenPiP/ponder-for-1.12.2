@@ -1,6 +1,6 @@
 # Ponder Legacy ZenScript API
 
-本文档对应 `1.1.3-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
+本文档对应 `1.2.0-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
 CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes`。修改脚本后必须重启；
 `/ponder reload` 只重新应用当前进程中已经编译的定义并刷新结构缓存。
 
@@ -10,6 +10,7 @@ CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes
 - `/ponder inspect <scene> [local|server|effective]`
 - `/ponder validate [local|server|effective]`
 - `/ponder export <scene> [ir|timeline|all] [local|server|effective]`
+- `/ponder dependencies [local|server|effective]`
 - `/ponder sync status [player]`
 
 `local` 表示客户端本地注册表，来源包括 Java 插件、builtin ZS 和 local ZS；`server`
@@ -24,7 +25,12 @@ CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes
 诊断报告和导出文件写入 `logs/ponder/diagnostics`。
 Java storyboard 场景没有可导出的脚本 IR，所以 `export ... ir` 只适用于脚本场景；`timeline`
 对 Java 场景和脚本场景都可导出。ZenScript 示例包打包为
-`build/distributions/Ponder-ZenScript-Examples-1.1.3.zip`。
+`build/distributions/Ponder-ZenScript-Examples-1.2.0.zip`。
+
+1.2.0 快照协议为 v3。服务器可以同步经过验证的 ZS 标签、标签 component 关联和共享文本；同 ID
+服务器 ZS 元数据覆盖本地 ZS 元数据，断线后恢复本地层。Java 插件正式标签不能被服务器覆盖，冲突会
+拒绝整个候选快照并保留旧层。自定义 `scene.custom(...)` 指令还会协商 codec 精确协议版本与实际能力，
+缺少或不兼容时在发送快照正文前拒绝。
 
 Ponder-MMCE 是独立子项目，通过 Java 结构 Provider 与物品 Subject Resolver 接入动态机器。它在
 addon 内单独注册 `mods.ponder.mmce.MMCEStructures` 和 `mods.ponder.mmce.MMCEStructureRef`：
