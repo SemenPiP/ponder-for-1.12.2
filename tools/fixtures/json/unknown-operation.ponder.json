@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "ponder_test:unknown_operation",
+  "scenes": [
+    {
+      "id": "ponder_test:unknown_operation",
+      "component": "minecraft:paper",
+      "title": "Unknown operation",
+      "structure": "ponder:demo/basics",
+      "instructions": [
+        {
+          "op": "scene.teleport"
+        }
+      ]
+    }
+  ]
+}

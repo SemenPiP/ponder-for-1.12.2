@@ -1,0 +1,161 @@
+{
+  "$schema": "ponder:schemas/ponder-pack-v1",
+  "format": 1,
+  "id": "ponder_json:demo_pack",
+  "tags": [
+    {
+      "id": "ponder_json:examples",
+      "icon": "minecraft:book",
+      "title": "JSON Examples",
+      "description": "Reloadable deterministic Ponder scenes",
+      "indexed": true,
+      "components": [
+        "minecraft:crafting_table"
+      ]
+    }
+  ],
+  "sharedText": {
+    "ponder_json:step": "JSON step: %s"
+  },
+  "indexExclusions": [
+    "minecraft:barrier"
+  ],
+  "scenes": [
+    {
+      "id": "ponder_json:crafting_demo",
+      "component": "minecraft:crafting_table",
+      "title": "Reloadable JSON Scene",
+      "structure": "ponder:demo/basics",
+      "tags": [
+        "ponder_json:examples"
+      ],
+      "instructions": [
+        {
+          "op": "scene.configure_base_plate",
+          "x": 0,
+          "z": 0,
+          "size": 5
+        },
+        {
+          "op": "scene.show_base_plate"
+        },
+        {
+          "op": "scene.idle",
+          "ticks": 10
+        },
+        {
+          "op": "world.show_section",
+          "selection": {
+            "type": "layers_from",
+            "y": 1
+          },
+          "direction": "down"
+        },
+        {
+          "op": "world.show_independent",
+          "handle": "demo_section",
+          "selection": {
+            "type": "position",
+            "pos": [2, 1, 2]
+          },
+          "direction": "up"
+        },
+        {
+          "op": "world.move_section",
+          "handle": "demo_section",
+          "x": 0,
+          "y": 1,
+          "z": 0,
+          "duration": 20
+        },
+        {
+          "op": "world.tile_nbt",
+          "selection": {
+            "type": "position",
+            "pos": [3, 1, 2]
+          },
+          "nbt": "{Lock:\"ponder_json\"}",
+          "replace": false,
+          "redraw": true
+        },
+        {
+          "op": "world.create_item",
+          "handle": "paper",
+          "x": 2.5,
+          "y": 2.25,
+          "z": 2.5,
+          "mx": 0,
+          "my": 0.08,
+          "mz": 0,
+          "item": "minecraft:paper",
+          "count": 1,
+          "meta": 0
+        },
+        {
+          "op": "world.move_item",
+          "handle": "paper",
+          "x": 1,
+          "y": 0,
+          "z": 0,
+          "duration": 20
+        },
+        {
+          "op": "world.set_item_visible",
+          "handle": "paper",
+          "visible": false
+        },
+        {
+          "op": "scene.idle",
+          "ticks": 5
+        },
+        {
+          "op": "world.set_item_visible",
+          "handle": "paper",
+          "visible": true
+        },
+        {
+          "op": "overlay.show_shared_text",
+          "duration": 60,
+          "key": "ponder_json:step",
+          "params": [
+            "handles and SNBT"
+          ],
+          "x": 2.5,
+          "y": 2.5,
+          "z": 2.5,
+          "color": "white",
+          "near": true,
+          "keyframe": true
+        },
+        {
+          "op": "overlay.show_controls",
+          "duration": 40,
+          "x": 2.5,
+          "y": 2.25,
+          "z": 2.5,
+          "pointing": "down",
+          "action": "right_click",
+          "item": "minecraft:paper"
+        },
+        {
+          "op": "effects.indicate_success",
+          "x": 2,
+          "y": 1,
+          "z": 2
+        },
+        {
+          "op": "world.remove_item",
+          "handle": "paper"
+        },
+        {
+          "op": "world.hide_independent",
+          "handle": "demo_section",
+          "direction": "up"
+        },
+        {
+          "op": "scene.finish"
+        }
+      ]
+    }
+  ]
+}

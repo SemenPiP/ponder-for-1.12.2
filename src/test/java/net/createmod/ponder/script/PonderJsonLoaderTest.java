@@ -98,6 +98,28 @@ public class PonderJsonLoaderTest {
     }
 
     @Test
+    public void staleFileDoesNotBlockUnrelatedValidPackUpdate() throws Exception {
+        File stale = write("a.ponder.json",
+            sceneOnlyPack("test:pack_a", "test:scene_a", "A1"));
+        File changing = write("b.ponder.json",
+            sceneOnlyPack("test:pack_b", "test:scene_b", "B1"));
+        PonderJsonLoader.reload();
+
+        Files.write(stale.toPath(), "{broken".getBytes(StandardCharsets.UTF_8));
+        Files.write(changing.toPath(),
+            sceneOnlyPack("test:pack_b", "test:scene_b", "B2")
+                .getBytes(StandardCharsets.UTF_8));
+        PonderJsonLoader.ReloadResult result = PonderJsonLoader.reload();
+
+        assertEquals(2, result.packs);
+        assertEquals(2, result.scenes);
+        assertEquals(1, result.errors);
+        assertEquals(1, result.warnings);
+        assertEquals("A1", findJsonScene("test:scene_a").getTitle());
+        assertEquals("B2", findJsonScene("test:scene_b").getTitle());
+    }
+
+    @Test
     public void rejectsUnknownInstructionFieldsWithoutBlockingOtherPack() throws Exception {
         write("good.ponder.json", pack("test:good", "Good", false));
         write("bad.ponder.json", pack("test:bad", "Bad", true));
@@ -265,6 +287,39 @@ public class PonderJsonLoaderTest {
         assertEquals("JSON step %s", decoded.sharedText.get("json.step"));
     }
 
+    @Test
+    public void coercesJsonNumbersToTheIrFieldTypes() throws Exception {
+        write("numbers.ponder.json", numericPack());
+
+        PonderJsonLoader.ReloadResult result = PonderJsonLoader.reload();
+
+        assertEquals(0, result.errors);
+        ScriptSceneDefinition scene = findJsonScene("test:numeric_types");
+        assertTrue(scene.getInstructions().get(0).getData().hasKey("value", 5));
+        assertTrue(scene.getInstructions().get(1).getData().hasKey("x", 6));
+        assertTrue(scene.getInstructions().get(2).getData().hasKey("x", 6));
+        assertTrue(scene.getInstructions().get(2).getData().hasKey("mx", 6));
+        assertTrue(scene.getInstructions().get(4).getData().hasKey("amount", 5));
+    }
+
+    @Test
+    public void installableExamplePackUsesTheRuntimeLoader() {
+        PonderJsonLoader.setRoot(new File(
+            "examples/json/scripts/ponder/packs"));
+
+        PonderJsonLoader.ReloadResult result = PonderJsonLoader.reload();
+
+        assertEquals(1, result.packs);
+        assertEquals(1, result.scenes);
+        assertEquals(0, result.errors);
+        ScriptSceneDefinition scene = findJsonScene("ponder_json:crafting_demo");
+        assertEquals(PonderSceneSource.LOCAL_JSON, scene.getLocalSource());
+        assertTrue(scene.getInstructions().stream()
+            .anyMatch(instruction -> "create_item".equals(instruction.getOperation())));
+        assertTrue(scene.getInstructions().stream()
+            .anyMatch(instruction -> "tile_nbt".equals(instruction.getOperation())));
+    }
+
     private static JsonObject parseJson(File file) throws Exception {
         try (FileReader reader = new FileReader(file)) {
             return new JsonParser().parse(reader).getAsJsonObject();
@@ -294,6 +349,52 @@ public class PonderJsonLoaderTest {
         File file = new File(root, name);
         Files.write(file.toPath(), contents.getBytes(StandardCharsets.UTF_8));
         return file;
+    }
+
+    private static ScriptSceneDefinition findJsonScene(String id) {
+        ResourceLocation sceneId = new ResourceLocation(id);
+        for (ScriptSceneDefinition scene : ScriptSceneRegistry.jsonSnapshot())
+            if (sceneId.equals(scene.getSceneId()))
+                return scene;
+        throw new AssertionError("Missing JSON scene " + id);
+    }
+
+    private static String sceneOnlyPack(String packId, String sceneId, String title) {
+        return "{\n"
+            + "  \"format\": 1,\n"
+            + "  \"id\": \"" + packId + "\",\n"
+            + "  \"scenes\": [{\n"
+            + "    \"id\": \"" + sceneId + "\",\n"
+            + "    \"component\": \"minecraft:paper\",\n"
+            + "    \"title\": \"" + title + "\",\n"
+            + "    \"structure\": \"ponder:demo/basics\",\n"
+            + "    \"instructions\": [{\"op\":\"scene.finish\"}]\n"
+            + "  }]\n"
+            + "}\n";
+    }
+
+    private static String numericPack() {
+        return "{\n"
+            + "  \"format\": 1,\n"
+            + "  \"id\": \"test:numeric_types\",\n"
+            + "  \"scenes\": [{\n"
+            + "    \"id\": \"test:numeric_types\",\n"
+            + "    \"component\": \"minecraft:paper\",\n"
+            + "    \"title\": \"Numeric types\",\n"
+            + "    \"structure\": \"ponder:demo/basics\",\n"
+            + "    \"instructions\": [\n"
+            + "      {\"op\":\"scene.scale\",\"value\":1},\n"
+            + "      {\"op\":\"scene.move_poi\",\"x\":1,\"y\":2,\"z\":3},\n"
+            + "      {\"op\":\"world.create_item\",\"handle\":\"item\",\"x\":1,\"y\":2,\"z\":3,"
+            + "\"mx\":0,\"my\":0,\"mz\":0,\"item\":\"minecraft:paper\",\"count\":1,\"meta\":0},\n"
+            + "      {\"op\":\"world.move_item\",\"handle\":\"item\",\"x\":1,\"y\":0,\"z\":0,"
+            + "\"duration\":10},\n"
+            + "      {\"op\":\"effects.particles\",\"x\":1,\"y\":2,\"z\":3,"
+            + "\"type\":\"smoke_normal\",\"mx\":0,\"my\":0,\"mz\":0,\"amount\":1,\"cycles\":1},\n"
+            + "      {\"op\":\"scene.finish\"}\n"
+            + "    ]\n"
+            + "  }]\n"
+            + "}\n";
     }
 
     private static String pack(String sceneId, String title, boolean unknownInstructionField) {

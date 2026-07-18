@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "ponder_test:missing_required",
+  "scenes": [
+    {
+      "id": "ponder_test:missing_required",
+      "component": "minecraft:paper",
+      "title": "Missing required instruction field",
+      "structure": "ponder:demo/basics",
+      "instructions": [
+        {
+          "op": "scene.idle"
+        }
+      ]
+    }
+  ]
+}

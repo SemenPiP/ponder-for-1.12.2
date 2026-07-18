@@ -52,6 +52,15 @@ public final class PonderJsonLoader {
         "id", "component", "title", "structure", "tags", "clientOnly", "instructions");
     private static final Set<String> TAG_FIELDS = fields(
         "id", "icon", "title", "description", "indexed", "components");
+    private static final Set<String> VECTOR_OPERATIONS = fields(
+        "move_section", "rotate_section", "center_section", "stabilize_section",
+        "create_item", "move_item", "create_minecart", "move_minecart",
+        "create_parrot", "move_parrot", "rotate_parrot", "show_text",
+        "show_shared_text", "show_controls", "show_scroll_input",
+        "show_filter_slot_input", "particles", "particles_within_block", "move_poi");
+    private static final Set<String> FLOAT_OPERATIONS = fields(
+        "scale", "offset_y", "rotate_camera", "create_minecart",
+        "rotate_minecart", "particles", "particles_within_block");
     private static final Map<String, InstructionSpec> OPERATIONS = operations();
 
     private static File root;
@@ -259,7 +268,8 @@ public final class PonderJsonLoader {
             } else if ("params".equals(key)) {
                 data.setTag(key, stringList(entry.getValue(), source + "/params"));
             } else {
-                putPrimitive(data, key, entry.getValue(), source + "/" + key);
+                putInstructionPrimitive(data, spec.internalOperation, key,
+                    entry.getValue(), source + "/" + key);
             }
         }
         return new ScriptInstruction(spec.internalOperation, data);
@@ -460,6 +470,59 @@ public final class PonderJsonLoader {
         } else {
             throw new IllegalArgumentException("Unsupported primitive at " + source);
         }
+    }
+
+    private static void putInstructionPrimitive(NBTTagCompound target, String operation,
+                                                String key, JsonElement value, String source) {
+        if (isFloatField(operation, key)) {
+            target.setFloat(key, (float) finiteNumber(value, source));
+            return;
+        }
+        if (isDoubleField(operation, key)) {
+            target.setDouble(key, finiteNumber(value, source));
+            return;
+        }
+        putPrimitive(target, key, value, source);
+    }
+
+    private static boolean isFloatField(String operation, String key) {
+        if (!FLOAT_OPERATIONS.contains(operation))
+            return false;
+        if ("scale".equals(operation) || "offset_y".equals(operation))
+            return "value".equals(key);
+        if ("rotate_camera".equals(operation))
+            return "degrees".equals(key);
+        if ("create_minecart".equals(operation) || "rotate_minecart".equals(operation))
+            return "angle".equals(key);
+        return "amount".equals(key);
+    }
+
+    private static boolean isDoubleField(String operation, String key) {
+        if (VECTOR_OPERATIONS.contains(operation)
+            && ("x".equals(key) || "y".equals(key) || "z".equals(key)))
+            return true;
+        if ("create_item".equals(operation)
+            && ("mx".equals(key) || "my".equals(key) || "mz".equals(key)))
+            return true;
+        if (("particles".equals(operation) || "particles_within_block".equals(operation))
+            && ("mx".equals(key) || "my".equals(key) || "mz".equals(key)))
+            return true;
+        if ("show_line".equals(operation))
+            return "x1".equals(key) || "y1".equals(key) || "z1".equals(key)
+                || "x2".equals(key) || "y2".equals(key) || "z2".equals(key);
+        if ("show_bounding_box".equals(operation))
+            return "minX".equals(key) || "minY".equals(key) || "minZ".equals(key)
+                || "maxX".equals(key) || "maxY".equals(key) || "maxZ".equals(key);
+        return false;
+    }
+
+    private static double finiteNumber(JsonElement value, String source) {
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber())
+            throw new IllegalArgumentException("Expected number at " + source);
+        double parsed = value.getAsDouble();
+        if (!Double.isFinite(parsed))
+            throw new IllegalArgumentException("Non-finite number at " + source);
+        return parsed;
     }
 
     private static NBTTagCompound snbtCompound(String value, String source) {
