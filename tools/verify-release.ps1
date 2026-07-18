@@ -154,6 +154,8 @@ $artifacts = [ordered]@{
     Sources = Join-Path $libs "Ponder-1.12.2-1.3.0-sources.jar"
     API = Join-Path $libs "Ponder-1.12.2-1.3.0-api.jar"
     Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.3.0.jar"
+    "Client Harness" = Join-Path $ProjectRoot `
+        "build\verification\client-harness\Ponder-Client-Harness-1.12.2-1.3.0.jar"
 }
 $zenScriptExamples = Join-Path $ProjectRoot `
     "build\distributions\Ponder-ZenScript-Examples-1.3.0.zip"
@@ -163,6 +165,8 @@ $jsonTools = Join-Path $ProjectRoot `
     "build\distributions\Ponder-JSON-Tools-1.3.0.zip"
 $exampleAddonSmoke = Join-Path $ProjectRoot `
     "build\distributions\Ponder-Example-Addon-Smoke-1.3.0.zip"
+$clientAcceptanceKit = Join-Path $ProjectRoot `
+    "build\distributions\Ponder-Client-Acceptance-Kit-1.3.0.zip"
 $apiBaselineSignature = Join-Path $ProjectRoot "api-signatures\ponder-api-1.2.0.sig"
 $apiCurrentSignature = Join-Path $ProjectRoot "api-signatures\ponder-api-1.3.0.sig"
 $apiGeneratedSignature = Join-Path $ProjectRoot "build\reports\api\ponder-api-1.3.0.sig"
@@ -189,6 +193,7 @@ foreach ($requiredFile in @(
     $jsonExamples,
     $jsonTools,
     $exampleAddonSmoke,
+    $clientAcceptanceKit,
     $apiBaselineSignature,
     $apiCurrentSignature,
     $apiGeneratedSignature,
@@ -200,7 +205,13 @@ foreach ($requiredFile in @(
 }
 
 $errors = [Collections.Generic.List[string]]::new()
-$classCounts = [ordered]@{ Ponder = 0; API = 0; Example = 0; "Ponder-MMCE" = 0 }
+$classCounts = [ordered]@{
+    Ponder = 0
+    API = 0
+    Example = 0
+    "Client Harness" = 0
+    "Ponder-MMCE" = 0
+}
 $languageCount = 0
 $packMetadata = $null
 $mcmodText = $null
@@ -433,6 +444,31 @@ foreach ($required in @(
     }
 }
 
+$clientAcceptanceEntries =
+    [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$clientAcceptanceArchive = [IO.Compression.ZipFile]::OpenRead($clientAcceptanceKit)
+try {
+    foreach ($entry in $clientAcceptanceArchive.Entries) {
+        if (!$entry.FullName.EndsWith("/", [StringComparison]::Ordinal)) {
+            $null = $clientAcceptanceEntries.Add($entry.FullName)
+        }
+    }
+} finally {
+    $clientAcceptanceArchive.Dispose()
+}
+foreach ($required in @(
+    "README.md",
+    "JSON-EXAMPLE.md",
+    "mods/Ponder-Client-Harness-1.12.2-1.3.0.jar",
+    "scripts/ponder/packs/ponder_json_demo.ponder.json",
+    "scripts/ponder/structures/ponder/demo/basics.nbt",
+    "tools/complete-ponder-client-acceptance.ps1"
+)) {
+    if (!$clientAcceptanceEntries.Contains($required)) {
+        $errors.Add("Client acceptance kit is missing $required")
+    }
+}
+
 foreach ($structure in $requiredDemoStructures) {
     if (!$ponderEntries.Contains($structure)) {
         $errors.Add("required demo structure is missing from Ponder artifact: $structure")
@@ -609,7 +645,7 @@ $lines = @(
     "",
     "- Status: $status",
     "- Generated: $([DateTime]::UtcNow.ToString('u')) UTC",
-    "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example), Ponder-MMCE $($classCounts['Ponder-MMCE']))",
+    "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example), Client Harness $($classCounts['Client Harness']), Ponder-MMCE $($classCounts['Ponder-MMCE']))",
     "- Language files: $languageCount",
     "- Supported MixinBooter range: [9.1,)",
     "- Required CraftTweaker range: [4.1.20,)",
@@ -619,11 +655,13 @@ $lines = @(
     "- API SHA256: $($hashes.API)",
     "- Sources SHA256: $($hashes.Sources)",
     "- Example addon SHA256: $($hashes.Example)",
+    "- Client harness SHA256: $($hashes['Client Harness'])",
     "- Ponder-MMCE SHA256: $($hashes['Ponder-MMCE'])",
     "- ZenScript examples SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $zenScriptExamples).Hash)",
     "- JSON examples SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $jsonExamples).Hash)",
     "- JSON tools SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $jsonTools).Hash)",
     "- Example addon smoke SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $exampleAddonSmoke).Hash)",
+    "- Client acceptance kit SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $clientAcceptanceKit).Hash)",
     "- API 1.2.0 baseline signature SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $apiBaselineSignature).Hash)",
     "- API 1.3.0 signature SHA256: $currentSignatureHash",
     "- CatServer SHA256: $catServerHash"

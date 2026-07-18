@@ -101,6 +101,7 @@ public final class ClientSmokeController {
     private final long startedAt = System.currentTimeMillis();
 
     private PonderClientHarnessUI ui;
+    private JsonReloadHarness jsonReloadHarness;
     private boolean manualPonderLifecycle;
     private boolean armed;
     private boolean terminal;
@@ -202,6 +203,79 @@ public final class ClientSmokeController {
                     && minecraft.displayWidth > 0 && minecraft.displayHeight > 0;
             }
         }, "Minecraft display and framebuffer are ready");
+
+        addAction("json.install", new Action() {
+            @Override public String run() throws Exception {
+                jsonReloadHarness = new JsonReloadHarness(outputDirectory);
+                return jsonReloadHarness.installInitial();
+            }
+        });
+        addAction("json.open", new Action() {
+            @Override public String run() {
+                jsonReloadHarness.assertInitialSceneDefinition();
+                check(net.createmod.ponder.foundation.PonderIndex.getSceneAccess()
+                    .doScenesExistForId(JsonReloadHarness.COMPONENT),
+                    "JSON runtime component was not registered");
+                ui = PonderClientHarnessUI.create(JsonReloadHarness.COMPONENT);
+                minecraft.displayGuiScreen(ui);
+                check(minecraft.currentScreen == ui, "JSON Ponder UI did not become active");
+                return "opened " + JsonReloadHarness.SCENE + " with "
+                    + ui.getActiveScene().getTotalTicks() + " timeline ticks";
+            }
+        });
+        addWaitFrames("json.render_frames", 3, "JSON scene rendered at least three frames");
+        addAction("json.snbt_playback", new Action() {
+            @Override public String run() {
+                PonderScene scene = activeScene();
+                check(JsonReloadHarness.COMPONENT.equals(scene.getComponent()),
+                    "JSON scene opened the wrong component " + scene.getComponent());
+                ui.seekToTime(scene.getTotalTicks());
+                TileEntity tile = scene.getWorld().getTileEntity(new BlockPos(3, 1, 2));
+                check(tile instanceof TileEntityChest, "JSON scene lost the demo chest tile entity");
+                NBTTagCompound nbt = tile.writeToNBT(new NBTTagCompound());
+                check("harness_v1".equals(nbt.getString("Lock")),
+                    "JSON SNBT did not reach the virtual chest: " + nbt);
+                return "scene=" + JsonReloadHarness.SCENE + ", Lock=" + nbt.getString("Lock");
+            }
+        });
+        addScreenshot("00-json-runtime.png");
+        addAction("json.close", new Action() {
+            @Override public String run() {
+                minecraft.displayGuiScreen(null);
+                check(minecraft.currentScreen == null, "JSON Ponder UI remained open");
+                return "closed JSON runtime scene before reload mutations";
+            }
+        });
+        addAction("json.last_known_good", new Action() {
+            @Override public String run() throws Exception {
+                return jsonReloadHarness.retainLastKnownGood();
+            }
+        });
+        addAction("json.update", new Action() {
+            @Override public String run() throws Exception {
+                return jsonReloadHarness.updateToSecondVersion();
+            }
+        });
+        addAction("json.zenscript_conflict", new Action() {
+            @Override public String run() throws Exception {
+                return jsonReloadHarness.isolateZenScriptConflict();
+            }
+        });
+        addAction("json.server_override", new Action() {
+            @Override public String run() {
+                return jsonReloadHarness.installServerOverride();
+            }
+        });
+        addAction("json.reload_clears_server", new Action() {
+            @Override public String run() {
+                return jsonReloadHarness.reloadClearsServerLayer();
+            }
+        });
+        addAction("json.delete_pack", new Action() {
+            @Override public String run() throws Exception {
+                return jsonReloadHarness.deletePack();
+            }
+        });
 
         addAction("ponder.open", new Action() {
             @Override public String run() {
@@ -1115,6 +1189,11 @@ public final class ClientSmokeController {
             report.addProperty("includesSeventyTickItemRenderYCheck", true);
             report.addProperty("includesFullAutoplayForAllEightScenes", true);
             report.addProperty("includesPerSceneTargetContentAssertions", true);
+            report.addProperty("includesJsonRuntimeReloadChecks", true);
+            report.addProperty("includesJsonLastKnownGoodChecks", true);
+            report.addProperty("includesJsonZenScriptConflictChecks", true);
+            report.addProperty("includesJsonServerOverrideChecks", true);
+            report.addProperty("includesJsonSnbtPlaybackCheck", true);
             report.addProperty("guiScaleChecksAreAutomatedLayoutAndFramebufferOnly", true);
             report.addProperty("startedAt", timestamp(startedAt));
             report.addProperty("updatedAt", timestamp(System.currentTimeMillis()));
@@ -1125,6 +1204,9 @@ public final class ClientSmokeController {
             report.addProperty("minecraft", "1.12.2");
             report.addProperty("forge", ForgeVersion.getVersion());
             report.addProperty("mixinBooter", loadedVersion("mixinbooter"));
+            report.addProperty("craftTweaker", loadedVersion("crafttweaker"));
+            report.addProperty("ponder", loadedVersion(Ponder.MOD_ID));
+            report.addProperty("clientHarness", loadedVersion(PonderClientHarnessMod.MOD_ID));
             report.addProperty("ponderDiscoveredByFml", Loader.isModLoaded(Ponder.MOD_ID));
             report.addProperty("outputDirectory", outputDirectory.getAbsolutePath());
             if (stepIndex < steps.size()) report.addProperty("currentStep", steps.get(stepIndex).name);
