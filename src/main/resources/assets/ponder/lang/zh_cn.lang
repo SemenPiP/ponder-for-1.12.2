@@ -3,6 +3,7 @@ ponder.command.sync_status=%1$s：状态=%2$s 传输=%3$s 协议=%4$s 编解码�
 ponder.command.sync_status_result=%1$s：状态=%2$s 传输=%3$s 协议=%4$s 编解码器=%5$s 压缩=%6$s 未压缩=%7$s 开始=%8$s 更新=%9$s 结果=%10$s
 ponder.command.sync_status_empty=没有匹配的 Ponder 同步状态。
 ponder.command.sync_sent=已向所有在线客户端发送 Ponder 场景快照。
+ponder.command.sync_codecs=客户端 codec：%1$s；快照需求：%2$s
 ponder.command.reload_complete=Ponder 已重新应用已编译场景并刷新结构。ZenScript 修改需要重启游戏。
 ponder.command.player_only=此命令只能由玩家使用。
 ponder.command.invalid_id=无效的 Ponder 场景 ID：%1$s
@@ -27,6 +28,9 @@ ponder.diagnostic.source=来源：%1$s
 ponder.diagnostic.provider=提供者：%1$s；指纹：%2$s
 ponder.diagnostic.overridden_by=覆盖来源：%1$s
 ponder.diagnostic.instructions=指令：%1$s；刻：%2$s；关键帧：%3$s
+ponder.diagnostic.tags=标签：%1$s
+ponder.diagnostic.codecs=所需 codec：%1$s
+ponder.diagnostic.codecs_failed=无法检查所需 codec：%1$s
 ponder.diagnostic.issue=%1$s %2$s：%3$s
 ponder.diagnostic.severity.error=错误
 ponder.diagnostic.severity.warning=警告
@@ -37,6 +41,8 @@ ponder.diagnostic.ir_exported=Ponder IR 已导出到 %1$s
 ponder.diagnostic.ir_export_skipped=已跳过 Ponder IR 导出：Java 场景没有脚本 IR。
 ponder.diagnostic.timeline_exported=Ponder 时间线已导出到 %1$s
 ponder.diagnostic.export_failed=无法导出 Ponder 场景 %1$s：%2$s
+ponder.diagnostic.dependencies_exported=Ponder 结构依赖：共 %1$s 项，缺失 %2$s 项，错误 %3$s 项。报告：%4$s
+ponder.diagnostic.dependencies_failed=无法导出 Ponder 结构依赖：%1$s
 ponder.diagnostic.summary=Ponder 检测到 %1$s 个诊断问题（%2$s 个错误，%3$s 个警告）。运行 /ponder validate 查看详情。
 ponder.diagnostic.command_failed=Ponder 诊断命令执行失败：%1$s
 

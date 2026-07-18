@@ -76,7 +76,7 @@ public final class ScriptSceneSync {
             new ArrayList<ScriptInstructionCodecDescriptor>(supported.values()), now);
         try {
             List<ScriptSceneDefinition> scenes = ScriptSceneRegistry.localSnapshot(false);
-            ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encode(scenes);
+            ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encodeLocal(scenes);
             List<ScriptInstructionCodecDescriptor> requiredCodecs = encoded.requirements;
             for (ScriptInstructionCodecDescriptor required : requiredCodecs) {
                 ScriptInstructionCodecDescriptor capability = supported.get(required.getId());

@@ -111,7 +111,7 @@ public final class ScriptSnapshotReceiver {
                 ScriptSceneSnapshot.decodeContent(compressed, completed.uncompressedBytes);
             if (!completed.requirements.equals(decoded.requirements))
                 throw new IOException("Snapshot Begin codec requirements do not match snapshot body");
-            ScriptSceneRegistry.replaceServerScenesAndReload(decoded.scenes);
+            ScriptSceneRegistry.replaceServerSnapshotAndReload(decoded);
             result(completed.id, true, "Applied " + decoded.scenes.size() + " scene(s)");
             Ponder.LOGGER.info("Applied {} server Ponder script scene(s)", decoded.scenes.size());
         } catch (IOException | RuntimeException exception) {

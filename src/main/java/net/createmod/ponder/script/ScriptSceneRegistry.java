@@ -152,8 +152,59 @@ public final class ScriptSceneRegistry {
         }
     }
 
+    public static synchronized void replaceServerSnapshotAndReload(ScriptSceneSnapshot.Decoded decoded) {
+        replaceServerSnapshotAndReload(decoded, new Runnable() {
+            @Override
+            public void run() {
+                net.createmod.ponder.foundation.PonderIndex.reload();
+            }
+        });
+    }
+
+    static synchronized void replaceServerSnapshotAndReload(ScriptSceneSnapshot.Decoded decoded,
+                                                            Runnable reload) {
+        if (decoded == null)
+            throw new IllegalArgumentException("Server Ponder snapshot is required");
+        if (reload == null)
+            throw new IllegalArgumentException("Ponder snapshot reload action is required");
+        Map<ResourceLocation, ScriptSceneDefinition> replacement =
+            validateServerScenes(decoded.scenes);
+        Map<ResourceLocation, ScriptSceneDefinition> previousScenes =
+            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>(SERVER);
+        Collection<ScriptTagDefinition> previousTags = ScriptTagRegistry.serverSnapshot();
+        Map<String, String> previousSharedText = ScriptSharedText.serverSnapshot();
+        try {
+            SERVER.clear();
+            SERVER.putAll(replacement);
+            ScriptTagRegistry.replaceServer(decoded.tags);
+            ScriptSharedText.replaceServer(decoded.sharedText);
+            reload.run();
+        } catch (RuntimeException failure) {
+            SERVER.clear();
+            SERVER.putAll(previousScenes);
+            ScriptTagRegistry.replaceServer(previousTags);
+            ScriptSharedText.replaceServer(previousSharedText);
+            throw failure;
+        }
+    }
+
     public static synchronized void clearServerScenesAndReload() {
-        replaceServerScenesAndReload(Collections.<ScriptSceneDefinition>emptyList());
+        Map<ResourceLocation, ScriptSceneDefinition> previousScenes =
+            new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>(SERVER);
+        Collection<ScriptTagDefinition> previousTags = ScriptTagRegistry.serverSnapshot();
+        Map<String, String> previousSharedText = ScriptSharedText.serverSnapshot();
+        try {
+            SERVER.clear();
+            ScriptTagRegistry.clearServer();
+            ScriptSharedText.clearServer();
+            net.createmod.ponder.foundation.PonderIndex.reload();
+        } catch (RuntimeException failure) {
+            SERVER.clear();
+            SERVER.putAll(previousScenes);
+            ScriptTagRegistry.replaceServer(previousTags);
+            ScriptSharedText.replaceServer(previousSharedText);
+            throw failure;
+        }
     }
 
     public static synchronized List<ScriptSceneDefinition> serverSnapshot() {

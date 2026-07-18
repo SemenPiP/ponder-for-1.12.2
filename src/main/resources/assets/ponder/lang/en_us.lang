@@ -3,6 +3,7 @@ ponder.command.sync_status=%1$s: status=%2$s transfer=%3$s protocol=%4$s codecs=
 ponder.command.sync_status_result=%1$s: status=%2$s transfer=%3$s protocol=%4$s codecs=%5$s compressed=%6$s uncompressed=%7$s started=%8$s updated=%9$s result=%10$s
 ponder.command.sync_status_empty=No matching Ponder sync status is available.
 ponder.command.sync_sent=Ponder scene snapshot sent to all online clients.
+ponder.command.sync_codecs=Client codecs: %1$s; snapshot requirements: %2$s
 ponder.command.reload_complete=Ponder reapplied compiled scenes and refreshed structures. ZenScript changes require a restart.
 ponder.command.player_only=This command can only be used by a player.
 ponder.command.invalid_id=Invalid Ponder scene id: %1$s
@@ -27,6 +28,9 @@ ponder.diagnostic.source=Source: %1$s
 ponder.diagnostic.provider=Provider: %1$s; fingerprint: %2$s
 ponder.diagnostic.overridden_by=Overridden by: %1$s
 ponder.diagnostic.instructions=Instructions: %1$s; ticks: %2$s; keyframes: %3$s
+ponder.diagnostic.tags=Tags: %1$s
+ponder.diagnostic.codecs=Required codecs: %1$s
+ponder.diagnostic.codecs_failed=Could not inspect required codecs: %1$s
 ponder.diagnostic.issue=%1$s %2$s: %3$s
 ponder.diagnostic.severity.error=Error
 ponder.diagnostic.severity.warning=Warning
@@ -37,6 +41,8 @@ ponder.diagnostic.ir_exported=Ponder IR exported to %1$s
 ponder.diagnostic.ir_export_skipped=Ponder IR export skipped: Java scenes do not have script IR.
 ponder.diagnostic.timeline_exported=Ponder timeline exported to %1$s
 ponder.diagnostic.export_failed=Could not export Ponder scene %1$s: %2$s
+ponder.diagnostic.dependencies_exported=Ponder structure dependencies: %1$s total, %2$s missing, %3$s error(s). Report: %4$s
+ponder.diagnostic.dependencies_failed=Could not export Ponder structure dependencies: %1$s
 ponder.diagnostic.summary=Ponder detected %1$s diagnostic issue(s) (%2$s error(s), %3$s warning(s)). Run /ponder validate for details.
 ponder.diagnostic.command_failed=Ponder diagnostic command failed: %1$s
 

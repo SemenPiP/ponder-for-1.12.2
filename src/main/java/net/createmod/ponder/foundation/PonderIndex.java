@@ -18,6 +18,8 @@ import net.createmod.ponder.api.registration.SceneRegistryAccess;
 import net.createmod.ponder.api.registration.TagRegistryAccess;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticContributors;
+import net.createmod.ponder.api.diagnostic.PonderStructureDependency;
 import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
 import net.createmod.ponder.enums.PonderConfig;
 import net.createmod.ponder.foundation.content.BasePonderPlugin;
@@ -77,6 +79,11 @@ public final class PonderIndex {
                 addPlugin(plugin);
         } catch (ServiceConfigurationError error) {
             Ponder.LOGGER.error("A Ponder ServiceLoader plugin could not be created", error);
+        }
+        try {
+            PonderDiagnosticContributors.discover();
+        } catch (RuntimeException error) {
+            Ponder.LOGGER.error("A Ponder diagnostic contributor could not be discovered", error);
         }
     }
 
@@ -148,6 +155,9 @@ public final class PonderIndex {
     }
     public static List<PonderSyncDiagnostic> getSyncDiagnostics() {
         return net.createmod.ponder.script.ScriptSceneSync.snapshotDiagnostics();
+    }
+    public static List<PonderStructureDependency> getStructureDependencies(PonderDiagnosticView view) {
+        return PonderDiagnosticRegistry.structureDependencies(view);
     }
     public static boolean editingModeActive() { return PonderConfig.client().isEditingMode(); }
 
