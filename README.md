@@ -30,6 +30,9 @@ remains frozen against the older 1.1.2 artifacts.
 This workspace cannot create a usable hardware OpenGL context for visual
 judgement or real mouse, fullscreen and GUI-scale testing. Standard Forge
 client rendering therefore remains the release gate and is still unverified.
+The installable harness, evidence checklist and hash-bound report process are
+documented in
+[docs/PONDER-1.3.0-CLIENT-ACCEPTANCE.md](docs/PONDER-1.3.0-CLIENT-ACCEPTANCE.md).
 CatServer client support is experimental for 1.3.0 and does not block the
 release line. Server-only results are recorded separately in
 [docs/TESTING.md](docs/TESTING.md) and must not be interpreted as client proof.
@@ -148,6 +151,9 @@ The checked-in ZenScript examples package is built as
 `build/distributions/Ponder-ZenScript-Examples-1.3.0.zip`.
 The JSON example and author-tool packages are built as
 `Ponder-JSON-Examples-1.3.0.zip` and `Ponder-JSON-Tools-1.3.0.zip`.
+`Ponder-Client-Acceptance-Kit-1.3.0.zip` contains the reobfuscated client
+harness, JSON fixture and report generator used to bind real-client evidence
+to one successful main Actions run and its exact Ponder SHA-256.
 
 ## Addon development
 

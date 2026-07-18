@@ -274,6 +274,20 @@ tasks.register('testPonderJsonTool', Exec) {
         '-File', layout.projectDirectory.file('tools/test-ponder-json.ps1').asFile.absolutePath
 }
 
+tasks.register('testPonderClientAcceptanceTool', Exec) {
+    inputs.files(
+        layout.projectDirectory.file('tools/complete-ponder-client-acceptance.ps1'),
+        layout.projectDirectory.file('tools/test-ponder-client-acceptance.ps1')
+    )
+    outputs.file(layout.buildDirectory.file(
+        'reports/ponder-client-acceptance-tool-fixture.txt'))
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file(
+            'tools/test-ponder-client-acceptance.ps1').asFile.absolutePath
+}
+
 tasks.register('installClientHarness', Copy) {
     dependsOn tasks.named('clientHarnessJar')
     from tasks.named('clientHarnessJar', Jar).flatMap { it.archiveFile }
@@ -334,6 +348,45 @@ def reobfServerHarnessJar = tasks.register('reobfServerHarnessJar',
     archiveClassifier.set('')
     destinationDirectory.set(layout.buildDirectory.dir('verification/server-harness'))
 }
+def reobfClientHarnessJar = tasks.register('reobfClientHarnessJar',
+    com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
+    def inputJar = tasks.named('clientHarnessJar', Jar)
+    dependsOn inputJar, mainReobfJar
+    setInputJarFromTask(inputJar)
+    mcVersion.set(mainReobfJar.flatMap { it.mcVersion })
+    srg.set(mainReobfJar.flatMap { it.srg })
+    fieldCsv.set(mainReobfJar.flatMap { it.fieldCsv })
+    methodCsv.set(mainReobfJar.flatMap { it.methodCsv })
+    exceptorCfg.set(mainReobfJar.flatMap { it.exceptorCfg })
+    recompMcJar.set(mainReobfJar.flatMap { it.recompMcJar })
+    extraSrgEntries.set(mainReobfJar.flatMap { it.extraSrgEntries })
+    extraSrgFiles.from(mainReobfJar.map { it.extraSrgFiles })
+    referenceClasspath.from(mainReobfJar.map { it.referenceClasspath })
+    archiveBaseName.set('Ponder-Client-Harness-1.12.2')
+    archiveVersion.set(project.version.toString())
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('verification/client-harness'))
+}
+tasks.register('clientAcceptanceKitZip', Zip) {
+    dependsOn reobfClientHarnessJar
+    archiveFileName.set('Ponder-Client-Acceptance-Kit-1.3.0.zip')
+    destinationDirectory.set(layout.buildDirectory.dir('distributions'))
+    from(reobfClientHarnessJar.flatMap { it.archiveFile }) {
+        into 'mods'
+    }
+    from(layout.projectDirectory.dir('examples/json')) {
+        exclude 'README.md'
+    }
+    from(layout.projectDirectory.file('examples/json/README.md')) {
+        rename { 'JSON-EXAMPLE.md' }
+    }
+    from(layout.projectDirectory.file('tools/complete-ponder-client-acceptance.ps1')) {
+        into 'tools'
+    }
+    from(layout.projectDirectory.file('docs/PONDER-1.3.0-CLIENT-ACCEPTANCE.md')) {
+        rename { 'README.md' }
+    }
+}
 
 tasks.register('verifyJava8Bytecode') {
     dependsOn tasks.named('classes')
@@ -351,14 +404,19 @@ tasks.register('verifyJava8Bytecode') {
 
 tasks.register('verifyReleaseContents') {
     dependsOn mainReobfJar, reobfExampleAddonJar, tasks.named('apiJar'), tasks.named('sourcesJar'),
+        reobfClientHarnessJar,
         tasks.named('zenscriptExamplesZip'), tasks.named('jsonExamplesZip'),
         tasks.named('jsonToolsZip'), tasks.named('exampleAddonSmokeZip'),
-        tasks.named('testPonderJsonTool')
+        tasks.named('clientAcceptanceKitZip'),
+        tasks.named('testPonderJsonTool'), tasks.named('testPonderClientAcceptanceTool')
     doLast {
         File release = mainReobfJar.get().archiveFile.get().asFile
         File example = reobfExampleAddonJar.get().archiveFile.get().asFile
         File api = tasks.named('apiJar').get().archiveFile.get().asFile
         File sources = tasks.named('sourcesJar').get().archiveFile.get().asFile
+        File clientHarness = reobfClientHarnessJar.get().archiveFile.get().asFile
+        File clientAcceptanceKit =
+            tasks.named('clientAcceptanceKitZip').get().archiveFile.get().asFile
         File exampleSmoke = tasks.named('exampleAddonSmokeZip').get().archiveFile.get().asFile
         File jsonExamples = tasks.named('jsonExamplesZip').get().archiveFile.get().asFile
         File jsonTools = tasks.named('jsonToolsZip').get().archiveFile.get().asFile
@@ -443,7 +501,7 @@ tasks.register('verifyReleaseContents') {
             }
         }
 
-        [release, example, api].each { archive ->
+        [release, example, api, clientHarness].each { archive ->
             zipTree(archive).matching { include '**/*.class' }.files.each { classFile ->
                 classFile.withInputStream { input ->
                     byte[] header = new byte[8]
@@ -468,7 +526,7 @@ tasks.register('verifyReleaseContents') {
             'net/fabricmc/',
             'net/neoforged/'
         ]
-        [release, example, api, sources].each { archive ->
+        [release, example, api, sources, clientHarness].each { archive ->
             zipTree(archive).visit { details ->
                 if (!details.directory && details.path.startsWith('assets/ponder/ponder/debug/')) {
                     throw new GradleException("Development debug structure in ${archive.name}: ${details.path}")
@@ -479,7 +537,7 @@ tasks.register('verifyReleaseContents') {
             }
         }
 
-        [release, example, api].each { archive ->
+        [release, example, api, clientHarness].each { archive ->
             zipTree(archive).matching { include '**/*.class' }.files.each { file ->
                 String constants = new String(file.bytes, 'ISO-8859-1')
                 ['com/jozufozu/flywheel/', 'dev/engine_room/flywheel/', 'org/joml/',
@@ -550,6 +608,17 @@ tasks.register('verifyReleaseContents') {
                 throw new GradleException("JSON tools pack is missing ${path}")
             }
         }
+        [
+            'mods/Ponder-Client-Harness-1.12.2-1.3.0.jar',
+            'scripts/ponder/packs/ponder_json_demo.ponder.json',
+            'scripts/ponder/structures/ponder/demo/basics.nbt',
+            'tools/complete-ponder-client-acceptance.ps1',
+            'README.md'
+        ].each { path ->
+            if (zipTree(clientAcceptanceKit).matching { include path }.isEmpty()) {
+                throw new GradleException("Client acceptance kit is missing ${path}")
+            }
+        }
     }
 }
 
@@ -568,16 +637,19 @@ tasks.named('check') {
     dependsOn tasks.named('verifyReleaseReport')
     dependsOn tasks.named('checkApiCompatibility')
     dependsOn tasks.named('testPonderJsonTool')
+    dependsOn tasks.named('testPonderClientAcceptanceTool')
     dependsOn ':ponder-mmce:check'
 }
 
 tasks.named('assemble') {
     dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
+    dependsOn reobfClientHarnessJar
     dependsOn reobfServerHarnessJar
     dependsOn tasks.named('zenscriptExamplesZip')
     dependsOn tasks.named('jsonExamplesZip')
     dependsOn tasks.named('jsonToolsZip')
     dependsOn tasks.named('exampleAddonSmokeZip')
+    dependsOn tasks.named('clientAcceptanceKitZip')
     dependsOn ':ponder-mmce:assemble'
 }
 

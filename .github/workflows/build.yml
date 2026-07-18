@@ -117,6 +117,12 @@ jobs:
           $jsonTools = Get-Item -LiteralPath `
             "build\distributions\Ponder-JSON-Tools-1.3.0.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "JSON Tools"; File = $jsonTools })
+          $clientHarness = Get-Item -LiteralPath `
+            "build\verification\client-harness\Ponder-Client-Harness-1.12.2-1.3.0.jar"
+          $artifacts.Add([PSCustomObject]@{ Project = "Client Harness"; File = $clientHarness })
+          $acceptanceKit = Get-Item -LiteralPath `
+            "build\distributions\Ponder-Client-Acceptance-Kit-1.3.0.zip"
+          $artifacts.Add([PSCustomObject]@{ Project = "Client Acceptance Kit"; File = $acceptanceKit })
 
           $checksumLines = [Collections.Generic.List[string]]::new()
           foreach ($artifact in @($artifacts | Sort-Object { $_.File.Name })) {
@@ -223,6 +229,22 @@ jobs:
           path: build/verification/server-harness/*.jar
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload client acceptance harness
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-client-harness-${{ github.sha }}
+          path: build/verification/client-harness/*.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload client acceptance kit
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-client-acceptance-kit-${{ github.sha }}
+          path: build/distributions/Ponder-Client-Acceptance-Kit-1.3.0.zip
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload build reports
         if: always()

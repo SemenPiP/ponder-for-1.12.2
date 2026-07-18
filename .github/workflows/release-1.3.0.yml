@@ -1,0 +1,280 @@
+name: Publish Ponder 1.3.0
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful main Build and Verify run ID
+        required: true
+        type: string
+      tag:
+        description: Release tag
+        required: true
+        default: v1.3.0-rc.1
+        type: string
+      release_kind:
+        description: Candidate creates a prerelease; stable requires v1.3.0
+        required: true
+        default: candidate
+        type: choice
+        options:
+          - candidate
+          - stable
+      client_report_url:
+        description: Direct HTTPS URL to completed Ponder 1.3.0 client report
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Verify 1.3.0 evidence and publish
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out main history
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate source run
+        id: source
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+        run: |
+          if ($env:RUN_ID -notmatch '^[1-9][0-9]*$') {
+            throw "run_id must be a positive GitHub Actions run id"
+          }
+          if ($env:RELEASE_KIND -eq "stable") {
+            if ($env:RELEASE_TAG -ne "v1.3.0") {
+              throw "Stable publication requires tag v1.3.0"
+            }
+          } elseif ($env:RELEASE_TAG -notmatch '^v1\.3\.0-(?:alpha|beta|rc)\.[1-9][0-9]*$') {
+            throw "Candidate tag must match v1.3.0-alpha.N, beta.N, or rc.N"
+          }
+
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:RUN_ID" |
+            ConvertFrom-Json
+          if ($run.name -ne "Build and Verify" -or $run.status -ne "completed" -or
+              $run.conclusion -ne "success" -or $run.head_branch -ne "main") {
+            throw "Run $env:RUN_ID is not a successful main Build and Verify run"
+          }
+          git merge-base --is-ancestor $run.head_sha origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Run commit $($run.head_sha) is not part of current main history"
+          }
+
+          $jobs = gh api `
+            "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:RUN_ID/jobs?per_page=100" |
+            ConvertFrom-Json
+          foreach ($required in @("Build, Test, and Package", "Standard Forge Server")) {
+            $job = $jobs.jobs |
+              Where-Object { $_.name -eq $required } |
+              Select-Object -First 1
+            if ($null -eq $job -or $job.conclusion -ne "success") {
+              throw "Required job did not pass: $required"
+            }
+          }
+
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release $env:RELEASE_TAG already exists"
+          }
+          "sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+
+      - name: Download exact build artifacts
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "ponder-1.3.0-release-input"
+          $null = New-Item -ItemType Directory -Path $root -Force
+          $names = @(
+            "ponder-1.3.0-$env:SOURCE_SHA",
+            "ponder-zenscript-examples-$env:SOURCE_SHA",
+            "ponder-json-examples-$env:SOURCE_SHA",
+            "ponder-json-tools-$env:SOURCE_SHA",
+            "ponder-example-addon-smoke-$env:SOURCE_SHA",
+            "ponder-client-harness-$env:SOURCE_SHA",
+            "ponder-client-acceptance-kit-$env:SOURCE_SHA",
+            "ponder-api-signature-$env:SOURCE_SHA",
+            "build-reports-$env:SOURCE_SHA",
+            "forge-server-reports-$env:SOURCE_SHA"
+          )
+          foreach ($name in $names) {
+            gh run download $env:RUN_ID --repo $env:GITHUB_REPOSITORY --name $name `
+              --dir (Join-Path $root $name)
+            if ($LASTEXITCODE -ne 0) {
+              throw "Could not download required artifact $name"
+            }
+          }
+          "RELEASE_INPUT=$root" >> $env:GITHUB_ENV
+
+      - name: Verify client evidence and stage release
+        shell: powershell
+        env:
+          CLIENT_REPORT_URL: ${{ inputs.client_report_url }}
+          RUN_ID: ${{ inputs.run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          if ($env:CLIENT_REPORT_URL -notmatch '^https://') {
+            throw "client_report_url must be a direct HTTPS URL"
+          }
+          $releaseRoot = Join-Path $env:RUNNER_TEMP "ponder-1.3.0-release-assets"
+          $null = New-Item -ItemType Directory -Path $releaseRoot -Force
+          $clientReport = Join-Path $releaseRoot "ponder-1.3.0-client-acceptance.json"
+          Invoke-WebRequest -UseBasicParsing -Uri $env:CLIENT_REPORT_URL -OutFile $clientReport
+          if ((Get-Item -LiteralPath $clientReport).Length -gt 4MB) {
+            throw "Client acceptance report exceeds 4 MiB"
+          }
+          $report = Get-Content -LiteralPath $clientReport -Raw | ConvertFrom-Json
+          if ($report.schemaVersion -ne 1 -or
+              $report.scope -ne "ponder_legacy_1.3.0_client_acceptance" -or
+              $report.status -ne "PASS") {
+            throw "Client report is not a completed Ponder 1.3.0 PASS report"
+          }
+          if ([string]$report.source.runId -ne $env:RUN_ID -or
+              ([string]$report.source.commit).ToLowerInvariant() -ne
+                $env:SOURCE_SHA.ToLowerInvariant()) {
+            throw "Client report is not bound to the selected Actions run and commit"
+          }
+          if ([string]$report.source.repository -ne $env:GITHUB_REPOSITORY -or
+              [string]$report.source.workflow -ne "Build and Verify" -or
+              [string]$report.automatedHarness.status -ne "PASS") {
+            throw "Client report source metadata is invalid"
+          }
+          if ([string]$report.versions.ponder_legacy -ne "1.3.0-mc1.12.2" -or
+              [string]$report.versions.minecraft -ne "1.12.2" -or
+              [string]$report.versions.forge -ne "14.23.5.2847" -or
+              [string]$report.versions.mixinbooter -ne "11.2" -or
+              [string]$report.versions.client_harness -ne "1.3.0" -or
+              [string]$report.versions.crafttweaker -notmatch '^4\.1\.20(?:\.698)?$') {
+            throw "Client report contains an unexpected runtime version"
+          }
+          if ($report.manualAcceptance.status -ne "PASS") {
+            throw "Client report manual acceptance is incomplete"
+          }
+          foreach ($confirmation in @(
+              "eightBuiltinScenes",
+              "jsonReloadCommand",
+              "wEntry",
+              "realMouse",
+              "guiScales1To4",
+              "fullscreenRoundTrip",
+              "resourceReload",
+              "ordinaryWorldAfterClose"
+          )) {
+            if ($report.manualAcceptance.$confirmation -ne $true) {
+              throw "Client report is missing manual confirmation: $confirmation"
+            }
+          }
+
+          function Find-One([string]$Name) {
+            $matches = @(Get-ChildItem -LiteralPath $env:RELEASE_INPUT -Recurse -File `
+              -Filter $Name)
+            if ($matches.Count -ne 1) {
+              throw "Expected one $Name in selected run, found $($matches.Count)"
+            }
+            return $matches[0]
+          }
+          $ponder = Find-One "Ponder-1.12.2-1.3.0.jar"
+          $harness = Find-One "Ponder-Client-Harness-1.12.2-1.3.0.jar"
+          $ponderHash = (Get-FileHash -LiteralPath $ponder.FullName -Algorithm SHA256).Hash
+          $harnessHash = (Get-FileHash -LiteralPath $harness.FullName -Algorithm SHA256).Hash
+          if ([string]$report.sha256.ponder_legacy -ne $ponderHash) {
+            throw "Client report Ponder SHA does not match selected run"
+          }
+          if ([string]$report.sha256.client_harness -ne $harnessHash) {
+            throw "Client report harness SHA does not match selected run"
+          }
+
+          $releaseFiles = @(
+            "Ponder-1.12.2-1.3.0.jar",
+            "Ponder-1.12.2-1.3.0-api.jar",
+            "Ponder-1.12.2-1.3.0-sources.jar",
+            "Ponder-Example-Addon-1.12.2-1.3.0.jar",
+            "Ponder-ZenScript-Examples-1.3.0.zip",
+            "Ponder-JSON-Examples-1.3.0.zip",
+            "Ponder-JSON-Tools-1.3.0.zip",
+            "Ponder-Example-Addon-Smoke-1.3.0.zip",
+            "Ponder-Client-Acceptance-Kit-1.3.0.zip"
+          )
+          foreach ($name in $releaseFiles) {
+            $file = Find-One $name
+            Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $releaseRoot $name)
+          }
+
+          $reports = Join-Path $releaseRoot "Ponder-1.3.0-verification-reports.zip"
+          $reportInputs = @(Get-ChildItem -LiteralPath $env:RELEASE_INPUT -Directory |
+            Where-Object {
+              $_.Name -like "build-reports-*" -or
+              $_.Name -like "forge-server-reports-*" -or
+              $_.Name -like "ponder-api-signature-*"
+            })
+          Compress-Archive -LiteralPath $reportInputs.FullName -DestinationPath $reports
+
+          $checksumLines = Get-ChildItem -LiteralPath $releaseRoot -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
+            Sort-Object Name |
+            ForEach-Object {
+              "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)  $($_.Name)"
+            }
+          [IO.File]::WriteAllLines((Join-Path $releaseRoot "SHA256SUMS.txt"),
+            $checksumLines, [Text.UTF8Encoding]::new($false))
+          "RELEASE_ASSETS=$releaseRoot" >> $env:GITHUB_ENV
+
+      - name: Publish GitHub release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          CLIENT_REPORT_URL: ${{ inputs.client_report_url }}
+        run: |
+          $notes = Join-Path $env:RUNNER_TEMP "ponder-1.3.0-release-notes.md"
+          @"
+          # Ponder Legacy 1.3.0
+
+          This release adds the reloadable JSON scene-pack frontend on the same validated,
+          deterministic IR used by ZenScript. It includes per-file last-known-good behavior,
+          deletion handling, ZenScript conflict isolation, Draft-07 schema, offline validation
+          and migration tools, protocol v3 metadata sync, diagnostics, and API compatibility gates.
+
+          The visual editor remains planned for a later version. Servers still do not distribute
+          JSON/ZenScript source files or structure NBT. CatServer client compatibility remains
+          experimental and is not part of the standard Forge release claim.
+
+          Build and dedicated-server evidence is bound to commit ``$env:SOURCE_SHA``.
+          Client acceptance report: $env:CLIENT_REPORT_URL
+          "@ | Set-Content -LiteralPath $notes -Encoding UTF8
+
+          $assets = Get-ChildItem -LiteralPath $env:RELEASE_ASSETS -File |
+            Sort-Object Name |
+            ForEach-Object FullName
+          $arguments = @(
+            "release", "create", $env:RELEASE_TAG
+          ) + $assets + @(
+            "--repo", $env:GITHUB_REPOSITORY,
+            "--target", $env:SOURCE_SHA,
+            "--title", "Ponder Legacy 1.3.0",
+            "--notes-file", $notes
+          )
+          if ($env:RELEASE_KIND -eq "candidate") {
+            $arguments += "--prerelease"
+          }
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub release creation failed"
+          }

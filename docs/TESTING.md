@@ -39,6 +39,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 - `build/distributions/Ponder-JSON-Examples-1.3.0.zip`
 - `build/distributions/Ponder-JSON-Tools-1.3.0.zip`
 - `build/distributions/Ponder-Example-Addon-Smoke-1.3.0.zip`
+- `build/distributions/Ponder-Client-Acceptance-Kit-1.3.0.zip`
+- `build/verification/client-harness/Ponder-Client-Harness-1.12.2-1.3.0.jar`
 - `ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`
 - `ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip`
 - `ponder-mmce/build/verification/server-harness/Ponder-MMCE-Server-Harness-1.12.2-0.1.0-alpha.jar`
@@ -57,6 +59,9 @@ Gradle 门槛检查以下内容：
 - API classifier 只包含 Ponder API、Catnip 适配 API 及明确公开的入口类；
 - 1.3.0 精确 API 签名与仓库快照一致，相对 1.2.0 基线不存在二进制破坏；
 - JSON operation contract、Draft-07 schema、离线 validate/migrate fixtures 和安装示例均通过；
+- 主客户端 harness 为 reobf Java 8 成品，并验证 JSON 热重载、last-known-good、删除包、
+  ZS 冲突、服务器覆盖和 SNBT 实际播放；
+- 客户端验收报告生成工具 fixture 通过，报告必须绑定 Actions run、commit 和运行 jar 哈希；
 - API 门禁 fixture 放行新增类型、重载、default/static 方法，拒绝删除、改描述符、改继承和新增抽象成员；
 - Ponder-MMCE 子项目测试和构建通过，运行 jar 内 class 为 Java 8 major 52。
 
@@ -97,6 +102,12 @@ PASS/NOT_FOUND、重复注册、刷新失效、单机错误隔离和未安装 ad
 三层事务回滚。JSON 验收还应覆盖 `/ponder reload`、逐文件 last-known-good、删除包、ZS 冲突、
 本地/服务器覆盖和 SNBT。Example Addon Smoke Pack 用于验证有 codec 客户端正常同步，以及无 codec
 客户端在 Begin/Chunk 前收到兼容拒绝。API 签名报告位于 `build/reports/api`。
+
+主项目客户端自动与人工验收按
+[PONDER-1.3.0-CLIENT-ACCEPTANCE.md](PONDER-1.3.0-CLIENT-ACCEPTANCE.md)
+执行。最终报告必须由 `tools/complete-ponder-client-acceptance.ps1` 生成；1.3.0 发布工作流会
+重新下载指定成功 `main` 运行的既有成品，并核对报告中的 run ID、commit 和 Ponder SHA-256。
+未完成人工项时只能保留候选或预发布状态。
 
 真实 MMCE 专服 fixture 使用同一个可安装 Smoke Pack：
 
@@ -262,6 +273,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\test-catserver.p
 - 标准 Forge 空服基线、初启/重启日志、类列表和 `level.dat`：
   `build/standard-forge-smoke/20260712-042042984-4e31850b`
 - 标准 Forge 客户端 `latest.log`、退出日志和各 GUI scale 截图（当前未取得）
+- `build/reports/ponder-1.3.0-client-acceptance.json`（当前未取得）
 - CatServer 四层报告 `build/reports/catserver-verification-20260712-042228873-f2d8f415.md` 及证据目录
   `build/catserver-smoke/20260712-042228873-f2d8f415`
 - 主包、API、sources、示例包和指定 CatServer 的最终 SHA-256 清单
