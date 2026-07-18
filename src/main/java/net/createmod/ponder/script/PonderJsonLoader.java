@@ -70,6 +70,20 @@ public final class PonderJsonLoader {
         reloadAction = action == null ? PonderIndex::reload : action;
     }
 
+    static Map<String, List<String>> operationFieldsForTest() {
+        Map<String, List<String>> result = new LinkedHashMap<String, List<String>>();
+        for (Map.Entry<String, InstructionSpec> entry : OPERATIONS.entrySet())
+            result.put(entry.getKey(), new ArrayList<String>(entry.getValue().fields));
+        return Collections.unmodifiableMap(result);
+    }
+
+    static Map<String, List<String>> operationOptionalFieldsForTest() {
+        Map<String, List<String>> result = new LinkedHashMap<String, List<String>>();
+        for (Map.Entry<String, InstructionSpec> entry : OPERATIONS.entrySet())
+            result.put(entry.getKey(), new ArrayList<String>(entry.getValue().optionalFields));
+        return Collections.unmodifiableMap(result);
+    }
+
     public static synchronized ReloadResult reload() {
         if (root == null)
             return new ReloadResult(0, 0, 0, 0);
@@ -228,6 +242,10 @@ public final class PonderJsonLoader {
             if (!"op".equals(field.getKey()) && !spec.fields.contains(field.getKey()))
                 throw new IllegalArgumentException("Unknown field " + field.getKey()
                     + " for " + requested + " at " + source);
+        for (String required : spec.requiredFields)
+            if (!value.has(required) || value.get(required).isJsonNull())
+                throw new IllegalArgumentException("Missing " + required
+                    + " for " + requested + " at " + source);
         NBTTagCompound data = new NBTTagCompound();
         for (Map.Entry<String, JsonElement> entry : value.entrySet()) {
             String key = entry.getKey();
@@ -376,8 +394,8 @@ public final class PonderJsonLoader {
             "duration", "key", "params", "x", "y", "z", "color", "near", "keyframe");
         op(result, "overlay.show_independent_text", "show_independent_text",
             "duration", "text", "y", "color", "keyframe");
-        op(result, "overlay.show_controls", "show_controls",
-            "duration", "x", "y", "z", "pointing", "action", "item");
+        opOptional(result, "overlay.show_controls", "show_controls",
+            fields("item"), "duration", "x", "y", "z", "pointing", "action", "item");
         op(result, "overlay.show_line", "show_line",
             "color", "x1", "y1", "z1", "x2", "y2", "z2", "duration", "big");
         op(result, "overlay.show_outline", "show_outline", "color", "slot", "selection", "duration");
@@ -405,9 +423,17 @@ public final class PonderJsonLoader {
 
     private static void op(Map<String, InstructionSpec> operations, String publicName,
                            String internalName, String... fields) {
-        InstructionSpec spec = new InstructionSpec(internalName, PonderJsonLoader.fields(fields));
+        InstructionSpec spec = new InstructionSpec(internalName,
+            PonderJsonLoader.fields(fields), Collections.<String>emptySet());
         operations.put(publicName, spec);
-        operations.put(internalName, spec);
+    }
+
+    private static void opOptional(Map<String, InstructionSpec> operations, String publicName,
+                                   String internalName, Set<String> optionalFields,
+                                   String... fields) {
+        InstructionSpec spec = new InstructionSpec(internalName,
+            PonderJsonLoader.fields(fields), optionalFields);
+        operations.put(publicName, spec);
     }
 
     private static void putPrimitive(NBTTagCompound target, String key, JsonElement value, String source) {
@@ -599,10 +625,17 @@ public final class PonderJsonLoader {
     private static final class InstructionSpec {
         final String internalOperation;
         final Set<String> fields;
+        final Set<String> optionalFields;
+        final Set<String> requiredFields;
 
-        InstructionSpec(String internalOperation, Set<String> fields) {
+        InstructionSpec(String internalOperation, Set<String> fields, Set<String> optionalFields) {
             this.internalOperation = internalOperation;
             this.fields = fields;
+            this.optionalFields = Collections.unmodifiableSet(
+                new LinkedHashSet<String>(optionalFields));
+            LinkedHashSet<String> required = new LinkedHashSet<String>(fields);
+            required.removeAll(optionalFields);
+            this.requiredFields = Collections.unmodifiableSet(required);
         }
     }
 

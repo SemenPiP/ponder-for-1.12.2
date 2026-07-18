@@ -5,10 +5,18 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.junit.Before;
 import org.junit.After;
 import org.junit.Rule;
@@ -116,6 +124,170 @@ public class PonderJsonLoaderTest {
         assertEquals(1, result.errors);
         assertEquals("First", ScriptSceneRegistry.jsonSnapshot().get(0).getTitle());
         assertFalse(ScriptSceneRegistry.jsonSnapshot().isEmpty());
+    }
+
+    @Test
+    public void operationDescriptorAndSchemaMatchRuntimeContract() throws Exception {
+        JsonObject descriptor = parseJson(new File("schemas/ponder-operations-v1.json"));
+        assertEquals(1, descriptor.get("format").getAsInt());
+        JsonObject operations = descriptor.getAsJsonObject("operations");
+
+        Map<String, List<String>> runtimeFields = PonderJsonLoader.operationFieldsForTest();
+        Map<String, List<String>> runtimeOptional = PonderJsonLoader.operationOptionalFieldsForTest();
+        Set<String> descriptorOperations = new java.util.LinkedHashSet<String>();
+        for (Map.Entry<String, JsonElement> operation : operations.entrySet())
+            descriptorOperations.add(operation.getKey());
+        assertEquals(runtimeFields.keySet(), descriptorOperations);
+
+        for (Map.Entry<String, List<String>> runtime : runtimeFields.entrySet()) {
+            JsonElement encoded = operations.get(runtime.getKey());
+            List<String> descriptorFields;
+            List<String> descriptorOptional = Collections.emptyList();
+            if (encoded.isJsonArray()) {
+                descriptorFields = strings(encoded);
+            } else {
+                JsonObject specification = encoded.getAsJsonObject();
+                descriptorFields = strings(specification.get("fields"));
+                descriptorOptional = strings(specification.get("optional"));
+            }
+            assertEquals(runtime.getKey(), runtime.getValue(), descriptorFields);
+            assertEquals(runtime.getKey(), runtimeOptional.get(runtime.getKey()), descriptorOptional);
+            assertTrue(runtime.getValue().containsAll(descriptorOptional));
+        }
+
+        JsonObject schema = parseJson(new File("schemas/ponder-pack-v1.schema.json"));
+        assertEquals("http://json-schema.org/draft-07/schema#",
+            schema.get("$schema").getAsString());
+        JsonObject definitions = schema.getAsJsonObject("definitions");
+        assertTrue(definitions.has("selection"));
+        assertTrue(definitions.has("instruction"));
+        assertTrue(definitions.has("scene"));
+        assertTrue(definitions.has("tag"));
+        JsonObject instructionProperties = definitions.getAsJsonObject("instruction")
+            .getAsJsonObject("properties");
+        Set<String> schemaOperations = new java.util.LinkedHashSet<String>(
+            strings(instructionProperties.getAsJsonObject("op").get("enum")));
+        assertEquals(runtimeFields.keySet(), schemaOperations);
+        Set<String> runtimeInstructionFields = new java.util.LinkedHashSet<String>();
+        for (List<String> fields : runtimeFields.values())
+            runtimeInstructionFields.addAll(fields);
+        Set<String> schemaInstructionFields = new java.util.LinkedHashSet<String>();
+        for (Map.Entry<String, JsonElement> property : instructionProperties.entrySet())
+            if (!"op".equals(property.getKey()))
+                schemaInstructionFields.add(property.getKey());
+        assertEquals(runtimeInstructionFields, schemaInstructionFields);
+    }
+
+    @Test
+    public void rejectsInternalAliasesAndMissingRequiredFields() throws Exception {
+        write("alias.ponder.json", pack("test:alias", "Alias", false)
+            .replace("\"scene.idle\",\"ticks\":10", "\"idle\",\"ticks\":10"));
+        PonderJsonLoader.ReloadResult alias = PonderJsonLoader.reload();
+        assertEquals(1, alias.errors);
+        assertTrue(ScriptSceneRegistry.jsonSnapshot().isEmpty());
+
+        write("alias.ponder.json", pack("test:missing", "Missing", false)
+            .replace("\"scene.idle\",\"ticks\":10", "\"scene.idle\""));
+        PonderJsonLoader.ReloadResult missing = PonderJsonLoader.reload();
+        assertEquals(1, missing.errors);
+        assertTrue(ScriptSceneRegistry.jsonSnapshot().isEmpty());
+    }
+
+    @Test
+    public void jsonCannotOverrideZenScriptScene() throws Exception {
+        ResourceLocation sceneId = new ResourceLocation("test", "zs_conflict");
+        ScriptSceneRegistry.register(new ScriptSceneDefinition(
+            new ResourceLocation("minecraft", "paper"), sceneId, "ZenScript",
+            new ResourceLocation("ponder", "demo/basics"),
+            Collections.<ResourceLocation>emptyList(),
+            Collections.singletonList(new ScriptInstruction("finish", null)), false));
+        write("conflict.ponder.json", pack(sceneId.toString(), "JSON", false));
+
+        PonderJsonLoader.ReloadResult result = PonderJsonLoader.reload();
+
+        assertEquals(1, result.errors);
+        assertTrue(ScriptSceneRegistry.jsonSnapshot().isEmpty());
+        assertEquals("ZenScript", ScriptSceneRegistry.find(
+            net.createmod.ponder.api.diagnostic.PonderDiagnosticView.LOCAL, sceneId).getTitle());
+    }
+
+    @Test
+    public void failedRegistrationReloadRollsBackAllJsonLayers() throws Exception {
+        write("stable.ponder.json", pack("test:rollback_old", "Old", false));
+        PonderJsonLoader.reload();
+        List<ScriptSceneDefinition> oldScenes = ScriptSceneRegistry.jsonSnapshot();
+        CollectionSnapshot old = new CollectionSnapshot(
+            ScriptTagRegistry.jsonSnapshot().size(),
+            ScriptSharedText.jsonSnapshot().get("json.step"),
+            ScriptIndex.jsonSnapshot().size());
+
+        write("stable.ponder.json", pack("test:rollback_new", "New", false));
+        PonderJsonLoader.setReloadActionForTest(new Runnable() {
+            @Override
+            public void run() {
+                throw new IllegalStateException("registration failed");
+            }
+        });
+        try {
+            PonderJsonLoader.reload();
+            throw new AssertionError("Failed registration reload was accepted");
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("registration failed"));
+        }
+
+        assertEquals(oldScenes.get(0).getSceneId(),
+            ScriptSceneRegistry.jsonSnapshot().get(0).getSceneId());
+        assertEquals(old.tags, ScriptTagRegistry.jsonSnapshot().size());
+        assertEquals(old.sharedText, ScriptSharedText.jsonSnapshot().get("json.step"));
+        assertEquals(old.exclusions, ScriptIndex.jsonSnapshot().size());
+    }
+
+    @Test
+    public void localSnapshotCarriesJsonScenesTagsAndSharedText() throws Exception {
+        write("sync.ponder.json", pack("test:json_sync", "Sync", false));
+        PonderJsonLoader.reload();
+
+        ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encodeLocal(
+            ScriptSceneRegistry.localSnapshot(false));
+        ScriptSceneSnapshot.Decoded decoded =
+            ScriptSceneSnapshot.decodeContent(encoded.bytes, encoded.uncompressedBytes);
+
+        boolean foundScene = false;
+        for (ScriptSceneDefinition scene : decoded.scenes)
+            if (scene.getSceneId().equals(new ResourceLocation("test", "json_sync")))
+                foundScene = true;
+        assertTrue(foundScene);
+        boolean foundTag = false;
+        for (ScriptTagDefinition tag : decoded.tags)
+            if (tag.id.equals(new ResourceLocation("test", "json")))
+                foundTag = true;
+        assertTrue(foundTag);
+        assertEquals("JSON step %s", decoded.sharedText.get("json.step"));
+    }
+
+    private static JsonObject parseJson(File file) throws Exception {
+        try (FileReader reader = new FileReader(file)) {
+            return new JsonParser().parse(reader).getAsJsonObject();
+        }
+    }
+
+    private static List<String> strings(JsonElement value) {
+        List<String> result = new ArrayList<String>();
+        for (JsonElement entry : value.getAsJsonArray())
+            result.add(entry.getAsString());
+        return result;
+    }
+
+    private static final class CollectionSnapshot {
+        final int tags;
+        final String sharedText;
+        final int exclusions;
+
+        CollectionSnapshot(int tags, String sharedText, int exclusions) {
+            this.tags = tags;
+            this.sharedText = sharedText;
+            this.exclusions = exclusions;
+        }
     }
 
     private File write(String name, String contents) throws Exception {

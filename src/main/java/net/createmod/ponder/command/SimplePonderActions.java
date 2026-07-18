@@ -10,6 +10,7 @@ import net.minecraft.util.ResourceLocation;
 import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticService;
 import net.createmod.ponder.script.PonderJsonLoader;
+import net.createmod.ponder.script.ScriptSceneRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextComponentTranslation;
@@ -45,6 +46,7 @@ public final class SimplePonderActions {
 
     public static void reloadPonder(String ignored) {
         PonderStructureLoader.invalidateCaches();
+        ScriptSceneRegistry.clearServerScenesAndReload();
         PonderJsonLoader.reload();
     }
 
