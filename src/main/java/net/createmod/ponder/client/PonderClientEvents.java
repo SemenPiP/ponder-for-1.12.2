@@ -17,6 +17,7 @@ import net.createmod.ponder.script.ScriptSceneSync;
 import net.createmod.ponder.script.ScriptMissingStructures;
 import net.createmod.ponder.script.ScriptSyncNotices;
 import net.createmod.ponder.script.net.ScriptSnapshotReceiver;
+import net.createmod.ponder.foundation.diagnostic.PonderValidationManager;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -40,6 +41,7 @@ public final class PonderClientEvents {
                 minecraft.player.sendMessage(new TextComponentString(notice));
         }
         ScriptSnapshotReceiver.tick();
+        PonderValidationManager.tick("client");
     }
 
     @SubscribeEvent

@@ -11,6 +11,7 @@ import java.util.IdentityHashMap;
 
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
 import net.minecraft.util.ResourceLocation;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenMethod;
@@ -122,6 +123,17 @@ public final class ScriptSceneRegistry {
 
     public static synchronized List<ScriptSceneDefinition> serverSnapshot() {
         return Collections.unmodifiableList(new ArrayList<ScriptSceneDefinition>(SERVER.values()));
+    }
+
+    public static synchronized ScriptSceneDefinition find(PonderDiagnosticView view, ResourceLocation sceneId) {
+        if (sceneId == null)
+            return null;
+        if (view == PonderDiagnosticView.SERVER)
+            return SERVER.get(sceneId);
+        if (view == PonderDiagnosticView.LOCAL)
+            return LOCAL.get(sceneId);
+        ScriptSceneDefinition server = SERVER.get(sceneId);
+        return server == null ? LOCAL.get(sceneId) : server;
     }
 
     private static Map<ResourceLocation, ScriptSceneDefinition> validateServerScenes(
