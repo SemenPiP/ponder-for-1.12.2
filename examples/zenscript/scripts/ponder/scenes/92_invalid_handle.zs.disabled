@@ -1,0 +1,8 @@
+import mods.ponder.SceneRegistry;
+import mods.ponder.Vector;
+
+val invalidHandle = SceneRegistry.create("minecraft:paper", "ponder_zen:invalid_handle",
+    "Invalid Entity Handle", "ponder:demo/basics");
+invalidHandle.world.createItemEntity("bad handle", Vector.of(2.5, 2.0, 2.5), Vector.of(0, 0, 0),
+    "minecraft:paper", 1, 0);
+invalidHandle.register();

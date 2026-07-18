@@ -29,6 +29,7 @@ public final class PonderClient {
         PonderElementFactories.set(new ClientPonderElementFactory());
         ClientboundSimpleActionPacket.addAction("openPonder", () -> SimplePonderActions::openPonder);
         ClientboundSimpleActionPacket.addAction("reloadPonder", () -> SimplePonderActions::reloadPonder);
+        ClientboundSimpleActionPacket.addAction("ponderDiagnostic", () -> SimplePonderActions::diagnostic);
         ClientboundSimpleActionPacket.addAction("configScreen", () -> ConfigScreenOpener::open);
         if (CatnipServices.PLATFORM.isDevelopmentEnvironment()) PonderIndex.addPlugin(new DebugPonderPlugin());
     }

@@ -31,10 +31,16 @@ public final class ScriptPonderPlugin implements PonderPlugin {
                         PonderStructureLoader.expectedExternalPath(definition.getStructure()), missing);
                     ScriptMissingStructures.record(definition.getSceneId(), definition.getStructure());
                     continue;
+                } catch (RuntimeException failure) {
+                    Ponder.LOGGER.error("Skipping Ponder script scene {} because structure provider failed for {}",
+                        definition.getSceneId(), definition.getStructure(), failure);
+                    ScriptSceneRegistry.recordStructureFailure(definition.getSceneId(),
+                        definition.getStructure(), failure);
+                    continue;
                 }
             }
             helper.addStoryBoard(definition.getComponent(), definition.getStructure(), definition.asStoryBoard(),
-                definition.getTags().toArray(new ResourceLocation[0]));
+                definition.getTags().toArray(new ResourceLocation[0])).identifiedBy(definition.getSceneId());
         }
     }
 

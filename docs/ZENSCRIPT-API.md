@@ -1,8 +1,30 @@
 # Ponder Legacy ZenScript API
 
-本文档对应 `1.1.2-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
+本文档对应 `1.1.3-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
 CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes`。修改脚本后必须重启；
 `/ponder reload` 只重新应用当前进程中已经编译的定义并刷新结构缓存。
+
+诊断命令不属于 ZenScript API 本身，但它们和脚本作者的工作流绑定很紧：
+
+- `/ponder list [local|server|effective]`
+- `/ponder inspect <scene> [local|server|effective]`
+- `/ponder validate [local|server|effective]`
+- `/ponder export <scene> [ir|timeline|all] [local|server|effective]`
+- `/ponder sync status [player]`
+
+`local` 表示客户端本地注册表，来源包括 Java 插件、builtin ZS 和 local ZS；`server`
+表示通过同步并验证后的服务端快照；`effective` 表示合并后的生效视图，同 Scene ID 的服务端
+脚本场景覆盖本地脚本场景，但 Java 插件场景保持本地来源。
+在专服控制台中，`local` 表示全部本地注册，`server` 表示可同步且非 `clientOnly` 的 ZS
+集合，`effective` 等同当前服务端注册结果。
+
+玩家在游戏内发起的 `list`、`inspect`、`validate` 和 `export` 会转发到客户端诊断服务。
+非玩家发送 `validate` 或 `export` 仍要走权限检查；`/ponder reload` 和 `/ponder sync status`
+在服务端执行时需要权限等级 2。ZS 变更仍然必须重启，`reload` 不会重新执行脚本。
+诊断报告和导出文件写入 `logs/ponder/diagnostics`。
+Java storyboard 场景没有可导出的脚本 IR，所以 `export ... ir` 只适用于脚本场景；`timeline`
+对 Java 场景和脚本场景都可导出。ZenScript 示例包打包为
+`build/distributions/Ponder-ZenScript-Examples-1.1.3.zip`。
 
 Ponder-MMCE 是独立子项目，通过 Java 结构 Provider 与物品 Subject Resolver 接入动态机器。它在
 addon 内单独注册 `mods.ponder.mmce.MMCEStructures` 和 `mods.ponder.mmce.MMCEStructureRef`：

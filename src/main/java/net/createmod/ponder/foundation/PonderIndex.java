@@ -16,6 +16,9 @@ import net.createmod.ponder.api.registration.LangRegistryAccess;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.api.registration.SceneRegistryAccess;
 import net.createmod.ponder.api.registration.TagRegistryAccess;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
+import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
 import net.createmod.ponder.enums.PonderConfig;
 import net.createmod.ponder.foundation.content.BasePonderPlugin;
 import net.createmod.ponder.foundation.registration.DefaultPonderSceneRegistrationHelper;
@@ -25,6 +28,7 @@ import net.createmod.ponder.foundation.registration.PonderIndexExclusionHelper;
 import net.createmod.ponder.foundation.registration.PonderLocalization;
 import net.createmod.ponder.foundation.registration.PonderSceneRegistry;
 import net.createmod.ponder.foundation.registration.PonderTagRegistry;
+import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticRegistry;
 import net.createmod.ponder.command.PonderCommands;
 import net.createmod.ponder.script.ScriptPonderPlugin;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
@@ -80,6 +84,11 @@ public final class PonderIndex {
         RegistrationState replacement = buildState();
         state = replacement;
         frozen = true;
+        try {
+            PonderDiagnosticRegistry.rebuild(replacement.scenes);
+        } catch (RuntimeException failure) {
+            Ponder.LOGGER.error("Could not rebuild Ponder diagnostics; registration remains active", failure);
+        }
         Ponder.LOGGER.info("Registered {} Ponder plugin(s) and {} storyboard(s)", PLUGINS.size(),
             replacement.scenes.getRegisteredEntries().size());
     }
@@ -100,7 +109,8 @@ public final class PonderIndex {
         PonderIndexExclusionHelper exclusions = new PonderIndexExclusionHelper();
 
         for (PonderPlugin plugin : PLUGINS)
-            plugin.registerScenes(new DefaultPonderSceneRegistrationHelper(plugin.getModId(), scenes));
+            plugin.registerScenes(new DefaultPonderSceneRegistrationHelper(plugin.getModId(),
+                plugin.getClass().getName(), scenes));
         for (PonderPlugin plugin : PLUGINS)
             plugin.registerTags(new DefaultPonderTagRegistrationHelper(plugin.getModId(), tags, localization));
         for (PonderPlugin plugin : PLUGINS)
@@ -133,6 +143,12 @@ public final class PonderIndex {
         state.localization.setTranslationProvider(provider);
     }
     public static PonderIndexExclusionHelper getIndexExclusions() { return state.exclusions; }
+    public static PonderDiagnosticSnapshot getDiagnosticSnapshot(PonderDiagnosticView view) {
+        return PonderDiagnosticRegistry.snapshot(view);
+    }
+    public static List<PonderSyncDiagnostic> getSyncDiagnostics() {
+        return net.createmod.ponder.script.ScriptSceneSync.snapshotDiagnostics();
+    }
     public static boolean editingModeActive() { return PonderConfig.client().isEditingMode(); }
 
     public static void registerCommands(FMLServerStartingEvent event) {

@@ -11,6 +11,9 @@ import java.util.IdentityHashMap;
 
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticIssue;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticSeverity;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
 import net.minecraft.util.ResourceLocation;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenMethod;
@@ -25,6 +28,8 @@ public final class ScriptSceneRegistry {
         new LinkedHashMap<ResourceLocation, ScriptSceneDefinition>();
     private static final Set<ScriptSceneBuilder> PENDING =
         Collections.newSetFromMap(new IdentityHashMap<ScriptSceneBuilder, Boolean>());
+    private static final List<PonderDiagnosticIssue> REGISTRATION_ISSUES =
+        new ArrayList<PonderDiagnosticIssue>();
 
     private ScriptSceneRegistry() {
     }
@@ -68,13 +73,44 @@ public final class ScriptSceneRegistry {
         PENDING.remove(builder);
     }
 
+    static synchronized void recordRegistrationFailure(ResourceLocation sceneId, String source,
+                                                       RuntimeException failure) {
+        String reason = failure.getMessage() == null || failure.getMessage().trim().isEmpty()
+            ? failure.getClass().getSimpleName() : failure.getMessage();
+        String message = "Failed to register Ponder scene " + sceneId + ": " + reason
+            + (source == null || source.isEmpty() ? "" : " at " + source);
+        addRegistrationIssue(new PonderDiagnosticIssue("registration.script_failed",
+            PonderDiagnosticSeverity.ERROR, message, sceneId, -1));
+    }
+
+    static synchronized void recordStructureFailure(ResourceLocation sceneId,
+                                                    ResourceLocation structureId,
+                                                    RuntimeException failure) {
+        String reason = failure.getMessage() == null || failure.getMessage().trim().isEmpty()
+            ? failure.getClass().getSimpleName() : failure.getMessage();
+        addRegistrationIssue(new PonderDiagnosticIssue("structure.provider_failed",
+            PonderDiagnosticSeverity.ERROR, "Skipped Ponder scene " + sceneId
+                + ": structure provider failed for " + structureId + ": " + reason,
+            sceneId, -1));
+    }
+
     public static synchronized void reportUnregisteredBuilders() {
         for (ScriptSceneBuilder builder : PENDING) {
             String source = builder.getSourceDescription();
-            CraftTweakerAPI.logError("Ponder scene builder was not registered: " + builder.getSceneId()
-                + (source == null ? "" : " at " + source));
+            String message = "Ponder scene builder was not registered: " + builder.getSceneId()
+                + (source == null ? "" : " at " + source);
+            CraftTweakerAPI.logError(message);
+            addRegistrationIssue(new PonderDiagnosticIssue("registration.script_unregistered",
+                PonderDiagnosticSeverity.ERROR, message, builder.getSceneId(), -1));
         }
         PENDING.clear();
+    }
+
+    public static synchronized List<PonderDiagnosticIssue> drainRegistrationIssues() {
+        List<PonderDiagnosticIssue> result =
+            new ArrayList<PonderDiagnosticIssue>(REGISTRATION_ISSUES);
+        REGISTRATION_ISSUES.clear();
+        return result;
     }
 
     public static synchronized Collection<ScriptSceneDefinition> effectiveScenes() {
@@ -124,6 +160,17 @@ public final class ScriptSceneRegistry {
         return Collections.unmodifiableList(new ArrayList<ScriptSceneDefinition>(SERVER.values()));
     }
 
+    public static synchronized ScriptSceneDefinition find(PonderDiagnosticView view, ResourceLocation sceneId) {
+        if (sceneId == null)
+            return null;
+        if (view == PonderDiagnosticView.SERVER)
+            return SERVER.get(sceneId);
+        if (view == PonderDiagnosticView.LOCAL)
+            return LOCAL.get(sceneId);
+        ScriptSceneDefinition server = SERVER.get(sceneId);
+        return server == null ? LOCAL.get(sceneId) : server;
+    }
+
     private static Map<ResourceLocation, ScriptSceneDefinition> validateServerScenes(
             Collection<ScriptSceneDefinition> definitions) {
         if (definitions == null || definitions.size() > MAX_SCENES)
@@ -137,6 +184,15 @@ public final class ScriptSceneRegistry {
                 throw new IllegalArgumentException("Duplicate server Ponder scene id: " + definition.getSceneId());
         }
         return replacement;
+    }
+
+    private static void addRegistrationIssue(PonderDiagnosticIssue issue) {
+        for (PonderDiagnosticIssue existing : REGISTRATION_ISSUES)
+            if (existing.getCode().equals(issue.getCode())
+                && existing.getMessage().equals(issue.getMessage())
+                && java.util.Objects.equals(existing.getSceneId(), issue.getSceneId()))
+                return;
+        REGISTRATION_ISSUES.add(issue);
     }
 
     static ResourceLocation parseId(String value, String label) {

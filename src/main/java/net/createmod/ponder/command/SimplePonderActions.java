@@ -8,6 +8,10 @@ import net.createmod.ponder.foundation.ui.PonderTagIndexScreen;
 import net.createmod.ponder.foundation.ui.PonderUI;
 import net.minecraft.util.ResourceLocation;
 import net.createmod.ponder.foundation.structure.PonderStructureLoader;
+import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticService;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -41,5 +45,18 @@ public final class SimplePonderActions {
     public static void reloadPonder(String ignored) {
         PonderStructureLoader.invalidateCaches();
         PonderIndex.reload();
+    }
+
+    public static void diagnostic(String request) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.player == null)
+            return;
+        try {
+            PonderDiagnosticService.execute("client", request,
+                message -> minecraft.player.sendMessage(new TextComponentString(message)));
+        } catch (RuntimeException failure) {
+            minecraft.player.sendMessage(
+                new TextComponentTranslation("ponder.diagnostic.command_failed", failure.getMessage()));
+        }
     }
 }

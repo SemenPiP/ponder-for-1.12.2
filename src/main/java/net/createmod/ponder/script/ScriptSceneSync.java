@@ -1,18 +1,17 @@
 package net.createmod.ponder.script;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.createmod.catnip.platform.CatnipServices;
 import net.createmod.ponder.Ponder;
+import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotBeginPacket;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotChunkPacket;
 import net.createmod.ponder.script.net.ClientboundScriptSnapshotCompletePacket;
@@ -25,7 +24,7 @@ public final class ScriptSceneSync {
     public static final int CHUNK_BYTES = 256 * 1024;
     public static final long TRANSFER_TIMEOUT_MILLIS = 30_000L;
     private static final AtomicInteger TRANSFER_IDS = new AtomicInteger();
-    private static final Map<UUID, ClientState> CLIENTS = new LinkedHashMap<UUID, ClientState>();
+    private static final ScriptSceneSyncTracker CLIENTS = new ScriptSceneSyncTracker();
 
     private ScriptSceneSync() {
     }
@@ -36,7 +35,7 @@ public final class ScriptSceneSync {
 
     public static synchronized void requestCapabilities(EntityPlayerMP player) {
         if (player == null) return;
-        CLIENTS.put(player.getUniqueID(), new ClientState(System.currentTimeMillis(), "waiting_capabilities"));
+        CLIENTS.request(player.getUniqueID(), player.getName(), System.currentTimeMillis());
         CatnipServices.NETWORK.sendToClient(player, new ClientboundScriptSnapshotStatusPacket(0,
             ClientboundScriptSnapshotStatusPacket.REQUEST_CAPABILITIES,
             "Ponder script capabilities requested"));
@@ -45,45 +44,51 @@ public final class ScriptSceneSync {
     public static synchronized void receiveCapabilities(EntityPlayerMP player, int protocol,
                                                         List<ResourceLocation> codecs) {
         if (player == null) return;
-        ClientState state = CLIENTS.get(player.getUniqueID());
-        if (state == null) {
-            reject(player, 0, "Unexpected Ponder script capability response");
+        if (!CLIENTS.contains(player.getUniqueID())) {
+            rejectAndTrack(player, protocol, codecs, 0,
+                "Unexpected Ponder script capability response");
+            return;
+        }
+        if (!CLIENTS.isWaitingForCapabilities(player.getUniqueID())) {
+            reject(player, 0, "Stale Ponder script capability response");
             return;
         }
         if (protocol != ScriptSceneSnapshot.PROTOCOL) {
-            reject(player, 0, "Unsupported Ponder script protocol " + protocol);
-            CLIENTS.remove(player.getUniqueID());
+            rejectAndTrack(player, protocol, codecs, 0,
+                "Unsupported Ponder script protocol " + protocol);
             return;
         }
         if (codecs == null || codecs.size() > ScriptSceneSnapshot.MAX_REQUIRED_CODECS) {
-            reject(player, 0, "Invalid Ponder script codec capability list");
-            CLIENTS.remove(player.getUniqueID());
+            rejectAndTrack(player, protocol, codecs, 0,
+                "Invalid Ponder script codec capability list");
             return;
         }
         Set<ResourceLocation> supported = new HashSet<ResourceLocation>();
         for (ResourceLocation codec : codecs) {
             if (codec == null || !supported.add(codec)) {
-                reject(player, 0, "Invalid or duplicate Ponder script codec capability");
-                CLIENTS.remove(player.getUniqueID());
+                rejectAndTrack(player, protocol, codecs, 0,
+                    "Invalid or duplicate Ponder script codec capability");
                 return;
             }
         }
+        long now = System.currentTimeMillis();
+        CLIENTS.recordCapabilities(player.getUniqueID(), protocol, new ArrayList<ResourceLocation>(supported),
+            now);
         try {
             List<ScriptSceneDefinition> scenes = ScriptSceneRegistry.localSnapshot(false);
             ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encode(scenes);
             List<ResourceLocation> requiredCodecs = ScriptSceneSnapshot.requiredCodecs(scenes);
             for (ResourceLocation required : requiredCodecs) {
                 if (!supported.contains(required)) {
-                    reject(player, 0, "Missing required Ponder script codec " + required);
-                    CLIENTS.remove(player.getUniqueID());
+                    rejectAndTrack(player, protocol, codecs, 0,
+                        "Missing required Ponder script codec " + required);
                     return;
                 }
             }
             int transfer = nextTransferId();
             int chunks = Math.max(1, (encoded.bytes.length + CHUNK_BYTES - 1) / CHUNK_BYTES);
-            state.transferId = transfer;
-            state.startedAt = System.currentTimeMillis();
-            state.status = "sending";
+            CLIENTS.startTransfer(player.getUniqueID(), transfer, encoded.bytes.length, encoded.uncompressedBytes,
+                System.currentTimeMillis());
             CatnipServices.NETWORK.sendToClient(player, new ClientboundScriptSnapshotBeginPacket(transfer,
                 ScriptSceneSnapshot.PROTOCOL, chunks, encoded.bytes.length, encoded.uncompressedBytes,
                 encoded.hash, requiredCodecs));
@@ -94,30 +99,21 @@ public final class ScriptSceneSync {
                     Arrays.copyOfRange(encoded.bytes, start, end)));
             }
             CatnipServices.NETWORK.sendToClient(player, new ClientboundScriptSnapshotCompletePacket(transfer));
-            state.status = "waiting_result";
+            CLIENTS.markWaitingResult(player.getUniqueID(), transfer);
         } catch (IOException exception) {
             Ponder.LOGGER.error("Could not encode Ponder script scene snapshot for {}", player.getName(), exception);
-            reject(player, 0, "Could not encode Ponder script scene snapshot");
-            CLIENTS.remove(player.getUniqueID());
+            rejectAndTrack(player, protocol, codecs, 0,
+                "Could not encode Ponder script scene snapshot");
         }
     }
 
     public static synchronized void receiveResult(EntityPlayerMP player, int transferId, int protocol,
                                                   boolean accepted, String message) {
         if (player == null) return;
-        ClientState state = CLIENTS.get(player.getUniqueID());
-        if (state == null || state.transferId != transferId) {
+        if (!CLIENTS.recordResult(player.getUniqueID(), transferId, protocol, ScriptSceneSnapshot.PROTOCOL,
+            accepted, message, System.currentTimeMillis())) {
             Ponder.LOGGER.warn("{} reported stale Ponder script snapshot result #{}", player.getName(), transferId);
-            return;
         }
-        if (protocol != ScriptSceneSnapshot.PROTOCOL) {
-            state.status = "rejected";
-            state.lastResult = "Protocol mismatch: " + protocol;
-        } else {
-            state.status = accepted ? "accepted" : "rejected";
-            state.lastResult = message == null ? "" : message;
-        }
-        state.startedAt = System.currentTimeMillis();
     }
 
     public static void sendAll(MinecraftServer server) {
@@ -126,16 +122,10 @@ public final class ScriptSceneSync {
 
     public static synchronized void tick(MinecraftServer server) {
         long now = System.currentTimeMillis();
-        Iterator<Map.Entry<UUID, ClientState>> iterator = CLIENTS.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<UUID, ClientState> entry = iterator.next();
-            ClientState state = entry.getValue();
-            if ("accepted".equals(state.status) || "rejected".equals(state.status)) continue;
-            if (now - state.startedAt <= TRANSFER_TIMEOUT_MILLIS) continue;
-            EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(entry.getKey());
+        for (ScriptSceneSyncTracker.Timeout timeout : CLIENTS.expire(now, TRANSFER_TIMEOUT_MILLIS)) {
+            EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(timeout.getPlayerId());
             if (player != null)
-                reject(player, state.transferId, "Ponder script snapshot transfer timed out");
-            iterator.remove();
+                reject(player, timeout.getTransferId(), timeout.getMessage());
         }
     }
 
@@ -145,6 +135,10 @@ public final class ScriptSceneSync {
 
     public static void clearServerScenes() {
         ScriptSceneRegistry.clearServerScenesAndReload();
+    }
+
+    public static synchronized List<PonderSyncDiagnostic> snapshotDiagnostics() {
+        return CLIENTS.snapshotDiagnostics();
     }
 
     private static int nextTransferId() {
@@ -157,15 +151,11 @@ public final class ScriptSceneSync {
         Ponder.LOGGER.warn("Rejected Ponder script sync for {}: {}", player.getName(), message);
     }
 
-    private static final class ClientState {
-        long startedAt;
-        int transferId;
-        String status;
-        String lastResult = "";
-
-        ClientState(long startedAt, String status) {
-            this.startedAt = startedAt;
-            this.status = status;
-        }
+    private static void rejectAndTrack(EntityPlayerMP player, int protocol, List<ResourceLocation> codecs,
+                                       int transferId, String message) {
+        CLIENTS.reject(player.getUniqueID(), player.getName(), protocol, codecs, transferId, message,
+            System.currentTimeMillis());
+        reject(player, transferId, message);
     }
+
 }

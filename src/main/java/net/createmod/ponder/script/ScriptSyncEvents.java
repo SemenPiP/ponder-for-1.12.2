@@ -5,6 +5,7 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.createmod.ponder.foundation.diagnostic.PonderValidationManager;
 
 public final class ScriptSyncEvents {
     @SubscribeEvent
@@ -22,7 +23,9 @@ public final class ScriptSyncEvents {
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.END && event.side.isServer()
-            && FMLCommonHandler.instance().getMinecraftServerInstance() != null)
+            && FMLCommonHandler.instance().getMinecraftServerInstance() != null) {
             ScriptSceneSync.tick(FMLCommonHandler.instance().getMinecraftServerInstance());
+            PonderValidationManager.tick("server");
+        }
     }
 }

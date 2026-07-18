@@ -416,6 +416,15 @@ public final class PonderScene {
     public int getCurrentTime() { return currentTick; }
     public int getTotalTicks() { return totalTicks; }
     public int getTotalTime() { return totalTicks; }
+    public int getScheduledInstructionCount() { return schedule.size(); }
+    public List<ScheduledInstructionDiagnostic> getScheduledInstructionDiagnostics() {
+        List<ScheduledInstructionDiagnostic> result =
+            new ArrayList<ScheduledInstructionDiagnostic>(schedule.size());
+        for (ScheduledInstruction scheduled : schedule)
+            result.add(new ScheduledInstructionDiagnostic(scheduled.tick,
+                scheduled.instruction.getDuration(), scheduled.instruction.getClass().getName()));
+        return Collections.unmodifiableList(result);
+    }
     public float getSceneProgress() { return totalTicks == 0 ? 1 : Math.min(1, currentTick / (float) totalTicks); }
     public boolean isFinished() { return finished; }
     public void setFinished(boolean finished) { this.finished = finished; }
@@ -479,6 +488,22 @@ public final class PonderScene {
         final int tick;
         final PonderInstruction instruction;
         ScheduledInstruction(int tick, PonderInstruction instruction) { this.tick = tick; this.instruction = instruction; }
+    }
+
+    public static final class ScheduledInstructionDiagnostic {
+        private final int startTick;
+        private final int duration;
+        private final String instructionType;
+
+        ScheduledInstructionDiagnostic(int startTick, int duration, String instructionType) {
+            this.startTick = Math.max(0, startTick);
+            this.duration = Math.max(0, duration);
+            this.instructionType = instructionType == null ? "" : instructionType;
+        }
+
+        public int getStartTick() { return startTick; }
+        public int getDuration() { return duration; }
+        public String getInstructionType() { return instructionType; }
     }
 
     private static final class RuntimeSnapshot {

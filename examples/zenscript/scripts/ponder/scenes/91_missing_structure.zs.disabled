@@ -1,0 +1,6 @@
+import mods.ponder.SceneRegistry;
+
+val missing = SceneRegistry.create("minecraft:paper", "ponder_zen:missing_structure",
+    "Missing External Structure", "ponder_zen:missing/structure");
+missing.idle(1);
+missing.register();
