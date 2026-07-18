@@ -116,6 +116,29 @@ public final class ScriptCodecDescriptors {
         return Collections.unmodifiableMap(result);
     }
 
+    public static String compatibilityError(
+            Collection<ScriptInstructionCodecDescriptor> capabilities,
+            Collection<ScriptInstructionCodecDescriptor> requirements) {
+        Map<ResourceLocation, ScriptInstructionCodecDescriptor> supported = byId(capabilities);
+        for (ScriptInstructionCodecDescriptor required : validate(requirements)) {
+            ScriptInstructionCodecDescriptor capability = supported.get(required.getId());
+            if (capability == null)
+                return "Missing required Ponder script codec " + required.getId();
+            if (capability.getProtocolVersion() != required.getProtocolVersion())
+                return "Ponder script codec version mismatch for " + required.getId()
+                    + ": client " + capability.getProtocolVersion() + ", server "
+                    + required.getProtocolVersion();
+            if (!capability.satisfies(required)) {
+                List<ResourceLocation> missing =
+                    new ArrayList<ResourceLocation>(required.getCapabilities());
+                missing.removeAll(capability.getCapabilities());
+                return "Missing required capabilities for Ponder script codec "
+                    + required.getId() + ": " + missing;
+            }
+        }
+        return "";
+    }
+
     public static NBTTagList toNbt(Collection<ScriptInstructionCodecDescriptor> descriptors) {
         NBTTagList list = new NBTTagList();
         for (ScriptInstructionCodecDescriptor descriptor : validate(descriptors)) {

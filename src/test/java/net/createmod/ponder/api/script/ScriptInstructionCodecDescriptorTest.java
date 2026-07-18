@@ -14,6 +14,7 @@ import org.junit.Test;
 
 import net.createmod.ponder.api.scene.SceneBuilder;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
+import net.createmod.ponder.script.ScriptCodecDescriptors;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 
@@ -63,6 +64,27 @@ public class ScriptInstructionCodecDescriptorTest {
     @Test(expected = IllegalArgumentException.class)
     public void nonPositiveProtocolVersionIsRejected() {
         new ScriptInstructionCodecDescriptor(id("codec"), 0, new LinkedHashSet<ResourceLocation>());
+    }
+
+    @Test
+    public void compatibilityRequiresCodecVersionAndCapabilityBeforeTransfer() {
+        ScriptInstructionCodecDescriptor required =
+            new ScriptInstructionCodecDescriptor(id("sync"), 2, Collections.singleton(id("outline")));
+        assertTrue(ScriptCodecDescriptors.compatibilityError(
+            Collections.<ScriptInstructionCodecDescriptor>emptyList(),
+            Collections.singletonList(required)).contains("Missing required"));
+        assertTrue(ScriptCodecDescriptors.compatibilityError(
+            Collections.singletonList(new ScriptInstructionCodecDescriptor(
+                id("sync"), 1, Collections.singleton(id("outline")))),
+            Collections.singletonList(required)).contains("version mismatch"));
+        assertTrue(ScriptCodecDescriptors.compatibilityError(
+            Collections.singletonList(new ScriptInstructionCodecDescriptor(
+                id("sync"), 2, Collections.<ResourceLocation>emptySet())),
+            Collections.singletonList(required)).contains("Missing required capabilities"));
+        assertEquals("", ScriptCodecDescriptors.compatibilityError(
+            Collections.singletonList(new ScriptInstructionCodecDescriptor(
+                id("sync"), 2, Arrays.asList(id("outline"), id("extra")))),
+            Collections.singletonList(required)));
     }
 
     private static ResourceLocation id(String path) {

@@ -95,6 +95,10 @@ sourceSets {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
         runtimeClasspath += output + compileClasspath
     }
+    test {
+        compileClasspath += sourceSets.exampleAddon.output
+        runtimeClasspath += sourceSets.exampleAddon.output
+    }
     clientHarness {
         java.srcDir 'verification/client-harness/src/main/java'
         resources.srcDir 'verification/client-harness/src/main/resources'
@@ -233,6 +237,15 @@ def reobfExampleAddonJar = tasks.register('reobfExampleAddonJar',
     archiveClassifier.set('')
     destinationDirectory.set(layout.buildDirectory.dir('libs'))
 }
+tasks.register('exampleAddonSmokeZip', Zip) {
+    dependsOn reobfExampleAddonJar
+    archiveFileName.set('Ponder-Example-Addon-Smoke-1.2.0.zip')
+    destinationDirectory.set(layout.buildDirectory.dir('distributions'))
+    from layout.projectDirectory.dir('examples/addon/smoke')
+    from(reobfExampleAddonJar.flatMap { it.archiveFile }) {
+        into 'mods'
+    }
+}
 def reobfServerHarnessJar = tasks.register('reobfServerHarnessJar',
     com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
     def inputJar = tasks.named('serverHarnessJar', Jar)
@@ -269,12 +282,13 @@ tasks.register('verifyJava8Bytecode') {
 
 tasks.register('verifyReleaseContents') {
     dependsOn mainReobfJar, reobfExampleAddonJar, tasks.named('apiJar'), tasks.named('sourcesJar'),
-        tasks.named('zenscriptExamplesZip')
+        tasks.named('zenscriptExamplesZip'), tasks.named('exampleAddonSmokeZip')
     doLast {
         File release = mainReobfJar.get().archiveFile.get().asFile
         File example = reobfExampleAddonJar.get().archiveFile.get().asFile
         File api = tasks.named('apiJar').get().archiveFile.get().asFile
         File sources = tasks.named('sourcesJar').get().archiveFile.get().asFile
+        File exampleSmoke = tasks.named('exampleAddonSmokeZip').get().archiveFile.get().asFile
 
         if (zipTree(release).matching { include 'mixins.ponder.refmap.json' }.isEmpty()) {
             throw new GradleException('Release jar is missing mixins.ponder.refmap.json')
@@ -435,6 +449,15 @@ tasks.register('verifyReleaseContents') {
                 throw new GradleException("Non-API entry in API classifier: ${details.path}")
             }
         }
+        [
+            'mods/Ponder-Example-Addon-1.12.2-1.1.3.jar',
+            'scripts/ponder/scenes/ponder_example_codec.zs',
+            'README.md'
+        ].each { path ->
+            if (zipTree(exampleSmoke).matching { include path }.isEmpty()) {
+                throw new GradleException("Example addon smoke pack is missing ${path}")
+            }
+        }
     }
 }
 
@@ -458,6 +481,7 @@ tasks.named('assemble') {
     dependsOn mainReobfJar, tasks.named('apiJar'), reobfExampleAddonJar
     dependsOn reobfServerHarnessJar
     dependsOn tasks.named('zenscriptExamplesZip')
+    dependsOn tasks.named('exampleAddonSmokeZip')
     dependsOn ':ponder-mmce:assemble'
 }
 

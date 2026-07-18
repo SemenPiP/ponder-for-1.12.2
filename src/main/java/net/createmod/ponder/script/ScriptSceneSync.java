@@ -78,26 +78,11 @@ public final class ScriptSceneSync {
             List<ScriptSceneDefinition> scenes = ScriptSceneRegistry.localSnapshot(false);
             ScriptSceneSnapshot.Encoded encoded = ScriptSceneSnapshot.encodeLocal(scenes);
             List<ScriptInstructionCodecDescriptor> requiredCodecs = encoded.requirements;
-            for (ScriptInstructionCodecDescriptor required : requiredCodecs) {
-                ScriptInstructionCodecDescriptor capability = supported.get(required.getId());
-                if (capability == null) {
-                    rejectAndTrack(player, protocol, codecs, 0,
-                        "Missing required Ponder script codec " + required.getId());
-                    return;
-                }
-                if (capability.getProtocolVersion() != required.getProtocolVersion()) {
-                    rejectAndTrack(player, protocol, codecs, 0,
-                        "Ponder script codec version mismatch for " + required.getId()
-                            + ": client " + capability.getProtocolVersion() + ", server "
-                            + required.getProtocolVersion());
-                    return;
-                }
-                if (!capability.satisfies(required)) {
-                    rejectAndTrack(player, protocol, codecs, 0,
-                        "Missing required capabilities for Ponder script codec " + required.getId()
-                            + ": " + missingCapabilities(capability, required));
-                    return;
-                }
+            String compatibilityError =
+                ScriptCodecDescriptors.compatibilityError(supported.values(), requiredCodecs);
+            if (!compatibilityError.isEmpty()) {
+                rejectAndTrack(player, protocol, codecs, 0, compatibilityError);
+                return;
             }
             int transfer = nextTransferId();
             int chunks = Math.max(1, (encoded.bytes.length + CHUNK_BYTES - 1) / CHUNK_BYTES);
@@ -173,12 +158,4 @@ public final class ScriptSceneSync {
         reject(player, transferId, message);
     }
 
-    private static List<net.minecraft.util.ResourceLocation> missingCapabilities(
-            ScriptInstructionCodecDescriptor capability,
-            ScriptInstructionCodecDescriptor requirement) {
-        List<net.minecraft.util.ResourceLocation> missing =
-            new ArrayList<net.minecraft.util.ResourceLocation>(requirement.getCapabilities());
-        missing.removeAll(capability.getCapabilities());
-        return missing;
-    }
 }
