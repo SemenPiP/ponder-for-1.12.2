@@ -416,6 +416,7 @@ public final class PonderScene {
     public int getCurrentTime() { return currentTick; }
     public int getTotalTicks() { return totalTicks; }
     public int getTotalTime() { return totalTicks; }
+    public int getScheduledInstructionCount() { return schedule.size(); }
     public float getSceneProgress() { return totalTicks == 0 ? 1 : Math.min(1, currentTick / (float) totalTicks); }
     public boolean isFinished() { return finished; }
     public void setFinished(boolean finished) { this.finished = finished; }

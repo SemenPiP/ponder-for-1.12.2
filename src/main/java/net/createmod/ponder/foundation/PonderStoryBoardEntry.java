@@ -15,6 +15,8 @@ public final class PonderStoryBoardEntry implements StoryBoardEntry {
     private final ResourceLocation component;
     private final List<ResourceLocation> tags = new ArrayList<ResourceLocation>();
     private final List<SceneOrderingEntry> orderingEntries = new ArrayList<SceneOrderingEntry>();
+    private ResourceLocation declaredSceneId;
+    private String pluginClass = "";
 
     public PonderStoryBoardEntry(PonderStoryBoard board, String namespace, ResourceLocation schematicLocation,
                                  ResourceLocation component) {
@@ -37,6 +39,25 @@ public final class PonderStoryBoardEntry implements StoryBoardEntry {
     @Override public ResourceLocation getComponent() { return component; }
     @Override public List<ResourceLocation> getTags() { return Collections.unmodifiableList(tags); }
     @Override public List<SceneOrderingEntry> getOrderingEntries() { return Collections.unmodifiableList(orderingEntries); }
+    @Override public ResourceLocation getDeclaredSceneId() { return declaredSceneId; }
+
+    @Override
+    public StoryBoardEntry identifiedBy(ResourceLocation sceneId) {
+        if (sceneId == null)
+            throw new IllegalArgumentException("Declared Ponder scene id is required");
+        if (declaredSceneId != null && !declaredSceneId.equals(sceneId))
+            throw new IllegalStateException("Ponder storyboard already declares scene id " + declaredSceneId);
+        declaredSceneId = sceneId;
+        return this;
+    }
+
+    public void setPluginClass(String pluginClass) {
+        this.pluginClass = pluginClass == null ? "" : pluginClass;
+    }
+
+    public String getPluginClass() {
+        return pluginClass;
+    }
 
     @Override
     public StoryBoardEntry orderBefore(String namespace, String otherSceneId) {

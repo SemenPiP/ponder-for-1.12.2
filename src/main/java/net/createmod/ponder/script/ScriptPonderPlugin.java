@@ -34,7 +34,7 @@ public final class ScriptPonderPlugin implements PonderPlugin {
                 }
             }
             helper.addStoryBoard(definition.getComponent(), definition.getStructure(), definition.asStoryBoard(),
-                definition.getTags().toArray(new ResourceLocation[0]));
+                definition.getTags().toArray(new ResourceLocation[0])).identifiedBy(definition.getSceneId());
         }
     }
 

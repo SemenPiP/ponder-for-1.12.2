@@ -18,6 +18,21 @@ public interface StoryBoardEntry {
 
     List<SceneOrderingEntry> getOrderingEntries();
 
+    default StoryBoardEntry identifiedBy(String sceneId) {
+        if (sceneId == null || sceneId.trim().isEmpty())
+            throw new IllegalArgumentException("Declared Ponder scene id is required");
+        return identifiedBy(sceneId.indexOf(':') >= 0
+            ? new ResourceLocation(sceneId) : new ResourceLocation(getNamespace(), sceneId));
+    }
+
+    default StoryBoardEntry identifiedBy(ResourceLocation sceneId) {
+        return this;
+    }
+
+    default ResourceLocation getDeclaredSceneId() {
+        return null;
+    }
+
     default StoryBoardEntry orderBefore(String otherSceneId) {
         return orderBefore(getNamespace(), otherSceneId);
     }

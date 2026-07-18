@@ -20,10 +20,18 @@ public final class ScriptSceneDefinition {
     private final List<ResourceLocation> tags;
     private final List<ScriptInstruction> instructions;
     private final boolean clientOnly;
+    private final String sourceDescription;
 
     public ScriptSceneDefinition(ResourceLocation component, ResourceLocation sceneId, String title,
                                  ResourceLocation structure, List<ResourceLocation> tags,
                                  List<ScriptInstruction> instructions, boolean clientOnly) {
+        this(component, sceneId, title, structure, tags, instructions, clientOnly, null);
+    }
+
+    public ScriptSceneDefinition(ResourceLocation component, ResourceLocation sceneId, String title,
+                                 ResourceLocation structure, List<ResourceLocation> tags,
+                                 List<ScriptInstruction> instructions, boolean clientOnly,
+                                 String sourceDescription) {
         if (component == null || sceneId == null || structure == null)
             throw new IllegalArgumentException("Component, scene id and structure are required");
         validateId(component, "component");
@@ -47,6 +55,7 @@ public final class ScriptSceneDefinition {
         this.tags = Collections.unmodifiableList(new ArrayList<ResourceLocation>(tags));
         this.instructions = Collections.unmodifiableList(new ArrayList<ScriptInstruction>(instructions));
         this.clientOnly = clientOnly;
+        this.sourceDescription = ScriptSourceMetadata.normalize(sourceDescription);
     }
 
     public ResourceLocation getComponent() { return component; }
@@ -56,6 +65,7 @@ public final class ScriptSceneDefinition {
     public List<ResourceLocation> getTags() { return tags; }
     public List<ScriptInstruction> getInstructions() { return instructions; }
     public boolean isClientOnly() { return clientOnly; }
+    public String getSourceDescription() { return sourceDescription; }
 
     public PonderStoryBoard asStoryBoard() {
         return (scene, util) -> ScriptSceneProgram.program(this, scene, util);

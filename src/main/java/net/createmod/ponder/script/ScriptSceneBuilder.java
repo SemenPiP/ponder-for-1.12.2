@@ -158,7 +158,7 @@ public final class ScriptSceneBuilder {
         String registerSource = source == null ? captureSource() : source;
         try {
             ScriptSceneRegistry.register(new ScriptSceneDefinition(component, sceneId, title, structure,
-                new ArrayList<ResourceLocation>(tags), instructions, clientOnly));
+                new ArrayList<ResourceLocation>(tags), instructions, clientOnly, registerSource));
         } catch (RuntimeException exception) {
             throw withSource("Failed to register Ponder scene", exception,
                 registerSource == null ? source : registerSource);

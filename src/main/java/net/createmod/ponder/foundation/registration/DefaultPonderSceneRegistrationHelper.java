@@ -12,12 +12,19 @@ import net.minecraft.util.ResourceLocation;
 
 public final class DefaultPonderSceneRegistrationHelper implements PonderSceneRegistrationHelper<ResourceLocation> {
     private final String namespace;
+    private final String pluginClass;
     private final PonderSceneRegistry registry;
 
     public DefaultPonderSceneRegistrationHelper(String namespace, PonderSceneRegistry registry) {
+        this(namespace, "", registry);
+    }
+
+    public DefaultPonderSceneRegistrationHelper(String namespace, String pluginClass,
+                                                 PonderSceneRegistry registry) {
         if (namespace == null || namespace.trim().isEmpty())
             throw new IllegalArgumentException("Plugin namespace may not be blank");
         this.namespace = namespace;
+        this.pluginClass = pluginClass == null ? "" : pluginClass;
         this.registry = registry;
     }
 
@@ -30,6 +37,7 @@ public final class DefaultPonderSceneRegistrationHelper implements PonderSceneRe
     public StoryBoardEntry addStoryBoard(ResourceLocation component, ResourceLocation schematicLocation,
                                          PonderStoryBoard storyBoard, ResourceLocation... tags) {
         PonderStoryBoardEntry entry = new PonderStoryBoardEntry(storyBoard, namespace, schematicLocation, component);
+        entry.setPluginClass(pluginClass);
         entry.highlightTags(tags);
         registry.addStoryBoard(entry);
         return entry;

@@ -113,24 +113,36 @@ public final class PonderSceneRegistry implements SceneRegistryAccess {
     @Override public List<PonderScene> compile(Collection<StoryBoardEntry> entries) {
         List<PonderScene> result = new ArrayList<PonderScene>();
         for (StoryBoardEntry entry : entries) {
-            PonderStructure structure;
-            try {
-                structure = loader.load(entry.getSchematicLocation());
-            } catch (IOException exception) {
-                LOGGER.error("Failed to load Ponder structure {}", entry.getSchematicLocation(), exception);
-                structure = PonderStructure.missing("failed to load " + entry.getSchematicLocation() + ": " + exception.getMessage());
-            }
-            if (!structure.getDiagnostics().isEmpty())
-                LOGGER.warn("Ponder structure {} loaded with {} diagnostic(s): {}", entry.getSchematicLocation(),
-                    structure.getDiagnostics().size(), structure.getDiagnostics());
-            PonderLevel world = new PonderLevel(BlockPos.ORIGIN, null);
-            structure.place(world);
-            world.createBackup();
-            PonderScene scene = compileScene(localization, entry, world);
-            scene.begin();
-            result.add(scene);
+            result.add(compileEntry(entry));
         }
         return Collections.unmodifiableList(applyOrdering(result));
+    }
+
+    public PonderScene compileEntry(StoryBoardEntry entry) {
+        PonderStructure structure;
+        try {
+            structure = loader.load(entry.getSchematicLocation());
+        } catch (IOException exception) {
+            LOGGER.error("Failed to load Ponder structure {}", entry.getSchematicLocation(), exception);
+            structure = PonderStructure.missing("failed to load " + entry.getSchematicLocation() + ": "
+                + exception.getMessage());
+        }
+        if (!structure.getDiagnostics().isEmpty())
+            LOGGER.warn("Ponder structure {} loaded with {} diagnostic(s): {}", entry.getSchematicLocation(),
+                structure.getDiagnostics().size(), structure.getDiagnostics());
+        PonderLevel world = new PonderLevel(BlockPos.ORIGIN, null);
+        structure.place(world);
+        world.createBackup();
+        PonderScene scene = compileScene(localization, entry, world);
+        scene.begin();
+        return scene;
+    }
+
+    public synchronized List<StoryBoardEntry> snapshotEntries() {
+        List<StoryBoardEntry> result = new ArrayList<StoryBoardEntry>();
+        for (List<StoryBoardEntry> entries : scenes.values())
+            result.addAll(entries);
+        return Collections.unmodifiableList(result);
     }
 
     public static PonderScene compileScene(PonderLocalization localization, StoryBoardEntry entry,
