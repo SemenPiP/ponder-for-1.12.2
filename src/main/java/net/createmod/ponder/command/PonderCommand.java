@@ -12,6 +12,7 @@ import net.createmod.ponder.foundation.PonderIndex;
 import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticService;
 import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.createmod.ponder.script.ScriptSceneSync;
+import net.createmod.ponder.script.PonderJsonLoader;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -87,9 +88,13 @@ public final class PonderCommand extends CommandBase {
         if (arguments.length > 0 && "reload".equalsIgnoreCase(arguments[0])) {
             if (!sender.canUseCommand(2, getName())) throw new CommandException("commands.generic.permission");
             PonderStructureLoader.invalidateCaches();
-            PonderIndex.reload();
+            PonderJsonLoader.ReloadResult result = PonderJsonLoader.reload();
             CatnipServices.NETWORK.sendToAllClients(new ClientboundSimpleActionPacket("reloadPonder", ""));
+            ScriptSceneSync.sendAll(server);
             send(sender, "ponder.command.reload_complete");
+            sender.sendMessage(new TextComponentString("Ponder JSON: " + result.packs + " pack(s), "
+                + result.scenes + " scene(s), " + result.warnings + " warning(s), "
+                + result.errors + " error(s)"));
             return;
         }
         if (!(sender.getCommandSenderEntity() instanceof EntityPlayerMP))

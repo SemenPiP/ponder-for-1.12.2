@@ -8,6 +8,7 @@ import java.io.File;
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
 import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.createmod.ponder.script.BuiltinScriptInstaller;
+import net.createmod.ponder.script.PonderJsonLoader;
 import zone.rong.mixinbooter.IEarlyMixinLoader;
 
 /** Registers Ponder's client hooks after MixinBooter has placed this jar on the launch classpath. */
@@ -31,6 +32,7 @@ public final class PonderMixinLoader implements IFMLLoadingPlugin, IEarlyMixinLo
         File gameDirectory = (File) location;
         BuiltinScriptInstaller.installOnce(gameDirectory);
         PonderStructureLoader.setExternalRoot(new File(gameDirectory, "scripts/ponder/structures"));
+        PonderJsonLoader.setRoot(new File(gameDirectory, "scripts/ponder/packs"));
     }
     @Override public String getAccessTransformerClass() { return null; }
 }

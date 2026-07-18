@@ -6,6 +6,7 @@ import net.createmod.catnip.command.CatnipCommands;
 import net.createmod.ponder.api.registration.PonderPlugin;
 import net.createmod.ponder.foundation.PonderIndex;
 import net.createmod.ponder.script.ScriptSceneRegistry;
+import net.createmod.ponder.script.PonderJsonLoader;
 import net.minecraftforge.fml.common.event.FMLInterModComms;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 
@@ -48,6 +49,7 @@ public final class PonderBootstrap {
         ScriptSceneRegistry.reportUnregisteredBuilders();
         PonderIndex.discoverPlugins();
         PonderIndex.registerAll();
+        PonderJsonLoader.reload();
         finished = true;
     }
 

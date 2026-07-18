@@ -11,7 +11,8 @@ import stanhebben.zenscript.annotations.ZenMethod;
 @ZenRegister
 @ZenClass("mods.ponder.SharedText")
 public final class ScriptSharedText {
-    private static final Map<String, String> LOCAL = new LinkedHashMap<String, String>();
+    private static final Map<String, String> ZS_LOCAL = new LinkedHashMap<String, String>();
+    private static final Map<String, String> JSON_LOCAL = new LinkedHashMap<String, String>();
     private static final Map<String, String> SERVER = new LinkedHashMap<String, String>();
 
     private ScriptSharedText() {
@@ -22,21 +23,22 @@ public final class ScriptSharedText {
         key = ScriptWorldBuilder.requiredText(key, "shared text key");
         defaultText = ScriptWorldBuilder.requiredText(defaultText, "shared text");
         validateEntry(key, defaultText);
-        if (LOCAL.size() >= ScriptSceneSnapshot.MAX_SHARED_TEXT)
+        if (ZS_LOCAL.size() + JSON_LOCAL.size() >= ScriptSceneSnapshot.MAX_SHARED_TEXT)
             throw new IllegalStateException("Ponder shared text limit reached: "
                 + ScriptSceneSnapshot.MAX_SHARED_TEXT);
-        if (LOCAL.containsKey(key)) throw new IllegalArgumentException("Duplicate shared text key: " + key);
-        LOCAL.put(key, defaultText);
+        if (ZS_LOCAL.containsKey(key) || JSON_LOCAL.containsKey(key))
+            throw new IllegalArgumentException("Duplicate shared text key: " + key);
+        ZS_LOCAL.put(key, defaultText);
     }
 
     static synchronized Map<String, String> snapshot() {
-        Map<String, String> effective = new LinkedHashMap<String, String>(LOCAL);
+        Map<String, String> effective = localMap();
         effective.putAll(SERVER);
         return immutable(effective);
     }
 
     static synchronized Map<String, String> localSnapshot() {
-        return immutable(LOCAL);
+        return immutable(localMap());
     }
 
     static synchronized Map<String, String> serverSnapshot() {
@@ -51,6 +53,30 @@ public final class ScriptSharedText {
 
     static synchronized void clearServer() {
         SERVER.clear();
+    }
+
+    static synchronized Map<String, String> jsonSnapshot() {
+        return immutable(JSON_LOCAL);
+    }
+
+    static synchronized boolean containsZenKey(String key) {
+        return ZS_LOCAL.containsKey(key);
+    }
+
+    static synchronized void replaceJson(Map<String, String> values) {
+        if (values == null || values.size() + ZS_LOCAL.size() > ScriptSceneSnapshot.MAX_SHARED_TEXT)
+            throw new IllegalArgumentException("Invalid local JSON Ponder shared text collection");
+        Map<String, String> replacement = new LinkedHashMap<String, String>();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            validateEntry(entry.getKey(), entry.getValue());
+            if (ZS_LOCAL.containsKey(entry.getKey()))
+                throw new IllegalArgumentException(
+                    "JSON shared text conflicts with ZenScript key " + entry.getKey());
+            if (replacement.put(entry.getKey(), entry.getValue()) != null)
+                throw new IllegalArgumentException("Duplicate local JSON shared text key: " + entry.getKey());
+        }
+        JSON_LOCAL.clear();
+        JSON_LOCAL.putAll(replacement);
     }
 
     private static Map<String, String> validate(Map<String, String> values) {
@@ -74,5 +100,11 @@ public final class ScriptSharedText {
 
     private static Map<String, String> immutable(Map<String, String> source) {
         return Collections.unmodifiableMap(new LinkedHashMap<String, String>(source));
+    }
+
+    private static Map<String, String> localMap() {
+        Map<String, String> merged = new LinkedHashMap<String, String>(ZS_LOCAL);
+        merged.putAll(JSON_LOCAL);
+        return merged;
     }
 }

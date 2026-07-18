@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import net.createmod.ponder.api.diagnostic.PonderSceneSource;
 import net.createmod.ponder.api.scene.PonderStoryBoard;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -21,6 +22,7 @@ public final class ScriptSceneDefinition {
     private final List<ScriptInstruction> instructions;
     private final boolean clientOnly;
     private final String sourceDescription;
+    private final PonderSceneSource localSource;
 
     public ScriptSceneDefinition(ResourceLocation component, ResourceLocation sceneId, String title,
                                  ResourceLocation structure, List<ResourceLocation> tags,
@@ -32,6 +34,15 @@ public final class ScriptSceneDefinition {
                                  ResourceLocation structure, List<ResourceLocation> tags,
                                  List<ScriptInstruction> instructions, boolean clientOnly,
                                  String sourceDescription) {
+        this(component, sceneId, title, structure, tags, instructions, clientOnly,
+            sourceDescription, ScriptSourceMetadata.isBuiltin(sourceDescription)
+                ? PonderSceneSource.BUILTIN_ZS : PonderSceneSource.LOCAL_ZS);
+    }
+
+    public ScriptSceneDefinition(ResourceLocation component, ResourceLocation sceneId, String title,
+                                 ResourceLocation structure, List<ResourceLocation> tags,
+                                 List<ScriptInstruction> instructions, boolean clientOnly,
+                                 String sourceDescription, PonderSceneSource localSource) {
         if (component == null || sceneId == null || structure == null)
             throw new IllegalArgumentException("Component, scene id and structure are required");
         validateId(component, "component");
@@ -56,6 +67,11 @@ public final class ScriptSceneDefinition {
         this.instructions = Collections.unmodifiableList(new ArrayList<ScriptInstruction>(instructions));
         this.clientOnly = clientOnly;
         this.sourceDescription = ScriptSourceMetadata.normalize(sourceDescription);
+        if (localSource != PonderSceneSource.BUILTIN_ZS
+            && localSource != PonderSceneSource.LOCAL_ZS
+            && localSource != PonderSceneSource.LOCAL_JSON)
+            throw new IllegalArgumentException("Invalid local Ponder scene source: " + localSource);
+        this.localSource = localSource;
     }
 
     public ResourceLocation getComponent() { return component; }
@@ -66,6 +82,7 @@ public final class ScriptSceneDefinition {
     public List<ScriptInstruction> getInstructions() { return instructions; }
     public boolean isClientOnly() { return clientOnly; }
     public String getSourceDescription() { return sourceDescription; }
+    public PonderSceneSource getLocalSource() { return localSource; }
 
     public PonderStoryBoard asStoryBoard() {
         return (scene, util) -> ScriptSceneProgram.program(this, scene, util);
