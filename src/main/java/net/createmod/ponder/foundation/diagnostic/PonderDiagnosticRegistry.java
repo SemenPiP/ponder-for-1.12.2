@@ -21,6 +21,7 @@ import net.createmod.ponder.foundation.PonderStoryBoardEntry;
 import net.createmod.ponder.foundation.registration.PonderSceneRegistry;
 import net.createmod.ponder.foundation.structure.PonderStructure;
 import net.createmod.ponder.script.ScriptPonderPlugin;
+import net.createmod.ponder.script.ScriptMissingStructures;
 import net.createmod.ponder.script.ScriptSceneDefinition;
 import net.createmod.ponder.script.ScriptSceneRegistry;
 import net.createmod.ponder.script.ScriptSourceMetadata;
@@ -44,21 +45,26 @@ public final class PonderDiagnosticRegistry {
         PonderDiagnosticSnapshot.empty(PonderDiagnosticView.SERVER);
     private static volatile PonderDiagnosticSnapshot effective =
         PonderDiagnosticSnapshot.empty(PonderDiagnosticView.EFFECTIVE);
+    private static volatile Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> javaTimelines =
+        Collections.emptyMap();
 
     private PonderDiagnosticRegistry() {
     }
 
     public static synchronized void rebuild(PonderSceneRegistry registry) {
         long nextGeneration = ++generation;
+        PonderDiagnosticNotices.beginGeneration(nextGeneration);
         List<PonderSceneDiagnostic> localScenes = new ArrayList<PonderSceneDiagnostic>();
         List<PonderSceneDiagnostic> serverScenes = new ArrayList<PonderSceneDiagnostic>();
+        Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> nextJavaTimelines =
+            new LinkedHashMap<String, List<PonderScene.ScheduledInstructionDiagnostic>>();
         int javaIndex = 0;
         for (StoryBoardEntry entry : registry.snapshotEntries()) {
             if (entry instanceof PonderStoryBoardEntry
                 && ScriptPonderPlugin.class.getName().equals(
                     ((PonderStoryBoardEntry) entry).getPluginClass()))
                 continue;
-            localScenes.add(buildJava(registry, entry, javaIndex++));
+            localScenes.add(buildJava(registry, entry, javaIndex++, nextJavaTimelines));
         }
         for (ScriptSceneDefinition definition : ScriptSceneRegistry.localSnapshot(true))
             localScenes.add(buildScript(registry, definition,
@@ -78,13 +84,19 @@ public final class PonderDiagnosticRegistry {
         for (PonderSceneDiagnostic scene : serverScenes)
             if (scene.getSceneId() != null)
                 serverById.put(scene.getSceneId(), scene);
+        List<PonderSceneDiagnostic> markedLocalScenes =
+            new ArrayList<PonderSceneDiagnostic>(localScenes.size());
         for (PonderSceneDiagnostic scene : localScenes) {
             boolean script = scene.getSource() == PonderSceneSource.BUILTIN_ZS
                 || scene.getSource() == PonderSceneSource.LOCAL_ZS;
-            if (script && scene.getSceneId() != null && serverById.containsKey(scene.getSceneId()))
+            if (script && scene.getSceneId() != null && serverById.containsKey(scene.getSceneId())) {
+                markedLocalScenes.add(scene.overriddenBy(PonderSceneSource.SERVER_SNAPSHOT));
                 continue;
+            }
+            markedLocalScenes.add(scene);
             effectiveScenes.add(scene);
         }
+        localScenes = markedLocalScenes;
         effectiveScenes.addAll(serverScenes);
         Collections.sort(effectiveScenes, ORDER);
 
@@ -92,6 +104,20 @@ public final class PonderDiagnosticRegistry {
         local = snapshot(PonderDiagnosticView.LOCAL, nextGeneration, now, localScenes);
         server = snapshot(PonderDiagnosticView.SERVER, nextGeneration, now, serverScenes);
         effective = snapshot(PonderDiagnosticView.EFFECTIVE, nextGeneration, now, effectiveScenes);
+        javaTimelines = immutableTimelines(nextJavaTimelines);
+        for (PonderDiagnosticIssue issue : effective.getIssues())
+            PonderDiagnosticNotices.record(issue);
+        for (PonderDiagnosticIssue issue : ScriptMissingStructures.drainDiagnosticIssues())
+            recordRuntimeIssue(issue);
+    }
+
+    public static synchronized void recordRuntimeIssue(PonderDiagnosticIssue issue) {
+        if (issue == null)
+            return;
+        local = withIssue(local, issue);
+        server = withIssue(server, issue);
+        effective = withIssue(effective, issue);
+        PonderDiagnosticNotices.record(issue);
     }
 
     public static PonderDiagnosticSnapshot snapshot(PonderDiagnosticView view) {
@@ -102,8 +128,19 @@ public final class PonderDiagnosticRegistry {
         return effective;
     }
 
+    public static List<PonderScene.ScheduledInstructionDiagnostic> javaTimeline(
+            PonderDiagnosticView view, String entryKey) {
+        if (view == PonderDiagnosticView.SERVER || entryKey == null)
+            return Collections.emptyList();
+        List<PonderScene.ScheduledInstructionDiagnostic> timeline = javaTimelines.get(entryKey);
+        return timeline == null ? Collections.<PonderScene.ScheduledInstructionDiagnostic>emptyList()
+            : timeline;
+    }
+
     private static PonderSceneDiagnostic buildJava(PonderSceneRegistry registry, StoryBoardEntry entry,
-                                                   int index) {
+                                                   int index,
+                                                   Map<String, List<PonderScene.ScheduledInstructionDiagnostic>>
+                                                       timelines) {
         List<PonderDiagnosticIssue> issues = new ArrayList<PonderDiagnosticIssue>();
         ResourceLocation sceneId = entry.getDeclaredSceneId();
         String pluginClass = entry instanceof PonderStoryBoardEntry
@@ -114,6 +151,7 @@ public final class PonderDiagnosticRegistry {
         int instructionCount = 0;
         int totalTicks = 0;
         List<Integer> keyframes = Collections.emptyList();
+        String key = "java:" + pluginId + ":" + index + ":" + entry.getComponent();
         try {
             PonderScene compiled = registry.compileEntry(entry);
             ResourceLocation discovered = compiled.getId();
@@ -121,6 +159,7 @@ public final class PonderDiagnosticRegistry {
             instructionCount = compiled.getScheduledInstructionCount();
             totalTicks = compiled.getTotalTicks();
             keyframes = compiled.getKeyframes();
+            timelines.put(key, compiled.getScheduledInstructionDiagnostics());
             if (sceneId == null) {
                 sceneId = discovered;
                 issues.add(issue("registration.scene_id_undeclared", PonderDiagnosticSeverity.WARNING,
@@ -134,7 +173,6 @@ public final class PonderDiagnosticRegistry {
             issues.add(issue("compile.java_storyboard", PonderDiagnosticSeverity.ERROR,
                 message(failure), sceneId, -1));
         }
-        String key = "java:" + pluginId + ":" + index + ":" + entry.getComponent();
         return scene(key, sceneId, entry.getComponent(), entry.getSchematicLocation(), title,
             PonderSceneSource.JAVA_PLUGIN, pluginClass, pluginId, structure, entry.getTags(),
             instructionCount, totalTicks, keyframes, issues);
@@ -223,10 +261,49 @@ public final class PonderDiagnosticRegistry {
         return new PonderDiagnosticSnapshot(view, generation, createdAt, scenes, issues);
     }
 
+    private static PonderDiagnosticSnapshot withIssue(PonderDiagnosticSnapshot snapshot,
+                                                      PonderDiagnosticIssue issue) {
+        List<PonderDiagnosticIssue> issues =
+            new ArrayList<PonderDiagnosticIssue>(snapshot.getIssues());
+        for (PonderDiagnosticIssue existing : issues)
+            if (sameIssue(existing, issue))
+                return snapshot;
+        issues.add(issue);
+        List<PonderSceneDiagnostic> scenes =
+            new ArrayList<PonderSceneDiagnostic>(snapshot.getScenes().size());
+        for (PonderSceneDiagnostic scene : snapshot.getScenes()) {
+            if (issue.getSceneId() != null && issue.getSceneId().equals(scene.getSceneId()))
+                scene = scene.withIssue(issue);
+            scenes.add(scene);
+        }
+        return new PonderDiagnosticSnapshot(snapshot.getView(), snapshot.getGeneration(),
+            snapshot.getCreatedAt(), scenes, issues);
+    }
+
+    private static boolean sameIssue(PonderDiagnosticIssue left, PonderDiagnosticIssue right) {
+        return left.getSeverity() == right.getSeverity()
+            && left.getCode().equals(right.getCode())
+            && left.getMessage().equals(right.getMessage())
+            && java.util.Objects.equals(left.getSceneId(), right.getSceneId())
+            && left.getInstructionIndex() == right.getInstructionIndex();
+    }
+
     private static PonderDiagnosticIssue issue(String code, PonderDiagnosticSeverity severity,
                                                String message, ResourceLocation sceneId,
                                                int instructionIndex) {
         return new PonderDiagnosticIssue(code, severity, message, sceneId, instructionIndex);
+    }
+
+    private static Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> immutableTimelines(
+            Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> source) {
+        if (source.isEmpty())
+            return Collections.emptyMap();
+        Map<String, List<PonderScene.ScheduledInstructionDiagnostic>> copy =
+            new LinkedHashMap<String, List<PonderScene.ScheduledInstructionDiagnostic>>();
+        for (Map.Entry<String, List<PonderScene.ScheduledInstructionDiagnostic>> entry : source.entrySet())
+            copy.put(entry.getKey(), Collections.unmodifiableList(
+                new ArrayList<PonderScene.ScheduledInstructionDiagnostic>(entry.getValue())));
+        return Collections.unmodifiableMap(copy);
     }
 
     private static int instructionIndex(Throwable failure) {

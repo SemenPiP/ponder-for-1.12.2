@@ -147,7 +147,7 @@ public final class PonderIndex {
         return PonderDiagnosticRegistry.snapshot(view);
     }
     public static List<PonderSyncDiagnostic> getSyncDiagnostics() {
-        return Collections.emptyList();
+        return net.createmod.ponder.script.ScriptSceneSync.snapshotDiagnostics();
     }
     public static boolean editingModeActive() { return PonderConfig.client().isEditingMode(); }
 

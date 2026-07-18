@@ -2,10 +2,15 @@ package net.createmod.ponder.foundation.diagnostic;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticIssue;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticSeverity;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
 import net.createmod.ponder.api.diagnostic.PonderSceneDiagnostic;
 
@@ -33,17 +38,21 @@ public final class PonderValidationManager {
         while (task.index < task.snapshot.getScenes().size() && processed < 1
             && System.nanoTime() <= deadline) {
             PonderSceneDiagnostic scene = task.snapshot.getScenes().get(task.index++);
-            if (scene.hasErrors())
-                task.errors++;
-            task.warnings += scene.getIssues().size();
+            for (PonderDiagnosticIssue issue : scene.getIssues()) {
+                task.count(issue);
+                task.countedIssues.add(issue);
+            }
             processed++;
         }
         if (task.index < task.snapshot.getScenes().size())
             return;
+        for (PonderDiagnosticIssue issue : task.snapshot.getIssues())
+            if (!task.countedIssues.contains(issue))
+                task.count(issue);
         try {
             File report = PonderDiagnosticReports.writeValidation(task.snapshot);
-            task.output.accept("Ponder validation complete: " + task.errors + " scene error(s), "
-                + task.warnings + " issue(s). Report: " + report.getPath());
+            task.output.accept("Ponder validation complete: " + task.errors + " error(s), "
+                + task.warnings + " warning(s). Report: " + report.getPath());
         } catch (IOException failure) {
             task.output.accept("Ponder validation completed but the report could not be written: "
                 + failure.getMessage());
@@ -58,6 +67,8 @@ public final class PonderValidationManager {
     private static final class Task {
         final PonderDiagnosticSnapshot snapshot;
         final Consumer<String> output;
+        final Set<PonderDiagnosticIssue> countedIssues =
+            Collections.newSetFromMap(new IdentityHashMap<PonderDiagnosticIssue, Boolean>());
         int index;
         int errors;
         int warnings;
@@ -65,6 +76,13 @@ public final class PonderValidationManager {
         Task(PonderDiagnosticSnapshot snapshot, Consumer<String> output) {
             this.snapshot = snapshot;
             this.output = output;
+        }
+
+        void count(PonderDiagnosticIssue issue) {
+            if (issue.getSeverity() == PonderDiagnosticSeverity.ERROR)
+                errors++;
+            else if (issue.getSeverity() == PonderDiagnosticSeverity.WARNING)
+                warnings++;
         }
     }
 }

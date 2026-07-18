@@ -18,6 +18,7 @@ import net.createmod.ponder.script.ScriptMissingStructures;
 import net.createmod.ponder.script.ScriptSyncNotices;
 import net.createmod.ponder.script.net.ScriptSnapshotReceiver;
 import net.createmod.ponder.foundation.diagnostic.PonderValidationManager;
+import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticNotices;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -35,10 +36,11 @@ public final class PonderClientEvents {
         PonderTooltipHandler.tick();
         Minecraft minecraft = Minecraft.getMinecraft();
         if (minecraft.player != null) {
-            for (String notice : ScriptMissingStructures.drain())
-                minecraft.player.sendMessage(new TextComponentString(notice));
-            for (String notice : ScriptSyncNotices.drain())
-                minecraft.player.sendMessage(new TextComponentString(notice));
+            ScriptMissingStructures.drain();
+            ScriptSyncNotices.drain();
+            String summary = PonderDiagnosticNotices.drainSummary();
+            if (summary != null)
+                minecraft.player.sendMessage(new TextComponentString(summary));
         }
         ScriptSnapshotReceiver.tick();
         PonderValidationManager.tick("client");

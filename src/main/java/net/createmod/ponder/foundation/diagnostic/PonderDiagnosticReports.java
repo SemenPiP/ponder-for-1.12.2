@@ -17,6 +17,7 @@ import com.google.gson.JsonObject;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticIssue;
 import net.createmod.ponder.api.diagnostic.PonderDiagnosticSnapshot;
 import net.createmod.ponder.api.diagnostic.PonderSceneDiagnostic;
+import net.createmod.ponder.foundation.PonderScene;
 import net.createmod.ponder.script.ScriptInstruction;
 import net.createmod.ponder.script.ScriptSceneDefinition;
 import net.minecraftforge.fml.common.Loader;
@@ -34,6 +35,13 @@ public final class PonderDiagnosticReports {
 
     public static File writeTimeline(PonderSceneDiagnostic scene, ScriptSceneDefinition definition)
             throws IOException {
+        return writeTimeline(scene, definition,
+            java.util.Collections.<PonderScene.ScheduledInstructionDiagnostic>emptyList());
+    }
+
+    public static File writeTimeline(PonderSceneDiagnostic scene, ScriptSceneDefinition definition,
+                                     java.util.List<PonderScene.ScheduledInstructionDiagnostic> javaTimeline)
+            throws IOException {
         JsonObject root = sceneJson(scene);
         JsonArray timeline = new JsonArray();
         int cursor = 0;
@@ -47,17 +55,31 @@ public final class PonderDiagnosticReports {
                 int duration = instruction.getData().hasKey("duration")
                     ? Math.max(0, instruction.getData().getInteger("duration")) : 0;
                 row.addProperty("duration", duration);
+                row.addProperty("keyframe", scene.getKeyframes().contains(cursor));
                 timeline.add(row);
                 if ("idle".equals(instruction.getOperation()))
                     cursor += Math.max(0, instruction.getData().getInteger("ticks"));
             }
         } else {
-            JsonObject row = new JsonObject();
-            row.addProperty("index", 0);
-            row.addProperty("operation", "java_storyboard");
-            row.addProperty("startTick", 0);
-            row.addProperty("duration", scene.getTotalTicks());
-            timeline.add(row);
+            int index = 0;
+            for (PonderScene.ScheduledInstructionDiagnostic instruction : javaTimeline) {
+                JsonObject row = new JsonObject();
+                row.addProperty("index", index++);
+                row.addProperty("operation", instruction.getInstructionType());
+                row.addProperty("startTick", instruction.getStartTick());
+                row.addProperty("duration", instruction.getDuration());
+                row.addProperty("keyframe", scene.getKeyframes().contains(instruction.getStartTick()));
+                timeline.add(row);
+            }
+            if (timeline.size() == 0) {
+                JsonObject row = new JsonObject();
+                row.addProperty("index", 0);
+                row.addProperty("operation", "java_storyboard");
+                row.addProperty("startTick", 0);
+                row.addProperty("duration", scene.getTotalTicks());
+                row.addProperty("keyframe", scene.getKeyframes().contains(0));
+                timeline.add(row);
+            }
         }
         root.add("timeline", timeline);
         return writeJson("timeline-" + safeScene(scene), root);
@@ -82,6 +104,10 @@ public final class PonderDiagnosticReports {
         for (PonderSceneDiagnostic scene : snapshot.getScenes())
             scenes.add(sceneJson(scene));
         root.add("scenes", scenes);
+        JsonArray issues = new JsonArray();
+        for (PonderDiagnosticIssue issue : snapshot.getIssues())
+            issues.add(issueJson(issue));
+        root.add("issues", issues);
         return root;
     }
 
@@ -96,27 +122,38 @@ public final class PonderDiagnosticReports {
         value.addProperty("source", scene.getSource().name());
         value.addProperty("sourceDescription", scene.getSourceDescription());
         value.addProperty("pluginId", scene.getPluginId());
+        if (scene.getOverriddenBy() != null)
+            value.addProperty("overriddenBy", scene.getOverriddenBy().name());
         if (scene.getProviderId() != null)
             value.addProperty("providerId", scene.getProviderId().toString());
         value.addProperty("fingerprint", scene.getFingerprint());
         value.addProperty("instructionCount", scene.getInstructionCount());
         value.addProperty("totalTicks", scene.getTotalTicks());
+        JsonArray tags = new JsonArray();
+        for (net.minecraft.util.ResourceLocation tag : scene.getTags())
+            tags.add(tag.toString());
+        value.add("tags", tags);
         JsonArray keyframes = new JsonArray();
         for (Integer keyframe : scene.getKeyframes())
             keyframes.add(keyframe);
         value.add("keyframes", keyframes);
         JsonArray issues = new JsonArray();
-        for (PonderDiagnosticIssue issue : scene.getIssues()) {
-            JsonObject entry = new JsonObject();
-            entry.addProperty("code", issue.getCode());
-            entry.addProperty("severity", issue.getSeverity().name());
-            entry.addProperty("message", issue.getMessage());
-            if (issue.hasInstructionIndex())
-                entry.addProperty("instructionIndex", issue.getInstructionIndex());
-            issues.add(entry);
-        }
+        for (PonderDiagnosticIssue issue : scene.getIssues())
+            issues.add(issueJson(issue));
         value.add("issues", issues);
         return value;
+    }
+
+    private static JsonObject issueJson(PonderDiagnosticIssue issue) {
+        JsonObject entry = new JsonObject();
+        entry.addProperty("code", issue.getCode());
+        entry.addProperty("severity", issue.getSeverity().name());
+        entry.addProperty("message", issue.getMessage());
+        if (issue.getSceneId() != null)
+            entry.addProperty("sceneId", issue.getSceneId().toString());
+        if (issue.hasInstructionIndex())
+            entry.addProperty("instructionIndex", issue.getInstructionIndex());
+        return entry;
     }
 
     private static File writeJson(String name, JsonObject value) throws IOException {
@@ -126,7 +163,10 @@ public final class PonderDiagnosticReports {
     }
 
     private static File target(String name, String extension) throws IOException {
-        File gameDirectory = Loader.instance().getConfigDir().getParentFile();
+        File configDirectory = Loader.instance().getConfigDir();
+        File gameDirectory = configDirectory == null || configDirectory.getParentFile() == null
+            ? new File(System.getProperty("user.dir", "."))
+            : configDirectory.getParentFile();
         File directory = new File(gameDirectory, "logs/ponder/diagnostics");
         if (!directory.isDirectory() && !directory.mkdirs())
             throw new IOException("Could not create Ponder diagnostic directory " + directory);

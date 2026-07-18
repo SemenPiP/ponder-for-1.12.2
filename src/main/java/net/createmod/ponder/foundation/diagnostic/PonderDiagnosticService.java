@@ -93,6 +93,8 @@ public final class PonderDiagnosticService {
         output.accept("Source: " + (scene.getSourceDescription().isEmpty()
             ? scene.getPluginId() : scene.getSourceDescription()));
         output.accept("Provider: " + scene.getProviderId() + "; fingerprint: " + scene.getFingerprint());
+        if (scene.isOverridden())
+            output.accept("Overridden by: " + scene.getOverriddenBy());
         output.accept("Instructions: " + scene.getInstructionCount() + "; ticks: " + scene.getTotalTicks()
             + "; keyframes: " + scene.getKeyframes());
         for (PonderDiagnosticIssue issue : scene.getIssues())
@@ -108,12 +110,23 @@ public final class PonderDiagnosticService {
             throw new IllegalArgumentException("Unknown Ponder scene " + sceneId);
         ScriptSceneDefinition definition = ScriptSceneRegistry.find(view, sceneId);
         try {
-            if ("ir".equals(mode) || "all".equals(mode)) {
+            if ("ir".equals(mode)) {
+                if (definition == null)
+                    throw new IllegalArgumentException("Java Ponder scenes do not have exportable script IR");
                 File ir = PonderDiagnosticReports.writeIr(scene, definition);
                 output.accept("Ponder IR exported to " + ir.getPath());
             }
+            if ("all".equals(mode)) {
+                if (definition == null) {
+                    output.accept("Ponder IR export skipped: Java scenes do not have script IR.");
+                } else {
+                    File ir = PonderDiagnosticReports.writeIr(scene, definition);
+                    output.accept("Ponder IR exported to " + ir.getPath());
+                }
+            }
             if ("timeline".equals(mode) || "all".equals(mode)) {
-                File timeline = PonderDiagnosticReports.writeTimeline(scene, definition);
+                File timeline = PonderDiagnosticReports.writeTimeline(scene, definition,
+                    PonderDiagnosticRegistry.javaTimeline(view, scene.getEntryKey()));
                 output.accept("Ponder timeline exported to " + timeline.getPath());
             }
         } catch (Exception failure) {

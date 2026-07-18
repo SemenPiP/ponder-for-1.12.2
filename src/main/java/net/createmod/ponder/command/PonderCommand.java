@@ -5,7 +5,13 @@ import java.util.List;
 
 import net.createmod.catnip.net.packets.ClientboundSimpleActionPacket;
 import net.createmod.catnip.platform.CatnipServices;
+import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
+import net.createmod.ponder.api.diagnostic.PonderDiagnostics;
+import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
 import net.createmod.ponder.foundation.PonderIndex;
+import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticService;
+import net.createmod.ponder.foundation.structure.PonderStructureLoader;
+import net.createmod.ponder.script.ScriptSceneSync;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -14,12 +20,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
-import net.createmod.ponder.foundation.structure.PonderStructureLoader;
-import net.createmod.ponder.script.ScriptSceneSync;
-import net.createmod.ponder.api.diagnostic.PonderDiagnosticView;
-import net.createmod.ponder.api.diagnostic.PonderDiagnostics;
-import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
-import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticService;
 
 /** Forge 1.12 command adapter for opening and reloading Ponder on a client. */
 public final class PonderCommand extends CommandBase {
@@ -42,6 +42,10 @@ public final class PonderCommand extends CommandBase {
                     sender.sendMessage(new TextComponentString(status.getPlayerName() + ": "
                         + status.getStatus() + " transfer=" + status.getTransferId()
                         + " protocol=" + status.getProtocol() + " codecs=" + status.getCodecs().size()
+                        + " compressed=" + status.getCompressedBytes()
+                        + " uncompressed=" + status.getUncompressedBytes()
+                        + " started=" + status.getStartedAt()
+                        + " updated=" + status.getUpdatedAt()
                         + (status.getLastResult().isEmpty() ? "" : " result=" + status.getLastResult())));
                     count++;
                 }
@@ -99,12 +103,11 @@ public final class PonderCommand extends CommandBase {
     @Override
     public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args,
                                           BlockPos targetPos) {
-        if (args.length != 1) return Collections.emptyList();
-        java.util.ArrayList<String> options = new java.util.ArrayList<String>();
-        options.add("index"); options.add("tags"); options.add("list"); options.add("inspect");
-        options.add("validate"); options.add("export");
-        if (sender.canUseCommand(2, getName())) { options.add("reload"); options.add("sync"); }
         if (args.length == 1) {
+            java.util.ArrayList<String> options = new java.util.ArrayList<String>();
+            options.add("index"); options.add("tags"); options.add("list"); options.add("inspect");
+            options.add("validate"); options.add("export");
+            if (sender.canUseCommand(2, getName())) { options.add("reload"); options.add("sync"); }
             PonderIndex.getSceneAccess().getRegisteredEntries()
                 .forEach(entry -> options.add(entry.getKey().toString()));
             return getListOfStringsMatchingLastWord(args, options);
@@ -120,6 +123,8 @@ public final class PonderCommand extends CommandBase {
             return getListOfStringsMatchingLastWord(args, "local", "server", "effective");
         if (args.length == 3 && "export".equalsIgnoreCase(args[0]))
             return getListOfStringsMatchingLastWord(args, "ir", "timeline", "all");
+        if (args.length == 4 && "export".equalsIgnoreCase(args[0]))
+            return getListOfStringsMatchingLastWord(args, "local", "server", "effective");
         if (args.length == 2 && "sync".equalsIgnoreCase(args[0]))
             return getListOfStringsMatchingLastWord(args, "status");
         if (args.length == 3 && "sync".equalsIgnoreCase(args[0])
