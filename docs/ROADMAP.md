@@ -179,6 +179,17 @@ Ponder-MMCE 是独立发布的附属模组，位于 `ponder-mmce` 子项目。�
 - 采用逐文件 last-known-good，坏文件不阻塞其他包更新，删除文件会移除贡献。
 - 可视化编辑器顺延到后续版本，不作为 1.3.0 运行时或发布依赖。
 
+### 1.3.0 发布收口
+
+- 主项目客户端 harness 增加 JSON 实际播放、SNBT、last-known-good、删除包、ZS 冲突、
+  本地/服务器覆盖和 `/ponder reload` 状态链检查。
+- 构建独立 reobf 客户端 harness 和可安装验收包，自动结果明确不替代真实 `W`、鼠标、
+  GUI Scale 1-4、全屏、资源重载和普通世界渲染验收。
+- 最终客户端报告绑定成功的主分支 Actions run、完整 commit 和 Ponder/harness SHA-256。
+- 1.3.0 发布工作流只消费指定 Actions 运行的既有成品，不重新构建；人工报告未完成前
+  保持候选或预发布状态。
+- 可视化编辑器继续顺延，不进入本次发布收口。
+
 ## 测试与发布门槛
 
 每次提交默认由 GitHub Actions 执行：
