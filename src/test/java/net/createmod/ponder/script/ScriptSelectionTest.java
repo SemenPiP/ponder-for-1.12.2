@@ -2,8 +2,14 @@ package net.createmod.ponder.script;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.Test;
@@ -81,6 +87,36 @@ public class ScriptSelectionTest {
             ScriptSelection decoded = ScriptSelection.deserialize(selections[i].serialize());
             assertSerializedSelection(types[i], values[i], decoded);
         }
+    }
+
+    @Test
+    public void structureGroupRoundTripsThroughTheCompatibleEnvelope() {
+        ScriptSelection selection = ScriptSelection.structureGroup("machine/input");
+        NBTTagCompound serialized = selection.serialize();
+        assertEquals("everywhere", serialized.getString("type"));
+        assertEquals("machine/input", serialized.getString("structure_group"));
+        assertArrayEquals(new int[0], serialized.getIntArray("values"));
+
+        Map<String, Collection<BlockPos>> groups =
+            new LinkedHashMap<String, Collection<BlockPos>>();
+        groups.put("machine/input", Arrays.asList(new BlockPos(1, 2, 3), new BlockPos(4, 5, 6)));
+        Selection resolved = ScriptSelection.deserialize(serialized)
+            .resolve(new PonderSceneBuildingUtil(BlockPos.ORIGIN, new BlockPos(8, 8, 8), groups));
+        assertSelectionEquals(resolved, new LinkedHashSet<BlockPos>(
+            Arrays.asList(new BlockPos(1, 2, 3), new BlockPos(4, 5, 6))));
+
+        NBTTagCompound instructionData = new NBTTagCompound();
+        instructionData.setTag("selection", serialized);
+        instructionData.setString("direction", "up");
+        ScriptInstructionValidator.validate(new net.minecraft.util.ResourceLocation("test", "group"),
+            Collections.singletonList(new ScriptInstruction("show_section", instructionData)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void missingStructureGroupIsRejected() {
+        ScriptSelection.deserialize(
+            ScriptSelection.structureGroup("missing").serialize())
+            .resolve(new PonderSceneBuildingUtil(BlockPos.ORIGIN, new BlockPos(2, 2, 2)));
     }
 
     @Test(expected = IllegalArgumentException.class)

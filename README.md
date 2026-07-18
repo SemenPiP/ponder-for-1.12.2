@@ -7,7 +7,7 @@ documentation library, including the Catnip support packages used by Ponder.
 No third-party Ponder 1.12.2 backport source is copied or adapted by this
 project.
 
-The current completion gaps, release priorities, and planned 1.1.1 through
+The current completion gaps, release priorities, and planned 1.1.2 through
 1.3.0 milestones are tracked in the
 [project roadmap](docs/ROADMAP.md).
 
@@ -18,16 +18,18 @@ not establish client rendering or full CatServer compatibility.
 
 ## Current verification status
 
-Version 1.1.1 keeps the CraftTweaker/ZenScript scene authoring, external
-structures, and server-authoritative scene snapshot flow introduced in the
-1.1.x line. Runtime metadata accepts MixinBooter 9.1 and newer and requires
-CraftTweaker 4.1.20 or newer. Every generated built-in scene runs for exactly
-32 seconds. Historical reports do not qualify the current 1.1.1 artifact.
+Version 1.1.2 adds public structure-provider and item-subject resolver SPIs for
+optional content bridges while keeping the CraftTweaker/ZenScript scene
+authoring, external structures, and server-authoritative scene snapshot flow
+introduced in the 1.1.x line. Runtime metadata accepts MixinBooter 9.1 and
+newer and requires CraftTweaker 4.1.20 or newer. Every generated built-in scene
+runs for exactly 32 seconds. Historical reports do not qualify the current
+1.1.2 artifact.
 
 This workspace cannot create a usable hardware OpenGL context for visual
 judgement or real mouse, fullscreen and GUI-scale testing. Standard Forge
 client rendering therefore remains the release gate and is still unverified.
-CatServer client support is experimental for 1.1.1 and does not block the
+CatServer client support is experimental for 1.1.2 and does not block the
 release line. Server-only results are recorded separately in
 [docs/TESTING.md](docs/TESTING.md) and must not be interpreted as client proof.
 
@@ -41,7 +43,7 @@ release line. Server-only results are recorded separately in
 - MixinBooter 9.1 or newer
 - CraftTweaker 4.1.20 or newer
 
-Install `Ponder-1.12.2-1.1.1.jar`, a supported MixinBooter jar, and CraftTweaker
+Install `Ponder-1.12.2-1.1.2.jar`, a supported MixinBooter jar, and CraftTweaker
 in the same `mods` directory. When both sides run Ponder, the client and server
 must use the exact same Ponder version. A client with Ponder can still connect
 to a server that does not have Ponder installed. Runtime dependencies are
@@ -50,7 +52,7 @@ deliberately not embedded.
 Do not install the `-api`, `-sources`, or `-dev` jars as runtime mods. The API
 jar is a deobfuscated compile-time dependency for addon development. The
 default build and server qualification baseline remains MixinBooter 11.2. The
-current 1.1.1 artifact hashes are published in the GitHub Actions build job
+current 1.1.2 artifact hashes are published in the GitHub Actions build job
 artifact summary and the uploaded release artifact bundle; this README does not
 pin a static hash for a jar that may be rebuilt.
 
@@ -60,13 +62,13 @@ annotation processor because older releases do not carry its complete build-time
 ASM classpath. Runtime metadata accepts MixinBooter 9.1 and newer; compatibility
 claims should still name the versions that completed the Forge and client
 acceptance matrix, and should treat CatServer as experimental support rather
-than a 1.1.1 release gate.
+than a 1.1.2 release gate.
 
 ## Build
 
 ```bat
 set JAVA_HOME=C:\Program Files\Java\jdk-1.8
-gradlew.bat clean test build
+gradlew.bat clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\verify-release.ps1
 ```
 
@@ -76,13 +78,13 @@ RetroFuturaGradle 1.4.9, Gradle 8.14.3, MCP stable_39, and Forge
 produces the reobfuscated artifacts. Before any release compatibility claim,
 the same artifacts must also pass the standard Forge server checks and real
 standard Forge client gate in [docs/TESTING.md](docs/TESTING.md). CatServer
-server regression remains automated experimental evidence, not a 1.1.1 release
+server regression remains automated experimental evidence, not a 1.1.2 release
 blocker.
 
-`build/libs/Ponder-1.12.2-1.1.1.jar` is the reobfuscated runtime artifact.
+`build/libs/Ponder-1.12.2-1.1.2.jar` is the reobfuscated runtime artifact.
 Developer jars are isolated under `build/devlibs` and must not be installed on
 a production server. `reobfExampleAddonJar` builds the separately installable
-example as `build/libs/Ponder-Example-Addon-1.12.2-1.1.1.jar`.
+example as `build/libs/Ponder-Example-Addon-1.12.2-1.1.2.jar`.
 
 ## Built-in demonstrations
 
@@ -119,6 +121,19 @@ and register Java storyboards during mod initialization. See
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and the separately built example
 plugin under `examples/addon`.
 
+## Ponder-MMCE addon
+
+`ponder-mmce` is an independently built optional addon that supplies MMCE
+static/dynamic structures and resolves machine items to Ponder components
+through the public SPIs. The Ponder core does not depend on MMCE and behaves
+identically when the addon is absent. The current addon version is
+`0.1.0-alpha`; it also provides the separate
+`mods.ponder.mmce.MMCEStructures` ZenScript namespace. Build and test it with
+`:ponder-mmce:test :ponder-mmce:build`; the runtime artifact is
+`ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar` and is uploaded
+separately with a SHA-256 digest by GitHub Actions. Compatibility claims must
+name the exact Ponder, Ponder-MMCE, and MMCE versions tested together.
+
 ## Compatibility policy
 
 The public package and DSL names follow current Ponder where Minecraft 1.12.2
@@ -130,5 +145,5 @@ type substitutions. See [docs/API-COMPATIBILITY.md](docs/API-COMPATIBILITY.md).
 
 Only Forge 1.12.2 is in scope. Fabric, NeoForge, Cleanroom-specific behavior
 and third-party JSON scene formats are not provided. The CatServer path is
-experimental for 1.1.1 and does not block the release line. The standard Forge
+experimental for 1.1.2 and does not block the release line. The standard Forge
 real-client gate remains the release requirement.

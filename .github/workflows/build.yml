@@ -46,7 +46,7 @@ jobs:
       - name: Build and run tests
         shell: powershell
         run: |
-          .\gradlew.bat clean test build compileClientHarnessJava `
+          .\gradlew.bat clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build `
             --no-daemon `
             --max-workers=1 `
             --console=plain `
@@ -60,23 +60,37 @@ jobs:
       - name: Write artifact summary
         shell: powershell
         run: |
-          "## Ponder 1.1.1 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "## Ponder 1.1.2 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          "| File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          "| --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          Get-ChildItem -LiteralPath "build\libs" -Filter "*.jar" -File |
-            Sort-Object Name |
-            ForEach-Object {
-              $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
-              "| ``$($_.Name)`` | ``$hash`` |" |
-                Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "| Project | File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "| --- | --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          $artifactGroups = [ordered]@{
+            "Ponder" = "build\libs"
+            "Ponder-MMCE" = "ponder-mmce\build\libs"
+          }
+          foreach ($group in $artifactGroups.GetEnumerator()) {
+            Get-ChildItem -LiteralPath $group.Value -Filter "*.jar" -File |
+              Sort-Object Name |
+              ForEach-Object {
+                $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+                "| $($group.Key) | ``$($_.Name)`` | ``$hash`` |" |
+                  Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+              }
             }
 
       - name: Upload release jars
         uses: actions/upload-artifact@v7
         with:
-          name: ponder-1.1.1-${{ github.sha }}
+          name: ponder-1.1.2-${{ github.sha }}
           path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Ponder-MMCE jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-mmce-${{ github.sha }}
+          path: ponder-mmce/build/libs/*.jar
           if-no-files-found: error
           retention-days: 30
 
@@ -96,6 +110,8 @@ jobs:
           path: |
             build/reports/**
             build/test-results/**
+            ponder-mmce/build/reports/**
+            ponder-mmce/build/test-results/**
           if-no-files-found: warn
           retention-days: 14
 
@@ -124,7 +140,7 @@ jobs:
       - name: Download release jars
         uses: actions/download-artifact@v8
         with:
-          name: ponder-1.1.1-${{ github.sha }}
+          name: ponder-1.1.2-${{ github.sha }}
           path: build/libs
 
       - name: Download server fixture harness

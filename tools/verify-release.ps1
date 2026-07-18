@@ -150,11 +150,20 @@ function Get-McpMemberSet([string]$MappingPath) {
 
 $libs = Join-Path $ProjectRoot "build\libs"
 $artifacts = [ordered]@{
-    Ponder = Join-Path $libs "Ponder-1.12.2-1.1.1.jar"
-    Sources = Join-Path $libs "Ponder-1.12.2-1.1.1-sources.jar"
-    API = Join-Path $libs "Ponder-1.12.2-1.1.1-api.jar"
-    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.1.1.jar"
+    Ponder = Join-Path $libs "Ponder-1.12.2-1.1.2.jar"
+    Sources = Join-Path $libs "Ponder-1.12.2-1.1.2-sources.jar"
+    API = Join-Path $libs "Ponder-1.12.2-1.1.2-api.jar"
+    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.1.2.jar"
 }
+$mmceLibs = Join-Path $ProjectRoot "ponder-mmce\build\libs"
+$mmceArtifacts = @(
+    Get-ChildItem -LiteralPath $mmceLibs -Filter "*.jar" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notmatch '-(api|dev|javadoc|sources)\.jar$' }
+)
+if ($mmceArtifacts.Count -ne 1) {
+    throw "Expected exactly one Ponder-MMCE runtime jar in $mmceLibs, found $($mmceArtifacts.Count)"
+}
+$artifacts["Ponder-MMCE"] = $mmceArtifacts[0].FullName
 foreach ($artifact in $artifacts.Values) {
     if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
         throw "Missing release artifact: $artifact"
@@ -162,7 +171,7 @@ foreach ($artifact in $artifacts.Values) {
 }
 
 $errors = [Collections.Generic.List[string]]::new()
-$classCounts = [ordered]@{ Ponder = 0; API = 0; Example = 0 }
+$classCounts = [ordered]@{ Ponder = 0; API = 0; Example = 0; "Ponder-MMCE" = 0 }
 $languageCount = 0
 $packMetadata = $null
 $mcmodText = $null
@@ -388,11 +397,11 @@ if ($null -eq $mcmodText -or !$mcmodText.Contains($mixinBooterRuntimeDependency)
 if ($null -eq $mcmodText -or !$mcmodText.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("mcmod.info does not declare CraftTweaker 4.1.20+")
 }
-if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.1.1-mc1.12.2"')) {
-    $errors.Add("Ponder mcmod.info does not declare version 1.1.1-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.1.2-mc1.12.2"')) {
+    $errors.Add("Ponder mcmod.info does not declare version 1.1.2-mc1.12.2")
 }
-if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.1.1-mc1.12.2")) {
-    $errors.Add("Ponder.VERSION is not 1.1.1-mc1.12.2")
+if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.1.2-mc1.12.2")) {
+    $errors.Add("Ponder.VERSION is not 1.1.2-mc1.12.2")
 }
 if ($null -eq $ponderConstants -or !$ponderConstants.Contains("ponder_legacy") -or
     !$ponderConstants.Contains("ponder")) {
@@ -404,13 +413,13 @@ if ($null -eq $ponderModConstants -or
     !$ponderModConstants.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("PonderMod @Mod metadata does not declare ponder_legacy and required runtime dependencies")
 }
-if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.1.1"') -or
-    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.1.1-mc1.12.2]")) {
-    $errors.Add("example mcmod.info does not declare 1.1.1 and require Ponder 1.1.1-mc1.12.2")
+if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.1.2"') -or
+    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.1.2-mc1.12.2]")) {
+    $errors.Add("example mcmod.info does not declare 1.1.2 and require Ponder 1.1.2-mc1.12.2")
 }
-if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.1.1") -or
-    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.1.1-mc1.12.2]")) {
-    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.1.1")
+if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.1.2") -or
+    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.1.2-mc1.12.2]")) {
+    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.1.2")
 }
 if ($null -eq $packMetadata) {
     $errors.Add("pack.mcmeta is missing")
@@ -462,7 +471,7 @@ $lines = @(
     "",
     "- Status: $status",
     "- Generated: $([DateTime]::UtcNow.ToString('u')) UTC",
-    "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example))",
+    "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example), Ponder-MMCE $($classCounts['Ponder-MMCE']))",
     "- Language files: $languageCount",
     "- Supported MixinBooter range: [9.1,)",
     "- Required CraftTweaker range: [4.1.20,)",
@@ -472,6 +481,7 @@ $lines = @(
     "- API SHA256: $($hashes.API)",
     "- Sources SHA256: $($hashes.Sources)",
     "- Example addon SHA256: $($hashes.Example)",
+    "- Ponder-MMCE SHA256: $($hashes['Ponder-MMCE'])",
     "- CatServer SHA256: $catServerHash"
 )
 if ($errors.Count -gt 0) {

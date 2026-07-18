@@ -17,9 +17,11 @@ public class LanguageResourceTest {
     public void parseEscapesMarkerUsesForgeUtf8PropertiesLoader() throws Exception {
         Map<String, String> english = load("en_us");
         assertEquals("Identify mode active.\nUnpause with [%1$s]", english.get("ponder.ui.identify_mode"));
+        assertEquals("No Ponder scenes configured", english.get("ponder.ui.no_scenes_configured"));
 
         Map<String, String> chinese = load("zh_cn");
         assertEquals("思索", chinese.get("key.ponder.ponder"));
+        assertEquals("未配置 Ponder 场景", chinese.get("ponder.ui.no_scenes_configured"));
         assertTrue(chinese.get("ponder.ui.identify_mode").contains("\n"));
     }
 

@@ -1,11 +1,19 @@
 package net.createmod.ponder.foundation;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import net.createmod.ponder.api.scene.PositionUtil;
 import net.createmod.ponder.api.scene.SceneBuildingUtil;
 import net.createmod.ponder.api.scene.Selection;
 import net.createmod.ponder.api.scene.SelectionUtil;
 import net.createmod.ponder.api.scene.VectorUtil;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3i;
@@ -13,13 +21,28 @@ import net.minecraft.util.math.Vec3i;
 public final class PonderSceneBuildingUtil implements SceneBuildingUtil {
     private final BlockPos min;
     private final BlockPos max;
+    private final Map<String, List<BlockPos>> structureGroups;
+    private final ResourceLocation structureId;
     private final SelectionUtil selection = new SelectionHelper();
     private final VectorUtil vectors = new VectorHelper();
     private final PositionUtil positions = new PositionHelper();
 
     public PonderSceneBuildingUtil(BlockPos min, BlockPos max) {
+        this(min, max, Collections.<String, Collection<BlockPos>>emptyMap());
+    }
+
+    public PonderSceneBuildingUtil(BlockPos min, BlockPos max,
+                                   Map<String, ? extends Collection<BlockPos>> structureGroups) {
+        this(min, max, structureGroups, null);
+    }
+
+    public PonderSceneBuildingUtil(BlockPos min, BlockPos max,
+                                   Map<String, ? extends Collection<BlockPos>> structureGroups,
+                                   ResourceLocation structureId) {
         this.min = new BlockPos(Math.min(min.getX(), max.getX()), Math.min(min.getY(), max.getY()), Math.min(min.getZ(), max.getZ()));
         this.max = new BlockPos(Math.max(min.getX(), max.getX()), Math.max(min.getY(), max.getY()), Math.max(min.getZ(), max.getZ()));
+        this.structureGroups = immutableGroups(structureGroups);
+        this.structureId = structureId;
     }
 
     public PonderSceneBuildingUtil(BlockPos size) {
@@ -39,6 +62,22 @@ public final class PonderSceneBuildingUtil implements SceneBuildingUtil {
     @Override
     public PositionUtil grid() {
         return positions;
+    }
+
+    private static Map<String, List<BlockPos>> immutableGroups(
+        Map<String, ? extends Collection<BlockPos>> source) {
+        if (source == null || source.isEmpty())
+            return Collections.emptyMap();
+        Map<String, List<BlockPos>> result = new LinkedHashMap<String, List<BlockPos>>();
+        for (Map.Entry<String, ? extends Collection<BlockPos>> entry : source.entrySet()) {
+            List<BlockPos> positions = new ArrayList<BlockPos>();
+            if (entry.getValue() != null)
+                for (BlockPos position : entry.getValue())
+                    if (position != null)
+                        positions.add(position.toImmutable());
+            result.put(entry.getKey(), Collections.unmodifiableList(positions));
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     private final class PositionHelper implements PositionUtil {
@@ -141,6 +180,20 @@ public final class PonderSceneBuildingUtil implements SceneBuildingUtil {
             if (end < start)
                 return SelectionImpl.empty();
             return fromTo(min.getX(), start, min.getZ(), max.getX(), end, max.getZ());
+        }
+
+        @Override
+        public Selection structureGroup(String name) {
+            if (name == null || name.trim().isEmpty())
+                throw new IllegalArgumentException("Structure group name is required");
+            List<BlockPos> positions = structureGroups.get(name);
+            if (positions == null)
+                throw new IllegalArgumentException("Unknown structure group '" + name + "'"
+                    + (structureId == null ? "" : " in " + structureId));
+            Selection result = SelectionImpl.empty();
+            for (BlockPos position : positions)
+                result.add(SelectionImpl.of(position));
+            return result;
         }
 
         @Override

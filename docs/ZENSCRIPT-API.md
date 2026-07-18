@@ -1,8 +1,22 @@
 # Ponder Legacy ZenScript API
 
-本文档对应 `1.1.1-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
+本文档对应 `1.1.2-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
 CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes`。修改脚本后必须重启；
 `/ponder reload` 只重新应用当前进程中已经编译的定义并刷新结构缓存。
+
+Ponder-MMCE 是独立子项目，通过 Java 结构 Provider 与物品 Subject Resolver 接入动态机器。它在
+addon 内单独注册 `mods.ponder.mmce.MMCEStructures` 和 `mods.ponder.mmce.MMCEStructureRef`：
+
+```zenscript
+MMCEStructures.machine(machineId)
+MMCEStructures.staticStructure(machineId, includePreviewNbt)
+MMCEStructures.dynamic(machineId, dynamicPattern, repetitions, patternOffset, facing)
+MMCEStructures.dynamic(machineId, dynamicPattern, repetitions, patternOffset, facing, includePreviewNbt)
+```
+
+返回对象公开 `component`、`structure`、尺寸、控制器坐标、建议底板大小和 `fingerprint`；
+`structure` 是可传给场景结构参数的稳定 `ponder_mmce:` 结构 ID。上述类型只在安装
+Ponder-MMCE 时存在；Ponder 主模组本页列出的 ZenClass、场景注册、同步与结构规则保持不变。
 
 ## 最小场景
 

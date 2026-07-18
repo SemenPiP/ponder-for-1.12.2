@@ -12,11 +12,18 @@ import stanhebben.zenscript.annotations.ZenMethod;
 @ZenRegister
 @ZenClass("mods.ponder.Selection")
 public final class ScriptSelection {
+    private static final String STRUCTURE_GROUP_FIELD = "structure_group";
     private final String type;
+    private final String groupName;
     private final int[] values;
 
     private ScriptSelection(String type, int... values) {
+        this(type, null, values);
+    }
+
+    private ScriptSelection(String type, String groupName, int... values) {
         this.type = type;
+        this.groupName = groupName;
         this.values = values.clone();
     }
 
@@ -62,14 +69,28 @@ public final class ScriptSelection {
         return new ScriptSelection("everywhere");
     }
 
+    @ZenMethod
+    public static ScriptSelection structureGroup(String name) {
+        if (name == null || name.trim().isEmpty())
+            throw new IllegalArgumentException("Structure group name is required");
+        if (name.length() > 256)
+            throw new IllegalArgumentException("Structure group name may not exceed 256 characters");
+        return new ScriptSelection("structure_group", name);
+    }
+
     NBTTagCompound serialize() {
         NBTTagCompound tag = new NBTTagCompound();
-        tag.setString("type", type);
+        // The 1.1.1 validator accepts this envelope and preserves extension fields.
+        tag.setString("type", "structure_group".equals(type) ? "everywhere" : type);
         tag.setIntArray("values", values);
+        if ("structure_group".equals(type))
+            tag.setString(STRUCTURE_GROUP_FIELD, groupName);
         return tag;
     }
 
     static ScriptSelection deserialize(NBTTagCompound tag) {
+        if (tag.hasKey(STRUCTURE_GROUP_FIELD, 8))
+            return structureGroup(tag.getString(STRUCTURE_GROUP_FIELD));
         return new ScriptSelection(tag.getString("type"), tag.getIntArray("values"));
     }
 
@@ -91,6 +112,8 @@ public final class ScriptSelection {
                 new Vec3i(values[3], values[4], values[5]));
         if ("everywhere".equals(type))
             return util.select().everywhere();
+        if ("structure_group".equals(type))
+            return util.select().structureGroup(groupName);
         throw new IllegalArgumentException("Unknown script selection type: " + type);
     }
 }

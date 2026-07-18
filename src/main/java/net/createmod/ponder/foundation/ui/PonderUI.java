@@ -14,6 +14,8 @@ import net.createmod.catnip.data.Pair;
 import net.createmod.catnip.gui.ScreenOpener;
 import net.createmod.catnip.render.GlStateGuard;
 import net.createmod.ponder.api.element.PonderOverlayElement;
+import net.createmod.ponder.api.subject.PonderSubjectResolvers;
+import net.createmod.ponder.api.subject.ResolvedPonderSubject;
 import net.createmod.ponder.foundation.PonderIndex;
 import net.createmod.ponder.foundation.PonderScene;
 import net.createmod.ponder.foundation.PonderTag;
@@ -60,8 +62,10 @@ public class PonderUI extends AbstractPonderScreen {
     }
 
     public static PonderUI of(ItemStack stack) {
-        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
-        return of(id);
+        ResolvedPonderSubject subject = PonderSubjectResolvers.resolve(stack);
+        if (!subject.isHandled())
+            throw new IllegalArgumentException("Item stack could not be resolved to a Ponder component");
+        return of(subject.getComponent());
     }
 
     public static PonderUI of(ItemStack stack, PonderTag tag) {

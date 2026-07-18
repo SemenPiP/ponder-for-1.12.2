@@ -1,0 +1,20 @@
+[
+  {
+    "modid": "ponder_mmce",
+    "name": "Ponder-MMCE",
+    "description": "Ponder Legacy structure provider and blueprint resolver for Modular Machinery: Community Edition.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://github.com/SemenPiP/ponder-for-1.12.2",
+    "authorList": ["Ponder Legacy contributors"],
+    "credits": "Uses the public MMCE 2.3.2 machine structure API without modifying MMCE.",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": [
+      "required-after:forge@[14.23.5.2847,)",
+      "required-after:ponder_legacy@[1.1.2,)",
+      "required-after:modularmachinery@[2.3.2,)",
+      "required-after:crafttweaker@[4.1.20,)"
+    ]
+  }
+]
