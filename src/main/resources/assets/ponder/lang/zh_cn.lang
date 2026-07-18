@@ -1,4 +1,50 @@
 #PARSE_ESCAPES
+ponder.command.sync_status=%1$s：状态=%2$s 传输=%3$s 协议=%4$s 编解码器=%5$s 压缩=%6$s 未压缩=%7$s 开始=%8$s 更新=%9$s
+ponder.command.sync_status_result=%1$s：状态=%2$s 传输=%3$s 协议=%4$s 编解码器=%5$s 压缩=%6$s 未压缩=%7$s 开始=%8$s 更新=%9$s 结果=%10$s
+ponder.command.sync_status_empty=没有匹配的 Ponder 同步状态。
+ponder.command.sync_sent=已向所有在线客户端发送 Ponder 场景快照。
+ponder.command.reload_complete=Ponder 已重新应用已编译场景并刷新结构。ZenScript 修改需要重启游戏。
+ponder.command.player_only=此命令只能由玩家使用。
+ponder.command.invalid_id=无效的 Ponder 场景 ID：%1$s
+ponder.command.unknown_scene=找不到 %1$s 对应的 Ponder 场景。
+
+ponder.diagnostic.missing_command=缺少 Ponder 诊断命令。
+ponder.diagnostic.unknown_command=未知的 Ponder 诊断命令：%1$s
+ponder.diagnostic.invalid_view=未知的 Ponder 诊断视图：%1$s
+ponder.diagnostic.inspect_requires_scene=Ponder inspect 需要场景 ID。
+ponder.diagnostic.export_requires_scene=Ponder export 需要场景 ID。
+ponder.diagnostic.page_out_of_range=Ponder 诊断页码必须为 1..%1$s。
+ponder.diagnostic.page_positive=页码必须是正整数。
+ponder.diagnostic.list_header=Ponder %1$s 场景，第 %2$s/%3$s 页（共 %4$s 个）
+ponder.diagnostic.list_entry=%1$s %2$s | %3$s | %4$s | %5$s
+ponder.diagnostic.error_marker=[错误]
+ponder.diagnostic.ok_marker=[正常]
+ponder.diagnostic.unknown_scene=在 %2$s 视图中找不到 Ponder 场景 %1$s。
+ponder.diagnostic.unknown_scene_simple=找不到 Ponder 场景 %1$s。
+ponder.diagnostic.scene_header=Ponder 场景 %1$s [%2$s]
+ponder.diagnostic.component=组件：%1$s；结构：%2$s
+ponder.diagnostic.source=来源：%1$s
+ponder.diagnostic.provider=提供者：%1$s；指纹：%2$s
+ponder.diagnostic.overridden_by=覆盖来源：%1$s
+ponder.diagnostic.instructions=指令：%1$s；刻：%2$s；关键帧：%3$s
+ponder.diagnostic.issue=%1$s %2$s：%3$s
+ponder.diagnostic.severity.error=错误
+ponder.diagnostic.severity.warning=警告
+ponder.diagnostic.severity.info=信息
+ponder.diagnostic.invalid_export_mode=导出模式必须是 ir、timeline 或 all。
+ponder.diagnostic.java_scene_no_ir=Java Ponder 场景没有可导出的脚本 IR。
+ponder.diagnostic.ir_exported=Ponder IR 已导出到 %1$s
+ponder.diagnostic.ir_export_skipped=已跳过 Ponder IR 导出：Java 场景没有脚本 IR。
+ponder.diagnostic.timeline_exported=Ponder 时间线已导出到 %1$s
+ponder.diagnostic.export_failed=无法导出 Ponder 场景 %1$s：%2$s
+ponder.diagnostic.summary=Ponder 检测到 %1$s 个诊断问题（%2$s 个错误，%3$s 个警告）。运行 /ponder validate 查看详情。
+ponder.diagnostic.command_failed=Ponder 诊断命令执行失败：%1$s
+
+ponder.validation.already_running=此侧已经有一个 Ponder 校验任务正在运行。
+ponder.validation.started=Ponder 校验已开始，共 %1$s 个场景。
+ponder.validation.complete=Ponder 校验完成：%1$s 个错误，%2$s 个警告。报告：%3$s
+ponder.validation.report_failed=Ponder 校验已完成，但无法写入报告：%1$s
+
 ponder.ui.hold_to_ponder=按住 [%1$s] 开始思索
 ponder.ui.no_scenes_configured=未配置 Ponder 场景
 ponder.ui.subject=情景主题

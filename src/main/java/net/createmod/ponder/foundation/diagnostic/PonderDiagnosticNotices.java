@@ -55,8 +55,8 @@ public final class PonderDiagnosticNotices {
         }
         int total = PENDING.size();
         PENDING.clear();
-        return "Ponder detected " + total + " diagnostic issue(s) (" + errors + " error(s), "
-            + warnings + " warning(s)). Run /ponder validate for details.";
+        return PonderDiagnosticService.text("client", "ponder.diagnostic.summary",
+            total, errors, warnings);
     }
 
     private static String key(PonderDiagnosticIssue issue) {

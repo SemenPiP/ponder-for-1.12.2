@@ -31,10 +31,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 `build` 已依赖 reobf 主包、reobf 示例 addon、API jar、sources jar 和发布内容检查。不要用
 `jar` 任务的 `build/devlibs/*-dev.jar` 代替发布成品。成功后应存在：
 
-- `build/libs/Ponder-1.12.2-1.1.2.jar`
-- `build/libs/Ponder-Example-Addon-1.12.2-1.1.2.jar`
-- `build/libs/Ponder-1.12.2-1.1.2-api.jar`
-- `build/libs/Ponder-1.12.2-1.1.2-sources.jar`
+- `build/libs/Ponder-1.12.2-1.1.3.jar`
+- `build/libs/Ponder-Example-Addon-1.12.2-1.1.3.jar`
+- `build/libs/Ponder-1.12.2-1.1.3-api.jar`
+- `build/libs/Ponder-1.12.2-1.1.3-sources.jar`
+- `build/distributions/Ponder-ZenScript-Examples-1.1.3.zip`
 - `ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`
 - `ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip`
 - `ponder-mmce/build/verification/server-harness/Ponder-MMCE-Server-Harness-1.12.2-0.1.0-alpha.jar`
@@ -59,23 +60,25 @@ Gradle 门槛检查以下内容：
 并复核 refmap、manifest、禁用引用、语言数和 `pack_format=3`。它把四个 Ponder 成品、
 Ponder-MMCE 运行 jar 与 CatServer 的 SHA-256 写入
 `build/reports/release-verification.md`。单元测试报告位于 `build/reports/tests/test/index.html`。
+Ponder 的作者诊断报告和导出文件则写入 `logs/ponder/diagnostics`。
 
-## 1.1.2 当前发布记录
+## 1.1.3 当前发布记录
 
-当前 1.1.2 成品的 SHA-256 不在本文硬编码。请到 GitHub Actions 的 build job summary
+当前 1.1.3 成品的 SHA-256 不在本文硬编码。请到 GitHub Actions 的 build job summary
 和上传的 Ponder/Ponder-MMCE artifact bundle 中读取同一次构建的成品哈希。
 
 同一次构建应同时产出：
 
-- `Ponder-1.12.2-1.1.2.jar`
-- `Ponder-Example-Addon-1.12.2-1.1.2.jar`
-- `Ponder-1.12.2-1.1.2-api.jar`
-- `Ponder-1.12.2-1.1.2-sources.jar`
+- `Ponder-1.12.2-1.1.3.jar`
+- `Ponder-Example-Addon-1.12.2-1.1.3.jar`
+- `Ponder-1.12.2-1.1.3-api.jar`
+- `Ponder-1.12.2-1.1.3-sources.jar`
+- `Ponder-ZenScript-Examples-1.1.3.zip`
 - `Ponder-MMCE-1.12.2-0.1.0-alpha.jar`
 
 这些成品、`build/reports/release-verification.md`、主项目与 Ponder-MMCE 测试报告
-以及标准 Forge 专服报告必须指向同一次 1.1.2 构建。CatServer 服务端回归报告也应记录对应成品，
-但 CatServer 客户端支持只算实验线，不阻塞发布。标准 Forge 真实客户端仍是 1.1.2 的发布门槛。
+以及标准 Forge 专服报告必须指向同一次 1.1.3 构建。CatServer 服务端回归报告也应记录对应成品，
+但 CatServer 客户端支持只算实验线，不阻塞发布。标准 Forge 真实客户端仍是 1.1.3 的发布门槛。
 
 Ponder-MMCE 验收还必须覆盖静态/动态结构解析、稳定结构 ID 与指纹、物品到 component 映射、
 PASS/NOT_FOUND、重复注册、刷新失效、单机错误隔离和未安装 addon/MMCE 时的可选依赖边界。
@@ -99,6 +102,9 @@ Provider/Resolver，Ponder 与专服仍正常启动。客户端 harness 另行�
 [PONDER-MMCE-ALPHA-ACCEPTANCE.md](PONDER-MMCE-ALPHA-ACCEPTANCE.md) 完成人工项。
 最终验收 JSON 必须由 `tools/complete-ponder-mmce-client-acceptance.ps1` 生成；Alpha 发布工作流会
 重新核对其中的 Ponder 与 Ponder-MMCE SHA-256。
+
+1.1.2 Alpha/MMCE 发布与验收记录是冻结线，只绑定旧的 1.1.2 成品、旧的报告和旧的验收 JSON，
+不随着 1.1.3 的主线构建刷新。
 
 ## 历史记录
 
@@ -219,7 +225,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\test-catserver.p
 上述命令不等待客户端，最多只能得到 `PASS_SERVER_ONLY`。
 
 若要额外声明 CatServer 客户端兼容，只能在具有可用桌面和 OpenGL 的机器上执行相同命令并追加
-`-WaitForClient`。这项客户端兼容证据不阻塞 1.1.2 的标准 Forge 发布。
+`-WaitForClient`。这项客户端兼容证据不阻塞 1.1.3 的标准 Forge 发布。
 最后一层监听 `127.0.0.1:25567`，必须用真实 1.12.2 客户端连接，打开内置演示并完成上述视觉/交互
 检查。完成后创建脚本打印出的唯一 `client-demo-ok.flag` 路径；不要预先创建或复用旧标记。脚本随后
 验证保存、关闭、同一世界重启、mixin 致命错误和专服客户端类加载。

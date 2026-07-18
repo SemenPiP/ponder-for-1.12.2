@@ -1,6 +1,6 @@
 # Ponder Legacy 项目路线图
 
-最后更新：2026-07-16
+最后更新：2026-07-18
 
 本路线图用于记录 Ponder Legacy 的当前完成度、已知缺口、版本目标和发布门槛。
 它描述的是项目计划，不表示列出的功能已经完成。实际兼容声明仍以
@@ -32,6 +32,8 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 - CraftTweaker/ZenScript 场景 IR、八个首次生成的内置脚本和外部结构目录。
 - 服务器场景快照、服务器 Scene ID 优先和断线恢复本地场景。
 - Java 8 打包、API/source/example addon 产物和标准 Forge 专服 CI。
+- 作者诊断命令、诊断报告目录 `logs/ponder/diagnostics` 和可安装的
+  `Ponder-ZenScript-Examples-1.1.3.zip`。
 
 ### P0：发布阻塞和高风险缺口
 
@@ -45,10 +47,6 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 
 ### P2：尚未提供
 
-- `/ponder list`、`inspect`、`validate` 和 `sync status` 诊断命令。
-- 场景来源、本地/服务器覆盖、缺失结构和协议拒绝原因的统一诊断模型。
-- 错误示例和可直接安装的 ZenScript 示例脚本包。
-- IR 导出、指令序号查看和开发模式时间轴定位工具。
 - Java API 签名快照、二进制兼容检查和正式弃用周期。
 - 网络同步进度和失败原因的客户端界面反馈。
 - JSON 场景前端、离线校验器和可视化编辑工具。
@@ -89,6 +87,9 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 
 ## 1.1.2：通用 Provider/Subject SPI 与 MMCE 支撑
 
+本节记录的是已冻结的 1.1.2 Alpha/MMCE 相关设计和发布边界，只绑定旧的 1.1.2 成品、
+旧报告和旧验收 JSON，不会随着 1.1.3 开发线刷新。
+
 - 提供不依赖特定内容模组的 Provider/Subject SPI：`PonderStructureProvider`
   按结构 ID 提供 NBT、指纹、命名组和诊断，`ItemSubjectResolver` 把
   `ItemStack` 解析为 Ponder 场景 component ID。
@@ -106,15 +107,25 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 
 ## 1.1.3：作者工具与诊断
 
-- 增加 `/ponder list [local|server|effective]`。
-- 增加 `/ponder inspect <scene>`、`/ponder validate` 和
-  `/ponder sync status`。
+- 增加 `/ponder list [local|server|effective]`、`/ponder inspect <scene>
+  [local|server|effective]`、`/ponder validate [local|server|effective]`、
+  `/ponder export <scene> [ir|timeline|all] [local|server|effective]` 和
+  `/ponder sync status [player]`。
 - 场景来源统一标记为 `JAVA_PLUGIN`、`BUILTIN_ZS`、`LOCAL_ZS` 或
-  `SERVER_SNAPSHOT`，并记录覆盖关系。
-- 错误统一包含来源文件、Scene ID、指令序号、结构路径和参数原因。
-- 客户端只显示一次错误摘要，完整诊断保留在日志和验证报告中。
-- 增加开发用 IR 导出和指令时间轴报告，不改变生产同步格式。
-- 发布完整 ZenScript API 参考、外部结构示例、错误示例和可安装示例包。
+  `SERVER_SNAPSHOT`，并记录本地/服务器覆盖关系。
+- `local`、`server` 和 `effective` 三个视图分别对应本地注册表、已验证的服务端
+  快照和合并后的生效视图；同 Scene ID 的服务端脚本场景覆盖本地脚本场景，
+  Java 插件场景保持本地来源。
+- 专服控制台的 `server` 视图对应可同步且非 `clientOnly` 的 ZS 集合，
+  `effective` 等同当前服务端注册结果。
+- 玩家发起的 `list`、`inspect`、`validate` 和 `export` 走客户端诊断服务；
+  `/ponder reload` 与 `/ponder sync status` 在服务端执行时需要权限等级 2。
+- ZS 变更仍然需要重启；`reload` 只重建已编译的注册表和结构缓存。
+- 完整诊断、校验报告和导出文件写入 `logs/ponder/diagnostics`。
+- `export ... ir` 只对脚本场景开放；Java storyboard 场景不导出脚本 IR，但
+  `timeline` 对 Java 场景和脚本场景都可导出。
+- 发布完整 ZenScript API 参考、外部结构示例、错误示例和可安装示例包
+  `Ponder-ZenScript-Examples-1.1.3.zip`。
 
 ## Ponder-MMCE 路线
 
@@ -198,7 +209,7 @@ clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
 - 所有报告绑定同一 Ponder 成品 SHA-256。
 - 标准 Forge 真实客户端完成八个场景、GUI Scale 1-4、全屏、资源重载、
   真实鼠标和按键验收。
-- CatServer 客户端支持只作为实验线，不阻塞 1.1.2；若要额外声明兼容，
+- CatServer 客户端支持只作为实验线，不阻塞 1.1.3；若要额外声明兼容，
   仍需真实连接、同步和场景播放证据。
 - 测试数量、产物哈希和报告链接由 CI 生成，不再手工维护易漂移的静态值。
 

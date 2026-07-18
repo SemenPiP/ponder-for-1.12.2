@@ -20,6 +20,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraftforge.server.command.TextComponentHelper;
 
 /** Forge 1.12 command adapter for opening and reloading Ponder on a client. */
 public final class PonderCommand extends CommandBase {
@@ -39,22 +40,26 @@ public final class PonderCommand extends CommandBase {
                 for (PonderSyncDiagnostic status : PonderDiagnostics.syncStatuses()) {
                     if (!playerFilter.isEmpty() && !status.getPlayerName().equalsIgnoreCase(playerFilter))
                         continue;
-                    sender.sendMessage(new TextComponentString(status.getPlayerName() + ": "
-                        + status.getStatus() + " transfer=" + status.getTransferId()
-                        + " protocol=" + status.getProtocol() + " codecs=" + status.getCodecs().size()
-                        + " compressed=" + status.getCompressedBytes()
-                        + " uncompressed=" + status.getUncompressedBytes()
-                        + " started=" + status.getStartedAt()
-                        + " updated=" + status.getUpdatedAt()
-                        + (status.getLastResult().isEmpty() ? "" : " result=" + status.getLastResult())));
+                    if (status.getLastResult().isEmpty()) {
+                        send(sender, "ponder.command.sync_status",
+                            status.getPlayerName(), status.getStatus(), status.getTransferId(),
+                            status.getProtocol(), status.getCodecs().size(), status.getCompressedBytes(),
+                            status.getUncompressedBytes(), status.getStartedAt(), status.getUpdatedAt());
+                    } else {
+                        send(sender, "ponder.command.sync_status_result",
+                            status.getPlayerName(), status.getStatus(), status.getTransferId(),
+                            status.getProtocol(), status.getCodecs().size(), status.getCompressedBytes(),
+                            status.getUncompressedBytes(), status.getStartedAt(), status.getUpdatedAt(),
+                            status.getLastResult());
+                    }
                     count++;
                 }
                 if (count == 0)
-                    sender.sendMessage(new TextComponentString("No matching Ponder sync status is available."));
+                    send(sender, "ponder.command.sync_status_empty");
                 return;
             }
             ScriptSceneSync.sendAll(server);
-            sender.sendMessage(new TextComponentString("Ponder scene snapshot sent to all online clients."));
+            send(sender, "ponder.command.sync_sent");
             return;
         }
         if (arguments.length > 0 && isDiagnostic(arguments[0])) {
@@ -80,8 +85,7 @@ public final class PonderCommand extends CommandBase {
             PonderStructureLoader.invalidateCaches();
             PonderIndex.reload();
             CatnipServices.NETWORK.sendToAllClients(new ClientboundSimpleActionPacket("reloadPonder", ""));
-            sender.sendMessage(new TextComponentString(
-                "Ponder reapplied compiled scenes and refreshed structures. ZenScript changes require a restart."));
+            send(sender, "ponder.command.reload_complete");
             return;
         }
         if (!(sender.getCommandSenderEntity() instanceof EntityPlayerMP))
@@ -146,5 +150,30 @@ public final class PonderCommand extends CommandBase {
             result.append(argument);
         }
         return result.toString();
+    }
+
+    private static void send(ICommandSender sender, String key, Object... arguments) {
+        if (sender.getCommandSenderEntity() instanceof EntityPlayerMP) {
+            sender.sendMessage(TextComponentHelper.createComponentTranslation(sender, key, arguments));
+            return;
+        }
+        sender.sendMessage(new TextComponentString(english(key, arguments)));
+    }
+
+    private static String english(String key, Object[] arguments) {
+        String message;
+        if ("ponder.command.sync_status".equals(key))
+            message = "%1$s: status=%2$s transfer=%3$s protocol=%4$s codecs=%5$s compressed=%6$s uncompressed=%7$s started=%8$s updated=%9$s";
+        else if ("ponder.command.sync_status_result".equals(key))
+            message = "%1$s: status=%2$s transfer=%3$s protocol=%4$s codecs=%5$s compressed=%6$s uncompressed=%7$s started=%8$s updated=%9$s result=%10$s";
+        else if ("ponder.command.sync_status_empty".equals(key))
+            message = "No matching Ponder sync status is available.";
+        else if ("ponder.command.sync_sent".equals(key))
+            message = "Ponder scene snapshot sent to all online clients.";
+        else if ("ponder.command.reload_complete".equals(key))
+            message = "Ponder reapplied compiled scenes and refreshed structures. ZenScript changes require a restart.";
+        else
+            return key;
+        return arguments.length == 0 ? message : String.format(java.util.Locale.ROOT, message, arguments);
     }
 }

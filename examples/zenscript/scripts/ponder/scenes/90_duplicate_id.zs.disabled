@@ -1,0 +1,6 @@
+import mods.ponder.SceneRegistry;
+
+val duplicate = SceneRegistry.create("minecraft:paper", "ponder_zen:diagnostics_demo",
+    "Duplicate Scene ID", "ponder:demo/basics");
+duplicate.idle(1);
+duplicate.register();

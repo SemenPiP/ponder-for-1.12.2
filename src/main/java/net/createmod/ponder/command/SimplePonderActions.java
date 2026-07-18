@@ -11,6 +11,7 @@ import net.createmod.ponder.foundation.structure.PonderStructureLoader;
 import net.createmod.ponder.foundation.diagnostic.PonderDiagnosticService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -54,8 +55,8 @@ public final class SimplePonderActions {
             PonderDiagnosticService.execute("client", request,
                 message -> minecraft.player.sendMessage(new TextComponentString(message)));
         } catch (RuntimeException failure) {
-            minecraft.player.sendMessage(new TextComponentString(
-                "Ponder diagnostic command failed: " + failure.getMessage()));
+            minecraft.player.sendMessage(
+                new TextComponentTranslation("ponder.diagnostic.command_failed", failure.getMessage()));
         }
     }
 }

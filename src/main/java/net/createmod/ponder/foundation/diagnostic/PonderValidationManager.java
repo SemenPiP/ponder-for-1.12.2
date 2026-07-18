@@ -24,8 +24,9 @@ public final class PonderValidationManager {
                                              Consumer<String> output) {
         if (TASKS.containsKey(side))
             return false;
-        TASKS.put(side, new Task(snapshot, output));
-        output.accept("Ponder validation started for " + snapshot.getScenes().size() + " scene(s).");
+        TASKS.put(side, new Task(side, snapshot, output));
+        output.accept(PonderDiagnosticService.text(side, "ponder.validation.started",
+            snapshot.getScenes().size()));
         return true;
     }
 
@@ -51,11 +52,11 @@ public final class PonderValidationManager {
                 task.count(issue);
         try {
             File report = PonderDiagnosticReports.writeValidation(task.snapshot);
-            task.output.accept("Ponder validation complete: " + task.errors + " error(s), "
-                + task.warnings + " warning(s). Report: " + report.getPath());
+            task.output.accept(PonderDiagnosticService.text(task.side, "ponder.validation.complete",
+                task.errors, task.warnings, report.getPath()));
         } catch (IOException failure) {
-            task.output.accept("Ponder validation completed but the report could not be written: "
-                + failure.getMessage());
+            task.output.accept(PonderDiagnosticService.text(task.side, "ponder.validation.report_failed",
+                failure.getMessage()));
         }
         TASKS.remove(side);
     }
@@ -65,6 +66,7 @@ public final class PonderValidationManager {
     }
 
     private static final class Task {
+        final String side;
         final PonderDiagnosticSnapshot snapshot;
         final Consumer<String> output;
         final Set<PonderDiagnosticIssue> countedIssues =
@@ -73,7 +75,8 @@ public final class PonderValidationManager {
         int errors;
         int warnings;
 
-        Task(PonderDiagnosticSnapshot snapshot, Consumer<String> output) {
+        Task(String side, PonderDiagnosticSnapshot snapshot, Consumer<String> output) {
+            this.side = side;
             this.snapshot = snapshot;
             this.output = output;
         }

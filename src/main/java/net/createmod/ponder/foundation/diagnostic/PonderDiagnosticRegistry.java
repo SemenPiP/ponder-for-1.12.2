@@ -26,6 +26,7 @@ import net.createmod.ponder.script.ScriptSceneDefinition;
 import net.createmod.ponder.script.ScriptSceneRegistry;
 import net.createmod.ponder.script.ScriptSourceMetadata;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 
 public final class PonderDiagnosticRegistry {
     private static final Comparator<PonderSceneDiagnostic> ORDER =
@@ -70,34 +71,30 @@ public final class PonderDiagnosticRegistry {
             localScenes.add(buildScript(registry, definition,
                 ScriptSourceMetadata.isBuiltin(definition.getSourceDescription())
                     ? PonderSceneSource.BUILTIN_ZS : PonderSceneSource.LOCAL_ZS));
-        for (ScriptSceneDefinition definition : ScriptSceneRegistry.serverSnapshot())
-            serverScenes.add(buildScript(registry, definition, PonderSceneSource.SERVER_SNAPSHOT));
+        boolean serverProcess = FMLCommonHandler.instance().getSide().isServer();
+        if (serverProcess) {
+            for (ScriptSceneDefinition definition : ScriptSceneRegistry.localSnapshot(false))
+                serverScenes.add(buildScript(registry, definition,
+                    ScriptSourceMetadata.isBuiltin(definition.getSourceDescription())
+                        ? PonderSceneSource.BUILTIN_ZS : PonderSceneSource.LOCAL_ZS));
+        } else {
+            for (ScriptSceneDefinition definition : ScriptSceneRegistry.serverSnapshot())
+                serverScenes.add(buildScript(registry, definition, PonderSceneSource.SERVER_SNAPSHOT));
+        }
 
         localScenes = markDuplicateIds(localScenes);
         serverScenes = markDuplicateIds(serverScenes);
         Collections.sort(localScenes, ORDER);
         Collections.sort(serverScenes, ORDER);
 
-        List<PonderSceneDiagnostic> effectiveScenes = new ArrayList<PonderSceneDiagnostic>();
-        Map<ResourceLocation, PonderSceneDiagnostic> serverById =
-            new LinkedHashMap<ResourceLocation, PonderSceneDiagnostic>();
-        for (PonderSceneDiagnostic scene : serverScenes)
-            if (scene.getSceneId() != null)
-                serverById.put(scene.getSceneId(), scene);
-        List<PonderSceneDiagnostic> markedLocalScenes =
-            new ArrayList<PonderSceneDiagnostic>(localScenes.size());
-        for (PonderSceneDiagnostic scene : localScenes) {
-            boolean script = scene.getSource() == PonderSceneSource.BUILTIN_ZS
-                || scene.getSource() == PonderSceneSource.LOCAL_ZS;
-            if (script && scene.getSceneId() != null && serverById.containsKey(scene.getSceneId())) {
-                markedLocalScenes.add(scene.overriddenBy(PonderSceneSource.SERVER_SNAPSHOT));
-                continue;
-            }
-            markedLocalScenes.add(scene);
-            effectiveScenes.add(scene);
+        List<PonderSceneDiagnostic> effectiveScenes;
+        if (serverProcess) {
+            effectiveScenes = new ArrayList<PonderSceneDiagnostic>(localScenes);
+        } else {
+            ClientViews merged = mergeClientViews(localScenes, serverScenes);
+            localScenes = merged.local;
+            effectiveScenes = merged.effective;
         }
-        localScenes = markedLocalScenes;
-        effectiveScenes.addAll(serverScenes);
         Collections.sort(effectiveScenes, ORDER);
 
         long now = System.currentTimeMillis();
@@ -108,6 +105,8 @@ public final class PonderDiagnosticRegistry {
         for (PonderDiagnosticIssue issue : effective.getIssues())
             PonderDiagnosticNotices.record(issue);
         for (PonderDiagnosticIssue issue : ScriptMissingStructures.drainDiagnosticIssues())
+            recordRuntimeIssue(issue);
+        for (PonderDiagnosticIssue issue : ScriptSceneRegistry.drainRegistrationIssues())
             recordRuntimeIssue(issue);
     }
 
@@ -135,6 +134,33 @@ public final class PonderDiagnosticRegistry {
         List<PonderScene.ScheduledInstructionDiagnostic> timeline = javaTimelines.get(entryKey);
         return timeline == null ? Collections.<PonderScene.ScheduledInstructionDiagnostic>emptyList()
             : timeline;
+    }
+
+    static ClientViews mergeClientViews(List<PonderSceneDiagnostic> localScenes,
+                                        List<PonderSceneDiagnostic> serverScenes) {
+        List<PonderSceneDiagnostic> effectiveScenes = new ArrayList<PonderSceneDiagnostic>();
+        Map<ResourceLocation, PonderSceneDiagnostic> serverById =
+            new LinkedHashMap<ResourceLocation, PonderSceneDiagnostic>();
+        for (PonderSceneDiagnostic scene : serverScenes)
+            if (scene.getSceneId() != null)
+                serverById.put(scene.getSceneId(), scene);
+        List<PonderSceneDiagnostic> markedLocalScenes =
+            new ArrayList<PonderSceneDiagnostic>(localScenes.size());
+        for (PonderSceneDiagnostic scene : localScenes) {
+            boolean script = scene.getSource() == PonderSceneSource.BUILTIN_ZS
+                || scene.getSource() == PonderSceneSource.LOCAL_ZS;
+            if (script && scene.getSceneId() != null && serverById.containsKey(scene.getSceneId())) {
+                markedLocalScenes.add(scene.overriddenBy(PonderSceneSource.SERVER_SNAPSHOT)
+                    .withIssue(issue("override.server_scene", PonderDiagnosticSeverity.INFO,
+                        "Server snapshot overrides local script scene " + scene.getSceneId(),
+                        scene.getSceneId(), -1)));
+                continue;
+            }
+            markedLocalScenes.add(scene);
+            effectiveScenes.add(scene);
+        }
+        effectiveScenes.addAll(serverScenes);
+        return new ClientViews(markedLocalScenes, effectiveScenes);
     }
 
     private static PonderSceneDiagnostic buildJava(PonderSceneRegistry registry, StoryBoardEntry entry,
@@ -195,7 +221,7 @@ public final class PonderDiagnosticRegistry {
             totalTicks = compiled.getTotalTicks();
             keyframes = compiled.getKeyframes();
         } catch (RuntimeException failure) {
-            issues.add(issue("compile.script_scene", PonderDiagnosticSeverity.ERROR,
+            issues.add(issue("ir.compile_failed", PonderDiagnosticSeverity.ERROR,
                 message(failure), definition.getSceneId(), instructionIndex(failure)));
         }
         String sourceDescription = source == PonderSceneSource.SERVER_SNAPSHOT
@@ -218,6 +244,10 @@ public final class PonderDiagnosticRegistry {
                     diagnostic, sceneId, -1));
             return structure;
         } catch (IOException failure) {
+            issues.add(issue("structure.load_failed", PonderDiagnosticSeverity.ERROR,
+                message(failure), sceneId, -1));
+            return PonderStructure.missing(message(failure));
+        } catch (RuntimeException failure) {
             issues.add(issue("structure.load_failed", PonderDiagnosticSeverity.ERROR,
                 message(failure), sceneId, -1));
             return PonderStructure.missing(message(failure));
@@ -325,5 +355,15 @@ public final class PonderDiagnosticRegistry {
         String message = failure.getMessage();
         return message == null || message.trim().isEmpty()
             ? failure.getClass().getSimpleName() : message;
+    }
+
+    static final class ClientViews {
+        final List<PonderSceneDiagnostic> local;
+        final List<PonderSceneDiagnostic> effective;
+
+        ClientViews(List<PonderSceneDiagnostic> local, List<PonderSceneDiagnostic> effective) {
+            this.local = local;
+            this.effective = effective;
+        }
     }
 }

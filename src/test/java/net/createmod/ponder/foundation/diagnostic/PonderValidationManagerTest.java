@@ -39,7 +39,7 @@ public class PonderValidationManagerTest {
         assertTrue(PonderValidationManager.isRunning(side));
         PonderValidationManager.tick(side);
         assertFalse(PonderValidationManager.isRunning(side));
-        assertTrue(output.get(output.size() - 1).contains("2 error(s), 1 warning(s)"));
+        assertTrue(output.toString(), output.get(output.size() - 1).contains("2 error(s), 1 warning(s)"));
     }
 
     private static PonderSceneDiagnostic scene(String path, List<PonderDiagnosticIssue> issues) {

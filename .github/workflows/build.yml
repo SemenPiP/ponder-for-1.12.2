@@ -93,7 +93,7 @@ jobs:
       - name: Write artifact summary
         shell: powershell
         run: |
-          "## Ponder 1.1.2 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "## Ponder 1.1.3 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| Project | File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| --- | --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
@@ -105,6 +105,9 @@ jobs:
           $smoke = Get-Item -LiteralPath `
             "ponder-mmce\build\distributions\Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "Smoke Pack"; File = $smoke })
+          $examples = Get-Item -LiteralPath `
+            "build\distributions\Ponder-ZenScript-Examples-1.1.3.zip"
+          $artifacts.Add([PSCustomObject]@{ Project = "ZenScript Examples"; File = $examples })
 
           $checksumLines = [Collections.Generic.List[string]]::new()
           foreach ($artifact in @($artifacts | Sort-Object { $_.File.Name })) {
@@ -120,7 +123,7 @@ jobs:
       - name: Upload release jars
         uses: actions/upload-artifact@v7
         with:
-          name: ponder-1.1.2-${{ github.sha }}
+          name: ponder-1.1.3-${{ github.sha }}
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 30
@@ -138,6 +141,14 @@ jobs:
         with:
           name: ponder-mmce-smoke-${{ github.sha }}
           path: ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Ponder ZenScript Examples
+        uses: actions/upload-artifact@v7
+        with:
+          name: ponder-zenscript-examples-${{ github.sha }}
+          path: build/distributions/Ponder-ZenScript-Examples-1.1.3.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -175,6 +186,7 @@ jobs:
           path: |
             build/reports/**
             build/test-results/**
+            logs/ponder/diagnostics/**
             ponder-mmce/build/reports/**
             ponder-mmce/build/test-results/**
           if-no-files-found: warn
@@ -205,7 +217,7 @@ jobs:
       - name: Download release jars
         uses: actions/download-artifact@v8
         with:
-          name: ponder-1.1.2-${{ github.sha }}
+          name: ponder-1.1.3-${{ github.sha }}
           path: build/libs
 
       - name: Download server fixture harness
