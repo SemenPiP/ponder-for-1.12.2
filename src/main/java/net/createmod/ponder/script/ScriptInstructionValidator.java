@@ -247,6 +247,7 @@ public final class ScriptInstructionValidator {
             if (codec == null)
                 throw new IllegalArgumentException("Missing custom instruction codec " + codecId);
             codec.validate(payload.copy());
+            ScriptCodecDescriptors.requirement(codec, payload);
         } else {
             throw new IllegalArgumentException("Unknown Ponder script instruction " + op);
         }

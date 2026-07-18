@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.minecraft.util.ResourceLocation;
 
 final class ScriptSceneSyncTracker {
@@ -40,7 +41,8 @@ final class ScriptSceneSyncTracker {
         states.remove(playerId);
     }
 
-    void recordCapabilities(UUID playerId, int protocol, List<ResourceLocation> codecs, long now) {
+    void recordCapabilities(UUID playerId, int protocol,
+                            List<ScriptInstructionCodecDescriptor> codecs, long now) {
         State state = requireState(playerId);
         if (!WAITING_CAPABILITIES.equals(state.status))
             throw new IllegalStateException("Ponder script sync is not waiting for capabilities");
@@ -49,17 +51,20 @@ final class ScriptSceneSyncTracker {
         state.updatedAt = now;
     }
 
-    void startTransfer(UUID playerId, int transferId, int compressedBytes, int uncompressedBytes, long now) {
+    void startTransfer(UUID playerId, int transferId, int compressedBytes, int uncompressedBytes,
+                       List<ScriptInstructionCodecDescriptor> requirements, long now) {
         State state = requireState(playerId);
         state.transferId = transferId;
         state.startedAt = now;
         state.updatedAt = now;
         state.compressedBytes = compressedBytes;
         state.uncompressedBytes = uncompressedBytes;
+        state.requirements = sortedCopy(requirements);
         state.status = SENDING;
     }
 
-    void reject(UUID playerId, String playerName, int protocol, List<ResourceLocation> codecs,
+    void reject(UUID playerId, String playerName, int protocol,
+                List<ScriptInstructionCodecDescriptor> codecs,
                 int transferId, String message, long now) {
         State state = states.get(playerId);
         if (state == null) {
@@ -116,8 +121,8 @@ final class ScriptSceneSyncTracker {
         for (Map.Entry<UUID, State> entry : states.entrySet()) {
             State state = entry.getValue();
             result.add(new PonderSyncDiagnostic(entry.getKey(), state.playerName, state.protocol,
-                state.codecs, state.transferId, state.status, state.startedAt, state.updatedAt,
-                state.compressedBytes, state.uncompressedBytes, state.lastResult));
+                state.codecs, state.requirements, state.transferId, state.status, state.startedAt,
+                state.updatedAt, state.compressedBytes, state.uncompressedBytes, state.lastResult));
         }
         Collections.sort(result, new Comparator<PonderSyncDiagnostic>() {
             @Override
@@ -135,14 +140,17 @@ final class ScriptSceneSyncTracker {
         return state;
     }
 
-    private static List<ResourceLocation> sortedCopy(List<ResourceLocation> codecs) {
+    private static List<ScriptInstructionCodecDescriptor> sortedCopy(
+            List<ScriptInstructionCodecDescriptor> codecs) {
         if (codecs == null || codecs.isEmpty())
             return Collections.emptyList();
-        List<ResourceLocation> copy = new ArrayList<ResourceLocation>(codecs);
-        Collections.sort(copy, new Comparator<ResourceLocation>() {
+        List<ScriptInstructionCodecDescriptor> copy =
+            new ArrayList<ScriptInstructionCodecDescriptor>(codecs);
+        Collections.sort(copy, new Comparator<ScriptInstructionCodecDescriptor>() {
             @Override
-            public int compare(ResourceLocation left, ResourceLocation right) {
-                return left.toString().compareTo(right.toString());
+            public int compare(ScriptInstructionCodecDescriptor left,
+                               ScriptInstructionCodecDescriptor right) {
+                return left.getId().toString().compareTo(right.getId().toString());
             }
         });
         return Collections.unmodifiableList(copy);
@@ -180,7 +188,8 @@ final class ScriptSceneSyncTracker {
         int protocol;
         int compressedBytes;
         int uncompressedBytes;
-        List<ResourceLocation> codecs = Collections.emptyList();
+        List<ScriptInstructionCodecDescriptor> codecs = Collections.emptyList();
+        List<ScriptInstructionCodecDescriptor> requirements = Collections.emptyList();
         String status = WAITING_CAPABILITIES;
         String lastResult = "";
 

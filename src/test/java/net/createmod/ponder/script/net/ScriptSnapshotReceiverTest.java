@@ -9,6 +9,7 @@ import java.util.Collections;
 import org.junit.After;
 import org.junit.Test;
 
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.createmod.ponder.script.ScriptSceneSnapshot;
 import net.createmod.ponder.script.ScriptSceneSync;
 import net.minecraft.util.ResourceLocation;
@@ -126,7 +127,8 @@ public class ScriptSnapshotReceiverTest {
         assertNull(activeTransfer());
 
         ScriptSnapshotReceiver.begin(TRANSFER_ID, ScriptSceneSnapshot.PROTOCOL, 1, 0, 0, new byte[32],
-            Collections.singletonList(new ResourceLocation("missing", "codec")));
+            Collections.singletonList(new ScriptInstructionCodecDescriptor(
+                new ResourceLocation("missing", "codec"), 1, Collections.emptyList())));
         assertNull(activeTransfer());
     }
 

@@ -145,6 +145,7 @@ public final class ScriptSceneBuilder {
             throw new IllegalArgumentException("Custom instruction data must be a data map");
         NBTTagCompound payload = (NBTTagCompound) converted;
         codec.validate(payload.copy());
+        ScriptCodecDescriptors.requirement(codec, payload);
         NBTTagCompound data = new NBTTagCompound();
         data.setString("codec", id.toString());
         data.setTag("payload", payload.copy());

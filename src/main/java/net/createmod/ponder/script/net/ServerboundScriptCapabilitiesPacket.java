@@ -7,47 +7,38 @@ import io.netty.buffer.ByteBuf;
 import net.createmod.catnip.net.CatnipPackets;
 import net.createmod.catnip.net.base.BasePacketPayload;
 import net.createmod.catnip.net.base.ServerboundPacketPayload;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
+import net.createmod.ponder.script.ScriptCodecDescriptors;
 import net.createmod.ponder.script.ScriptSceneSnapshot;
 import net.createmod.ponder.script.ScriptSceneSync;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
 
 public final class ServerboundScriptCapabilitiesPacket implements ServerboundPacketPayload {
     private int protocol;
-    private List<ResourceLocation> codecs = new ArrayList<ResourceLocation>();
+    private List<ScriptInstructionCodecDescriptor> codecs =
+        new ArrayList<ScriptInstructionCodecDescriptor>();
 
     public ServerboundScriptCapabilitiesPacket() {
     }
 
-    public ServerboundScriptCapabilitiesPacket(int protocol, List<ResourceLocation> codecs) {
+    public ServerboundScriptCapabilitiesPacket(int protocol,
+                                                List<ScriptInstructionCodecDescriptor> codecs) {
         if (codecs == null || codecs.size() > ScriptSceneSnapshot.MAX_REQUIRED_CODECS)
             throw new IllegalArgumentException("Invalid Ponder script codec capability list");
         this.protocol = protocol;
-        this.codecs = new ArrayList<ResourceLocation>(codecs);
+        this.codecs = ScriptCodecDescriptors.validate(codecs);
     }
 
     @Override
     public void fromBytes(ByteBuf buffer) {
         protocol = buffer.readInt();
-        int count = buffer.readUnsignedShort();
-        if (count > ScriptSceneSnapshot.MAX_REQUIRED_CODECS)
-            throw new IllegalArgumentException("Too many Ponder script codec capabilities");
-        codecs = new ArrayList<ResourceLocation>(count);
-        for (int i = 0; i < count; i++) {
-            String value = ByteBufUtils.readUTF8String(buffer);
-            if (value.length() > 256)
-                throw new IllegalArgumentException("Ponder script codec id is too long");
-            codecs.add(new ResourceLocation(value));
-        }
+        codecs = ScriptCodecDescriptors.read(buffer);
     }
 
     @Override
     public void toBytes(ByteBuf buffer) {
         buffer.writeInt(protocol);
-        buffer.writeShort(codecs.size());
-        for (ResourceLocation codec : codecs)
-            ByteBufUtils.writeUTF8String(buffer, codec.toString());
+        ScriptCodecDescriptors.write(buffer, codecs);
     }
 
     @Override

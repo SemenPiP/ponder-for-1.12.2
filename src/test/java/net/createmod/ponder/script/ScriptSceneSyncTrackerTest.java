@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.junit.Test;
 
 import net.createmod.ponder.api.diagnostic.PonderSyncDiagnostic;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.minecraft.util.ResourceLocation;
 
 public class ScriptSceneSyncTrackerTest {
@@ -35,14 +36,17 @@ public class ScriptSceneSyncTrackerTest {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
         tracker.recordCapabilities(PLAYER_ID, PROTOCOL, Arrays.asList(
-            new ResourceLocation("z", "codec"), new ResourceLocation("a", "codec")), 110L);
-        tracker.startTransfer(PLAYER_ID, 7, 20, 80, 120L);
+            descriptor("z", 1), descriptor("a", 2)), 110L);
+        tracker.startTransfer(PLAYER_ID, 7, 20, 80,
+            Collections.singletonList(descriptor("a", 2)), 120L);
 
         PonderSyncDiagnostic sending = onlyDiagnostic(tracker);
         assertEquals(ScriptSceneSyncTracker.SENDING, sending.getStatus());
         assertEquals(PROTOCOL, sending.getProtocol());
         assertEquals(Arrays.asList(new ResourceLocation("a", "codec"),
             new ResourceLocation("z", "codec")), sending.getCodecs());
+        assertEquals(2, sending.getCodecDescriptors().size());
+        assertEquals(1, sending.getRequiredCodecDescriptors().size());
         assertEquals(7, sending.getTransferId());
         assertEquals(20, sending.getCompressedBytes());
         assertEquals(80, sending.getUncompressedBytes());
@@ -57,7 +61,7 @@ public class ScriptSceneSyncTrackerTest {
     public void acceptsAndRejectsCurrentResults() {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
-        tracker.startTransfer(PLAYER_ID, 7, 20, 80, 120L);
+        tracker.startTransfer(PLAYER_ID, 7, 20, 80, Collections.emptyList(), 120L);
         tracker.markWaitingResult(PLAYER_ID, 7);
 
         assertTrue(tracker.recordResult(PLAYER_ID, 7, PROTOCOL, PROTOCOL, true, "Applied", 130L));
@@ -68,7 +72,7 @@ public class ScriptSceneSyncTrackerTest {
         assertEquals(130L, accepted.getUpdatedAt());
 
         tracker.request(PLAYER_ID, "Alice", 200L);
-        tracker.startTransfer(PLAYER_ID, 8, 21, 81, 220L);
+        tracker.startTransfer(PLAYER_ID, 8, 21, 81, Collections.emptyList(), 220L);
         tracker.markWaitingResult(PLAYER_ID, 8);
         assertTrue(tracker.recordResult(PLAYER_ID, 8, PROTOCOL, PROTOCOL, false, "Rejected", 230L));
         assertEquals(ScriptSceneSyncTracker.REJECTED, onlyDiagnostic(tracker).getStatus());
@@ -80,7 +84,7 @@ public class ScriptSceneSyncTrackerTest {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
         tracker.reject(PLAYER_ID, "Alice", 99,
-            Arrays.asList(new ResourceLocation("test", "codec")), 0, "Protocol mismatch", 110L);
+            Arrays.asList(descriptor("test", 1)), 0, "Protocol mismatch", 110L);
 
         PonderSyncDiagnostic diagnostic = onlyDiagnostic(tracker);
         assertEquals(ScriptSceneSyncTracker.REJECTED, diagnostic.getStatus());
@@ -94,7 +98,7 @@ public class ScriptSceneSyncTrackerTest {
     public void timeoutIsRetainedAndOnlyReportedOnce() {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
-        tracker.startTransfer(PLAYER_ID, 7, 20, 80, 120L);
+        tracker.startTransfer(PLAYER_ID, 7, 20, 80, Collections.emptyList(), 120L);
         tracker.markWaitingResult(PLAYER_ID, 7);
 
         List<ScriptSceneSyncTracker.Timeout> expired = tracker.expire(30_121L, 30_000L);
@@ -111,7 +115,7 @@ public class ScriptSceneSyncTrackerTest {
     public void reentryReplacesStateAndOldTransferCannotOverwriteIt() {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
-        tracker.startTransfer(PLAYER_ID, 7, 20, 80, 120L);
+        tracker.startTransfer(PLAYER_ID, 7, 20, 80, Collections.emptyList(), 120L);
         tracker.markWaitingResult(PLAYER_ID, 7);
 
         tracker.request(PLAYER_ID, "Alice", 200L);
@@ -127,7 +131,7 @@ public class ScriptSceneSyncTrackerTest {
     public void staleResultDoesNotOverwriteCurrentTransfer() {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
-        tracker.startTransfer(PLAYER_ID, 9, 20, 80, 120L);
+        tracker.startTransfer(PLAYER_ID, 9, 20, 80, Collections.emptyList(), 120L);
         tracker.markWaitingResult(PLAYER_ID, 9);
 
         assertFalse(tracker.recordResult(PLAYER_ID, 8, PROTOCOL, PROTOCOL, false, "Stale", 130L));
@@ -141,13 +145,14 @@ public class ScriptSceneSyncTrackerTest {
     public void terminalStateDoesNotAcceptLateCapabilities() {
         ScriptSceneSyncTracker tracker = new ScriptSceneSyncTracker();
         tracker.request(PLAYER_ID, "Alice", 100L);
-        tracker.reject(PLAYER_ID, "Alice", 99, Collections.<ResourceLocation>emptyList(),
+        tracker.reject(PLAYER_ID, "Alice", 99,
+            Collections.<ScriptInstructionCodecDescriptor>emptyList(),
             0, "Rejected", 110L);
 
         assertFalse(tracker.isWaitingForCapabilities(PLAYER_ID));
         try {
             tracker.recordCapabilities(PLAYER_ID, PROTOCOL,
-                Collections.<ResourceLocation>emptyList(), 120L);
+                Collections.<ScriptInstructionCodecDescriptor>emptyList(), 120L);
             throw new AssertionError("Terminal sync state accepted late capabilities");
         } catch (IllegalStateException expected) {
         }
@@ -169,5 +174,10 @@ public class ScriptSceneSyncTrackerTest {
         List<PonderSyncDiagnostic> diagnostics = tracker.snapshotDiagnostics();
         assertEquals(1, diagnostics.size());
         return diagnostics.get(0);
+    }
+
+    private static ScriptInstructionCodecDescriptor descriptor(String namespace, int version) {
+        return new ScriptInstructionCodecDescriptor(new ResourceLocation(namespace, "codec"), version,
+            Collections.singleton(new ResourceLocation(namespace, "base")));
     }
 }

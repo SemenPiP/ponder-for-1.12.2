@@ -11,6 +11,7 @@ import org.junit.Test;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.createmod.ponder.script.ScriptSceneSnapshot;
 import net.minecraft.util.ResourceLocation;
 
@@ -19,7 +20,7 @@ public class ScriptSnapshotPacketTest {
     public void beginPacketRoundTripsProtocolAndRequiredCodecs() throws Exception {
         ClientboundScriptSnapshotBeginPacket source = new ClientboundScriptSnapshotBeginPacket(
             42, ScriptSceneSnapshot.PROTOCOL, 3, 1234, 5678, new byte[32],
-            Arrays.asList(new ResourceLocation("example", "first"), new ResourceLocation("example", "second")));
+            Arrays.asList(descriptor("first", 1, "base"), descriptor("second", 2, "extra")));
         ByteBuf bytes = Unpooled.buffer();
         source.toBytes(bytes);
         ClientboundScriptSnapshotBeginPacket decoded = new ClientboundScriptSnapshotBeginPacket();
@@ -28,6 +29,10 @@ public class ScriptSnapshotPacketTest {
         assertEquals(42, integer(decoded, "transferId"));
         assertEquals(ScriptSceneSnapshot.PROTOCOL, integer(decoded, "protocol"));
         assertEquals(2, ((java.util.List<?>) field(decoded, "requiredCodecs")).size());
+        ScriptInstructionCodecDescriptor first =
+            (ScriptInstructionCodecDescriptor) ((java.util.List<?>) field(decoded, "requiredCodecs")).get(0);
+        assertEquals(1, first.getProtocolVersion());
+        assertEquals(1, first.getCapabilities().size());
     }
 
     @Test
@@ -53,7 +58,7 @@ public class ScriptSnapshotPacketTest {
     public void capabilityPacketRoundTripsProtocolAndCodecs() throws Exception {
         ServerboundScriptCapabilitiesPacket source = new ServerboundScriptCapabilitiesPacket(
             ScriptSceneSnapshot.PROTOCOL,
-            Arrays.asList(new ResourceLocation("example", "first"), new ResourceLocation("example", "second")));
+            Arrays.asList(descriptor("first", 1, "base"), descriptor("second", 2, "extra")));
         ByteBuf bytes = Unpooled.buffer();
         source.toBytes(bytes);
         ServerboundScriptCapabilitiesPacket decoded = new ServerboundScriptCapabilitiesPacket();
@@ -91,5 +96,11 @@ public class ScriptSnapshotPacketTest {
         Field field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    private static ScriptInstructionCodecDescriptor descriptor(String path, int version,
+                                                               String capability) {
+        return new ScriptInstructionCodecDescriptor(new ResourceLocation("example", path), version,
+            Arrays.asList(new ResourceLocation("example", capability)));
     }
 }

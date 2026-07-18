@@ -8,18 +8,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
-import net.createmod.ponder.api.script.ScriptInstructionCodecs;
+import net.createmod.ponder.api.script.ScriptInstructionCodecDescriptor;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.ResourceLocation;
 
 public final class ScriptSceneSnapshot {
-    public static final int PROTOCOL = 2;
+    public static final int PROTOCOL = 3;
     public static final int MAX_UNCOMPRESSED_BYTES = 16 * 1024 * 1024;
     public static final int MAX_COMPRESSED_BYTES = 16 * 1024 * 1024;
     public static final int MAX_SCENE_BYTES = 1024 * 1024;
@@ -31,8 +28,11 @@ public final class ScriptSceneSnapshot {
     public static Encoded encode(List<ScriptSceneDefinition> scenes) throws IOException {
         if (scenes.size() > ScriptSceneRegistry.MAX_SCENES)
             throw new IOException("Scene snapshot exceeds " + ScriptSceneRegistry.MAX_SCENES + " scenes");
+        List<ScriptInstructionCodecDescriptor> requirements =
+            ScriptCodecDescriptors.requirements(scenes);
         NBTTagCompound root = new NBTTagCompound();
         root.setInteger("protocol", PROTOCOL);
+        root.setTag("codecRequirements", ScriptCodecDescriptors.toNbt(requirements));
         NBTTagList list = new NBTTagList();
         for (ScriptSceneDefinition scene : scenes) {
             NBTTagCompound serialized = scene.serialize();
@@ -50,10 +50,14 @@ public final class ScriptSceneSnapshot {
         byte[] bytes = output.toByteArray();
         if (bytes.length > MAX_COMPRESSED_BYTES)
             throw new IOException("Scene snapshot exceeds " + MAX_COMPRESSED_BYTES + " compressed bytes");
-        return new Encoded(bytes, uncompressed, sha256(bytes));
+        return new Encoded(bytes, uncompressed, sha256(bytes), requirements);
     }
 
     public static List<ScriptSceneDefinition> decode(byte[] compressed, int expectedUncompressed) throws IOException {
+        return decodeContent(compressed, expectedUncompressed).scenes;
+    }
+
+    public static Decoded decodeContent(byte[] compressed, int expectedUncompressed) throws IOException {
         if (compressed.length > MAX_COMPRESSED_BYTES)
             throw new IOException("Compressed scene snapshot is too large");
         NBTTagCompound root = CompressedStreamTools.readCompressed(new ByteArrayInputStream(compressed));
@@ -65,6 +69,14 @@ public final class ScriptSceneSnapshot {
         NBTTagList list = root.getTagList("scenes", 10);
         if (list.tagCount() > ScriptSceneRegistry.MAX_SCENES)
             throw new IOException("Scene snapshot contains too many scenes");
+        List<ScriptInstructionCodecDescriptor> declaredRequirements;
+        try {
+            declaredRequirements = ScriptCodecDescriptors.fromNbt(
+                root.getTagList("codecRequirements", 10));
+        } catch (RuntimeException malformed) {
+            throw new IOException("Invalid scene snapshot codec requirements: "
+                + malformed.getMessage(), malformed);
+        }
         List<ScriptSceneDefinition> result = new ArrayList<ScriptSceneDefinition>();
         for (int i = 0; i < list.tagCount(); i++) {
             try {
@@ -77,23 +89,16 @@ public final class ScriptSceneSnapshot {
                 throw new IOException("Invalid scene #" + i + ": " + malformed.getMessage(), malformed);
             }
         }
-        return result;
+        List<ScriptInstructionCodecDescriptor> derivedRequirements =
+            ScriptCodecDescriptors.requirements(result);
+        if (!declaredRequirements.equals(derivedRequirements))
+            throw new IOException("Scene snapshot codec requirements do not match scene instructions");
+        return new Decoded(result, declaredRequirements);
     }
 
-    public static List<ResourceLocation> requiredCodecs(List<ScriptSceneDefinition> scenes) throws IOException {
-        Set<ResourceLocation> result = new LinkedHashSet<ResourceLocation>();
-        for (ScriptSceneDefinition scene : scenes) {
-            for (ScriptInstruction instruction : scene.getInstructions()) {
-                if (!"custom".equals(instruction.getOperation())) continue;
-                ResourceLocation id = new ResourceLocation(instruction.getData().getString("codec"));
-                if (ScriptInstructionCodecs.get(id) == null)
-                    throw new IOException("Scene " + scene.getSceneId() + " requires unavailable codec " + id);
-                result.add(id);
-                if (result.size() > MAX_REQUIRED_CODECS)
-                    throw new IOException("Scene snapshot requires more than " + MAX_REQUIRED_CODECS + " codecs");
-            }
-        }
-        return Collections.unmodifiableList(new ArrayList<ResourceLocation>(result));
+    public static List<ScriptInstructionCodecDescriptor> requiredCodecs(
+            List<ScriptSceneDefinition> scenes) throws IOException {
+        return ScriptCodecDescriptors.requirements(scenes);
     }
 
     public static byte[] sha256(byte[] bytes) throws IOException {
@@ -116,9 +121,26 @@ public final class ScriptSceneSnapshot {
         public final byte[] bytes;
         public final int uncompressedBytes;
         public final byte[] hash;
+        public final List<ScriptInstructionCodecDescriptor> requirements;
 
-        Encoded(byte[] bytes, int uncompressedBytes, byte[] hash) {
-            this.bytes = bytes; this.uncompressedBytes = uncompressedBytes; this.hash = hash;
+        Encoded(byte[] bytes, int uncompressedBytes, byte[] hash,
+                List<ScriptInstructionCodecDescriptor> requirements) {
+            this.bytes = bytes;
+            this.uncompressedBytes = uncompressedBytes;
+            this.hash = hash;
+            this.requirements = requirements;
+        }
+    }
+
+    public static final class Decoded {
+        public final List<ScriptSceneDefinition> scenes;
+        public final List<ScriptInstructionCodecDescriptor> requirements;
+
+        Decoded(List<ScriptSceneDefinition> scenes,
+                List<ScriptInstructionCodecDescriptor> requirements) {
+            this.scenes = Collections.unmodifiableList(
+                new ArrayList<ScriptSceneDefinition>(scenes));
+            this.requirements = requirements;
         }
     }
 }
