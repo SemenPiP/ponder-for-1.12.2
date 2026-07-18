@@ -134,6 +134,12 @@ identically when the addon is absent. The current addon version is
 separately with a SHA-256 digest by GitHub Actions. Compatibility claims must
 name the exact Ponder, Ponder-MMCE, and MMCE versions tested together.
 
+The same build produces
+`ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip`.
+It contains two authored scenes backed by real static/dynamic MMCE machine
+definitions and a third machine with no scene. The pack is both an installable
+author example and the input used by the real Forge fixture.
+
 ## Compatibility policy
 
 The public package and DSL names follow current Ponder where Minecraft 1.12.2
