@@ -1,33 +1,29 @@
 package net.createmod.ponder.mmce.structure;
 
-import static org.junit.Assert.assertSame;
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.assertEquals;
+
+import java.util.Arrays;
 
 import org.junit.Test;
 
-import hellfirepvp.modularmachinery.common.machine.TaggedPositionBlockArray;
-import net.createmod.ponder.mmce.script.MMCEStructureRef;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 public class MMCEDynamicExpansionTest {
     @Test
-    public void expandsOnAStaticCopyThroughTheMmceDynamicPatternApi() {
-        TaggedPositionBlockArray base = mock(TaggedPositionBlockArray.class);
-        TaggedPositionBlockArray expanded = mock(TaggedPositionBlockArray.class);
-        MMCEStructureRef ref = MMCEStructureRef.unresolvedDynamic(
-            "modularmachinery:test", "lane", 2, "east", "south", false);
+    public void calculatesEveryRepeatedSegmentOffset() {
+        assertEquals(Arrays.asList(
+                new BlockPos(0, 0, 1),
+                new BlockPos(0, 0, 2),
+                new BlockPos(0, 0, 3)),
+            MMCEStructureProvider.dynamicOffsets(
+                3, new BlockPos(0, 0, 1), new BlockPos(0, 0, 1)));
+    }
 
-        TaggedPositionBlockArray result = MMCEStructureProvider.expandDynamic(
-            base, ref, source -> {
-                assertSame(base, source);
-                return expanded;
-            }, (target, repetitions, dynamicFacing, machineFacing) -> {
-                assertSame(expanded, target);
-                org.junit.Assert.assertEquals(2, repetitions);
-                org.junit.Assert.assertEquals(EnumFacing.EAST, dynamicFacing);
-                org.junit.Assert.assertEquals(EnumFacing.SOUTH, machineFacing);
-            });
-
-        assertSame(expanded, result);
+    @Test
+    public void matchesMmceDynamicTagNaming() {
+        assertEquals("frame_lane_0",
+            MMCEStructureProvider.dynamicTag("frame", "lane", "0"));
+        assertEquals("output_lane_end",
+            MMCEStructureProvider.dynamicTag("output", "lane", "end"));
     }
 }

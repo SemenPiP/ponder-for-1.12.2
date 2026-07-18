@@ -45,11 +45,13 @@ is a SHA-256 fingerprint of the sampled structure, preview NBT, selector groups,
 and explicit dynamic parameters.
 
 Static structures use `DynamicMachine#getPattern()`. Dynamic structures copy
-the static pattern and expand one named MMCE dynamic pattern with
-`DynamicPattern#addPatternToBlockArray(...)`. The adapter samples each original
-position with `getSampleState(pos.toLong())`, copies preview NBT, normalizes
-negative coordinates, exports MMCE selector tags as named groups, and does not
-invoke machine event handlers, NBT checkers, or CraftTweaker callbacks.
+the static pattern and deterministically expand one named MMCE dynamic pattern
+from its pattern, end pattern, offsets, facing, and size limits. This avoids
+depending on MMCE's late-built rotation cache during CraftTweaker execution.
+The adapter samples each original position with `getSampleState(pos.toLong())`,
+copies preview NBT, normalizes negative coordinates, exports MMCE selector tags
+as named groups, and does not invoke machine event handlers, NBT checkers, or
+CraftTweaker callbacks.
 
 ## Core API integration
 
@@ -60,3 +62,35 @@ bytes, a content fingerprint, normalized named groups, and diagnostics through
 
 `MMCEBlueprintResolver` implements the item resolver contract and maps a bound
 MMCE blueprint to the same synthetic component ID used by authored scenes.
+
+## Installable smoke pack
+
+`:ponder-mmce:build` also creates:
+
+```text
+ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip
+```
+
+The archive contains three real MMCE 2.3.2 machine definitions and one Ponder
+ZenScript file. The static and dynamic machines have authored scenes. The
+third machine deliberately has no scene so the blueprint path can verify the
+localized no-scene message. The example files under `examples/smoke` are the
+same files installed by the automated Forge fixture.
+
+## Verification harnesses
+
+The build produces development-only reobfuscated harness jars under:
+
+```text
+ponder-mmce/build/verification/server-harness
+ponder-mmce/build/verification/client-harness
+```
+
+The server harness validates real MMCE registration, named groups, preview NBT,
+blueprint resolution, fingerprint mismatch isolation, and an ABI-incompatible
+startup where the addon disables its Provider and Resolver without crashing the
+server. The client harness opens both authored scenes, checks their structure
+groups, rejects a stale fingerprint, captures nonblank screenshots, and records
+exact Ponder and Ponder-MMCE hashes. It does not replace the manual keyboard,
+mouse, GUI scale, fullscreen, and resource reload acceptance described in
+`docs/PONDER-MMCE-ALPHA-ACCEPTANCE.md`.

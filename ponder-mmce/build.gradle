@@ -24,6 +24,21 @@ java {
     withSourcesJar()
 }
 
+sourceSets {
+    clientHarness {
+        java.srcDir 'verification/client-harness/src/main/java'
+        resources.srcDir 'verification/client-harness/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+    serverHarness {
+        java.srcDir 'verification/server-harness/src/main/java'
+        resources.srcDir 'verification/server-harness/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
 minecraft {
     mcVersion.set('1.12.2')
     mcpMappingChannel.set('stable')
@@ -122,6 +137,33 @@ tasks.withType(Test).configureEach {
     useJUnit()
 }
 
+tasks.register('smokePack', Zip) {
+    archiveBaseName.set('Ponder-MMCE-Smoke-Pack')
+    archiveVersion.set(modVersion)
+    destinationDirectory.set(layout.buildDirectory.dir('distributions'))
+    from layout.projectDirectory.dir('examples/smoke')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.register('clientHarnessJar', Jar) {
+    dependsOn tasks.named('clientHarnessClasses')
+    archiveBaseName.set('Ponder-MMCE-Client-Harness-1.12.2')
+    archiveVersion.set(modVersion)
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    from sourceSets.clientHarness.output
+}
+
+tasks.register('serverHarnessJar', Jar) {
+    dependsOn tasks.named('serverHarnessClasses')
+    archiveBaseName.set('Ponder-MMCE-Server-Harness-1.12.2')
+    archiveVersion.set(modVersion)
+    archiveClassifier.set('dev')
+    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
+    from sourceSets.serverHarness.output
+}
+
 def reobfMmceJar = tasks.named('reobfJar',
     com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar)
 reobfMmceJar.configure {
@@ -131,12 +173,55 @@ reobfMmceJar.configure {
     destinationDirectory.set(layout.buildDirectory.dir('libs'))
 }
 
+def reobfClientHarnessJar = tasks.register('reobfClientHarnessJar',
+    com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
+    def inputJar = tasks.named('clientHarnessJar', Jar)
+    dependsOn inputJar, reobfMmceJar
+    setInputJarFromTask(inputJar)
+    mcVersion.set(reobfMmceJar.flatMap { it.mcVersion })
+    srg.set(reobfMmceJar.flatMap { it.srg })
+    fieldCsv.set(reobfMmceJar.flatMap { it.fieldCsv })
+    methodCsv.set(reobfMmceJar.flatMap { it.methodCsv })
+    exceptorCfg.set(reobfMmceJar.flatMap { it.exceptorCfg })
+    recompMcJar.set(reobfMmceJar.flatMap { it.recompMcJar })
+    extraSrgEntries.set(reobfMmceJar.flatMap { it.extraSrgEntries })
+    extraSrgFiles.from(reobfMmceJar.map { it.extraSrgFiles })
+    referenceClasspath.from(reobfMmceJar.map { it.referenceClasspath })
+    archiveBaseName.set('Ponder-MMCE-Client-Harness-1.12.2')
+    archiveVersion.set(modVersion)
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('verification/client-harness'))
+}
+
+def reobfServerHarnessJar = tasks.register('reobfServerHarnessJar',
+    com.gtnewhorizons.retrofuturagradle.mcp.ReobfuscatedJar) {
+    def inputJar = tasks.named('serverHarnessJar', Jar)
+    dependsOn inputJar, reobfMmceJar
+    setInputJarFromTask(inputJar)
+    mcVersion.set(reobfMmceJar.flatMap { it.mcVersion })
+    srg.set(reobfMmceJar.flatMap { it.srg })
+    fieldCsv.set(reobfMmceJar.flatMap { it.fieldCsv })
+    methodCsv.set(reobfMmceJar.flatMap { it.methodCsv })
+    exceptorCfg.set(reobfMmceJar.flatMap { it.exceptorCfg })
+    recompMcJar.set(reobfMmceJar.flatMap { it.recompMcJar })
+    extraSrgEntries.set(reobfMmceJar.flatMap { it.extraSrgEntries })
+    extraSrgFiles.from(reobfMmceJar.map { it.extraSrgFiles })
+    referenceClasspath.from(reobfMmceJar.map { it.referenceClasspath })
+    archiveBaseName.set('Ponder-MMCE-Server-Harness-1.12.2')
+    archiveVersion.set(modVersion)
+    archiveClassifier.set('')
+    destinationDirectory.set(layout.buildDirectory.dir('verification/server-harness'))
+}
+
 tasks.register('verifyJava8Bytecode') {
-    dependsOn tasks.named('classes'), tasks.named('testClasses')
+    dependsOn tasks.named('classes'), tasks.named('testClasses'),
+        tasks.named('clientHarnessClasses'), tasks.named('serverHarnessClasses')
     doLast {
         [
             layout.buildDirectory.dir('classes/java/main'),
-            layout.buildDirectory.dir('classes/java/test')
+            layout.buildDirectory.dir('classes/java/test'),
+            layout.buildDirectory.dir('classes/java/clientHarness'),
+            layout.buildDirectory.dir('classes/java/serverHarness')
         ].each { directory ->
             fileTree(directory).matching { include '**/*.class' }.each { file ->
                 file.withInputStream { input ->
@@ -184,7 +269,8 @@ tasks.named('check') {
 }
 
 tasks.named('assemble') {
-    dependsOn reobfMmceJar, tasks.named('verifyModuleContents')
+    dependsOn reobfMmceJar, tasks.named('verifyModuleContents'), tasks.named('smokePack'),
+        reobfClientHarnessJar, reobfServerHarnessJar
 }
 
 publishing {

@@ -33,7 +33,6 @@ public class VanillaStructureEncoderTest {
     public void normalizesNegativeCoordinatesAndCopiesPreviewNbtAndGroups() throws Exception {
         MMCEStructureRef ref = MMCEStructureRef.unresolvedStatic("modularmachinery:test", true);
         NBTTagCompound preview = new NBTTagCompound();
-        preview.setString("id", "minecraft:chest");
         preview.setString("CustomName", "Preview");
 
         List<VanillaStructureEncoder.SampledBlock> blocks = Arrays.asList(
@@ -54,6 +53,7 @@ public class VanillaStructureEncoderTest {
         assertEquals(2, root.getTagList("blocks", 10).tagCount());
         NBTTagCompound chest = blockAt(root.getTagList("blocks", 10), new BlockPos(2, 1, 0));
         assertEquals("Preview", chest.getCompoundTag("nbt").getString("CustomName"));
+        assertEquals("minecraft:chest", chest.getCompoundTag("nbt").getString("id"));
         assertEquals(2, chest.getCompoundTag("nbt").getInteger("x"));
         assertEquals(1, chest.getCompoundTag("nbt").getInteger("y"));
         assertEquals(0, chest.getCompoundTag("nbt").getInteger("z"));

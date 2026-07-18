@@ -1,0 +1,16 @@
+[
+  {
+    "modid": "ponder_mmce_client_harness",
+    "name": "Ponder-MMCE Client Harness",
+    "description": "Development-only visual and subject resolver verifier.",
+    "version": "0.1.0-alpha",
+    "mcversion": "1.12.2",
+    "authorList": ["Ponder Legacy contributors"],
+    "clientSideOnly": true,
+    "dependencies": [
+      "required-after:ponder_legacy@[1.1.2,)",
+      "required-after:ponder_mmce@[0.1.0-alpha,)",
+      "required-after:modularmachinery@[2.3.2,)"
+    ]
+  }
+]

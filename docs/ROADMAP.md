@@ -127,6 +127,13 @@ Ponder-MMCE 是独立发布的附属模组，位于 `ponder-mmce` 子项目。�
 - 将机器控制器/代表物品解析为已有 Ponder component，处理缺失场景、重复注册和
   可选 MMCE 依赖。
 - 建立 Java 8 单元测试、独立 jar、发布元数据、CI 上传和 SHA-256 清单。
+- 提供可直接安装的 Smoke Pack，覆盖静态结构、Dynamic Pattern、负坐标、preview NBT、
+  组件标签和无作者场景蓝图。
+- 使用真实 MMCE 2.3.2 的两阶段 Forge fixture 验证指纹不一致只过滤受影响场景。
+- 提供独立客户端 harness、人工验收报告生成器和只复用既有 Actions 成品的 Alpha 发布工作流。
+
+0.1 Alpha 发布前仍需对同一 Actions 成品完成真实客户端 `W`、鼠标、GUI Scale 1-4、
+全屏往返和资源重载验收，并生成绑定两个运行 jar SHA-256 的最终报告。
 
 ### Ponder-MMCE 0.2：机器定义与变体
 

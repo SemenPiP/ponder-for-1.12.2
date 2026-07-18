@@ -1,0 +1,17 @@
+{
+  "registryname": "ponder_mmce_unconfigured",
+  "localizedname": "Ponder MMCE Unconfigured Demo",
+  "requires-blueprint": false,
+  "color": "777777",
+  "parts": [
+    {
+      "x": 0,
+      "y": 0,
+      "z": 1,
+      "selector-tag": "frame",
+      "elements": [
+        "minecraft:cobblestone@0"
+      ]
+    }
+  ]
+}

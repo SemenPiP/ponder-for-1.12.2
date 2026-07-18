@@ -36,6 +36,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 - `build/libs/Ponder-1.12.2-1.1.2-api.jar`
 - `build/libs/Ponder-1.12.2-1.1.2-sources.jar`
 - `ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`
+- `ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip`
+- `ponder-mmce/build/verification/server-harness/Ponder-MMCE-Server-Harness-1.12.2-0.1.0-alpha.jar`
+- `ponder-mmce/build/verification/client-harness/Ponder-MMCE-Client-Harness-1.12.2-0.1.0-alpha.jar`
 
 Gradle 门槛检查以下内容：
 
@@ -77,6 +80,25 @@ Ponder-MMCE 运行 jar 与 CatServer 的 SHA-256 写入
 Ponder-MMCE 验收还必须覆盖静态/动态结构解析、稳定结构 ID 与指纹、物品到 component 映射、
 PASS/NOT_FOUND、重复注册、刷新失效、单机错误隔离和未安装 addon/MMCE 时的可选依赖边界。
 任何兼容声明都必须写明实际测试的 Ponder、Ponder-MMCE 与 MMCE 版本组合。
+
+真实 MMCE 专服 fixture 使用同一个可安装 Smoke Pack：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\test-ponder-mmce-forge.ps1 `
+  -JavaExecutable "$env:JAVA_HOME\bin\java.exe"
+```
+
+脚本第一轮启动加载三台 MMCE 机器、两个作者场景、命名组、preview NBT 和蓝图 Resolver。
+随后冻结静态结构 ID、修改本地机器配置并再次启动；Provider 必须明确拒绝旧指纹，动态场景必须保留，
+且日志必须包含明确的 `fingerprint mismatch`。第三轮模拟 MMCE ABI 不兼容，附属必须停止注册
+Provider/Resolver，Ponder 与专服仍正常启动。客户端 harness 另行确认旧指纹拒绝不会移除其他有效场景。
+报告写入
+`build/reports/ponder-mmce-forge-verification-*.md`。
+
+客户端安装 Smoke Pack、运行独立 Ponder-MMCE client harness 后，按照
+[PONDER-MMCE-ALPHA-ACCEPTANCE.md](PONDER-MMCE-ALPHA-ACCEPTANCE.md) 完成人工项。
+最终验收 JSON 必须由 `tools/complete-ponder-mmce-client-acceptance.ps1` 生成；Alpha 发布工作流会
+重新核对其中的 Ponder 与 Ponder-MMCE SHA-256。
 
 ## 历史记录
 

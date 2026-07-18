@@ -1,0 +1,216 @@
+name: Publish 1.1.2 Alpha
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful main Build and Verify run ID
+        required: true
+        type: string
+      tag:
+        description: Alpha release tag
+        required: true
+        default: v1.1.2-alpha.1
+        type: string
+      client_report_url:
+        description: Direct URL to the completed Ponder-MMCE client JSON report
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Verify evidence and publish prerelease
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Validate source run
+        id: source
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ($env:RELEASE_TAG -ne "v1.1.2-alpha.1") {
+            throw "This workflow only publishes v1.1.2-alpha.1"
+          }
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:RUN_ID" | ConvertFrom-Json
+          if ($run.name -ne "Build and Verify" -or $run.status -ne "completed" -or
+              $run.conclusion -ne "success" -or $run.head_branch -ne "main") {
+            throw "Run $env:RUN_ID is not a successful main Build and Verify run"
+          }
+          $mainSha = (git rev-parse HEAD).Trim()
+          if ($run.head_sha -ne $mainSha) {
+            throw "Run $env:RUN_ID belongs to $($run.head_sha), current main is $mainSha"
+          }
+          $jobs = gh api --paginate "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:RUN_ID/jobs?per_page=100" |
+            ConvertFrom-Json
+          foreach ($required in @("Build, Test, and Package", "Standard Forge Server")) {
+            $job = $jobs.jobs | Where-Object { $_.name -eq $required } | Select-Object -First 1
+            if ($null -eq $job -or $job.conclusion -ne "success") {
+              throw "Required job did not pass: $required"
+            }
+          }
+          if (gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY 2>$null) {
+            throw "Release $env:RELEASE_TAG already exists"
+          }
+          "sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+
+      - name: Download exact build artifacts
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "release-input"
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $names = @(
+            "ponder-1.1.2-$env:SOURCE_SHA",
+            "ponder-mmce-$env:SOURCE_SHA",
+            "ponder-mmce-smoke-$env:SOURCE_SHA",
+            "build-reports-$env:SOURCE_SHA",
+            "forge-server-reports-$env:SOURCE_SHA"
+          )
+          foreach ($name in $names) {
+            gh run download $env:RUN_ID --repo $env:GITHUB_REPOSITORY --name $name `
+              --dir (Join-Path $root $name)
+          }
+          "RELEASE_INPUT=$root" >> $env:GITHUB_ENV
+
+      - name: Verify client evidence and checksums
+        shell: powershell
+        env:
+          CLIENT_REPORT_URL: ${{ inputs.client_report_url }}
+        run: |
+          if ($env:CLIENT_REPORT_URL -notmatch '^https://') {
+            throw "client_report_url must be a direct HTTPS URL"
+          }
+          $releaseRoot = Join-Path $env:RUNNER_TEMP "release-assets"
+          New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+          $clientReport = Join-Path $releaseRoot "ponder-mmce-client-acceptance.json"
+          Invoke-WebRequest -UseBasicParsing -Uri $env:CLIENT_REPORT_URL -OutFile $clientReport
+          $report = Get-Content -LiteralPath $clientReport -Raw | ConvertFrom-Json
+          if ($report.status -ne "PASS") {
+            throw "Client report status is not PASS"
+          }
+          $expectedVersions = @{
+            ponder_legacy = "1.1.2-mc1.12.2"
+            ponder_mmce = "0.1.0-alpha"
+            modularmachinery = "2.3.2"
+            mixinbooter = "11.2"
+          }
+          foreach ($entry in $expectedVersions.GetEnumerator()) {
+            if ([string]$report.versions.($entry.Key) -ne $entry.Value) {
+              throw "Client report has unexpected $($entry.Key) version: $($report.versions.($entry.Key))"
+            }
+          }
+          if ([string]$report.versions.crafttweaker -notmatch '^4\.1\.20(?:\.698)?$') {
+            throw "Client report has unexpected CraftTweaker version: $($report.versions.crafttweaker)"
+          }
+          if ($null -eq $report.manualAcceptance -or
+              $report.manualAcceptance.status -ne "PASS") {
+            throw "Client report does not contain completed manual acceptance"
+          }
+          foreach ($confirmation in @(
+              "blueprintWEntry",
+              "realMouse",
+              "guiScales1To4",
+              "fullscreenRoundTrip",
+              "resourceReload"
+          )) {
+            if ($report.manualAcceptance.$confirmation -ne $true) {
+              throw "Client report is missing manual confirmation: $confirmation"
+            }
+          }
+
+          $ponder = Get-ChildItem -LiteralPath $env:RELEASE_INPUT -Recurse -File `
+            -Filter "Ponder-1.12.2-1.1.2.jar" | Select-Object -First 1
+          $addon = Get-ChildItem -LiteralPath $env:RELEASE_INPUT -Recurse -File `
+            -Filter "Ponder-MMCE-1.12.2-0.1.0-alpha.jar" | Select-Object -First 1
+          if ($null -eq $ponder -or $null -eq $addon) {
+            throw "Runtime jars are missing from the selected run"
+          }
+          $ponderHash = (Get-FileHash -LiteralPath $ponder.FullName -Algorithm SHA256).Hash
+          $addonHash = (Get-FileHash -LiteralPath $addon.FullName -Algorithm SHA256).Hash
+          if ($report.sha256.ponder_legacy -ne $ponderHash) {
+            throw "Client report Ponder SHA does not match the selected run"
+          }
+          if ($report.sha256.ponder_mmce -ne $addonHash) {
+            throw "Client report Ponder-MMCE SHA does not match the selected run"
+          }
+
+          $releaseFiles = @(
+            "Ponder-1.12.2-1.1.2.jar",
+            "Ponder-1.12.2-1.1.2-api.jar",
+            "Ponder-1.12.2-1.1.2-sources.jar",
+            "Ponder-Example-Addon-1.12.2-1.1.2.jar",
+            "Ponder-MMCE-1.12.2-0.1.0-alpha.jar",
+            "Ponder-MMCE-1.12.2-0.1.0-alpha-sources.jar",
+            "Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip"
+          )
+          foreach ($name in $releaseFiles) {
+            $file = Get-ChildItem -LiteralPath $env:RELEASE_INPUT -Recurse -File -Filter $name |
+              Select-Object -First 1
+            if ($null -eq $file) { throw "Missing release file $name" }
+            Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $releaseRoot $name)
+          }
+          Compress-Archive -Path (Join-Path $env:RELEASE_INPUT "*") `
+            -DestinationPath (Join-Path $releaseRoot "Ponder-1.1.2-alpha.1-verification-reports.zip")
+
+          $checksumLines = Get-ChildItem -LiteralPath $releaseRoot -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
+            Sort-Object Name |
+            ForEach-Object {
+              "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)  $($_.Name)"
+            }
+          [IO.File]::WriteAllLines((Join-Path $releaseRoot "SHA256SUMS.txt"), $checksumLines,
+            [Text.UTF8Encoding]::new($false))
+          "RELEASE_ASSETS=$releaseRoot" >> $env:GITHUB_ENV
+
+      - name: Publish GitHub prerelease
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          CLIENT_REPORT_URL: ${{ inputs.client_report_url }}
+        run: |
+          $notes = Join-Path $env:RUNNER_TEMP "release-notes.md"
+          @"
+          # Ponder Legacy 1.1.2 Alpha 1
+
+          This prerelease introduces the public structure Provider and item Subject Resolver SPIs,
+          plus the independent Ponder-MMCE 0.1.0 Alpha addon.
+
+          Ponder-MMCE currently supports authored static structures, explicit Dynamic Patterns,
+          named structure groups, preview NBT, fingerprints, and MMCE blueprint hover entry.
+          It does not generate fallback scenes and does not yet include material lists, recipe
+          overlays, or placed-controller entry.
+
+          CatServer client compatibility remains experimental. Standard Forge dedicated-server,
+          real MMCE fixture, packaging, Java 8, and client evidence are bound to commit
+          ``$env:SOURCE_SHA``.
+
+          Client acceptance report: $env:CLIENT_REPORT_URL
+          "@ | Set-Content -LiteralPath $notes -Encoding UTF8
+
+          $assets = Get-ChildItem -LiteralPath $env:RELEASE_ASSETS -File |
+            Sort-Object Name |
+            ForEach-Object FullName
+          gh release create $env:RELEASE_TAG $assets `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:SOURCE_SHA `
+            --title "Ponder Legacy 1.1.2 Alpha 1" `
+            --notes-file $notes `
+            --prerelease
