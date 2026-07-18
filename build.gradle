@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.1.3'
+version = '1.2.0'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.1.3-mc1.12.2'
+def modVersion = '1.2.0-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -172,6 +172,43 @@ tasks.register('apiJar', Jar) {
     include 'net/createmod/ponder/foundation/PonderIndex.class'
 }
 
+def apiSignatureOutput = layout.buildDirectory.file('reports/api/ponder-api-1.2.0.sig')
+tasks.register('generateApiSignature', Exec) {
+    dependsOn tasks.named('apiJar')
+    inputs.file(tasks.named('apiJar', Jar).flatMap { it.archiveFile })
+    inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.1.3.sig'))
+    inputs.file(layout.projectDirectory.file('api-signatures/ponder-api-1.2.0.sig'))
+    outputs.file(apiSignatureOutput)
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file('tools/api-signature.ps1').asFile.absolutePath,
+        '-JarPath', tasks.named('apiJar', Jar).get().archiveFile.get().asFile.absolutePath,
+        '-OutputPath', apiSignatureOutput.get().asFile.absolutePath,
+        '-CompatibilityBaseline',
+        layout.projectDirectory.file('api-signatures/ponder-api-1.1.3.sig').asFile.absolutePath,
+        '-ExpectedSignature',
+        layout.projectDirectory.file('api-signatures/ponder-api-1.2.0.sig').asFile.absolutePath,
+        '-JavaHome', System.getProperty('java.home')
+}
+
+tasks.register('checkApiCompatibility') {
+    dependsOn 'generateApiSignature', 'testApiSignatureTool'
+}
+
+tasks.register('testApiSignatureTool', Exec) {
+    inputs.files(
+        layout.projectDirectory.file('tools/api-signature.ps1'),
+        layout.projectDirectory.file('tools/test-api-signature.ps1')
+    )
+    outputs.file(layout.buildDirectory.file('reports/api/api-signature-fixture.txt'))
+    workingDir layout.projectDirectory
+    def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+    commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', layout.projectDirectory.file('tools/test-api-signature.ps1').asFile.absolutePath,
+        '-JavaHome', System.getProperty('java.home')
+}
+
 tasks.register('exampleAddonJar', Jar) {
     dependsOn tasks.named('exampleAddonClasses')
     archiveBaseName.set('Ponder-Example-Addon-1.12.2')
@@ -200,7 +237,7 @@ tasks.register('serverHarnessJar', Jar) {
 }
 
 tasks.register('zenscriptExamplesZip', Zip) {
-    archiveFileName.set('Ponder-ZenScript-Examples-1.1.3.zip')
+    archiveFileName.set('Ponder-ZenScript-Examples-1.2.0.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/zenscript')
 }
@@ -450,7 +487,7 @@ tasks.register('verifyReleaseContents') {
             }
         }
         [
-            'mods/Ponder-Example-Addon-1.12.2-1.1.3.jar',
+            'mods/Ponder-Example-Addon-1.12.2-1.2.0.jar',
             'scripts/ponder/scenes/ponder_example_codec.zs',
             'README.md'
         ].each { path ->
@@ -462,7 +499,7 @@ tasks.register('verifyReleaseContents') {
 }
 
 tasks.register('verifyReleaseReport', Exec) {
-    dependsOn tasks.named('verifyReleaseContents')
+    dependsOn tasks.named('verifyReleaseContents'), tasks.named('checkApiCompatibility')
     workingDir layout.projectDirectory
     def windows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
     commandLine windows ? 'powershell.exe' : 'pwsh', '-NoProfile', '-ExecutionPolicy', 'Bypass',
@@ -474,6 +511,7 @@ tasks.register('verifyReleaseReport', Exec) {
 tasks.named('check') {
     dependsOn tasks.named('verifyJava8Bytecode')
     dependsOn tasks.named('verifyReleaseReport')
+    dependsOn tasks.named('checkApiCompatibility')
     dependsOn ':ponder-mmce:check'
 }
 
