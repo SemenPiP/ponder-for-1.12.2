@@ -127,32 +127,36 @@ Ponder Legacy 面向 Minecraft 1.12.2、Forge 和 Java 8，Forge Mod ID 为
 - 发布完整 ZenScript API 参考、外部结构示例、错误示例和可安装示例包
   `Ponder-ZenScript-Examples-1.1.3.zip`。
 
-## Ponder-MMCE 路线
+## 内置 MMCE 兼容路线
 
-Ponder-MMCE 是独立发布的附属模组，位于 `ponder-mmce` 子项目。它只通过 Ponder
-公开 SPI 接入，不把 MMCE 专用逻辑放入 Ponder 主模组。
+从 `1.3.0-alpha.1` 开始，MMCE 兼容实现随 Ponder 主 jar 发布，仅在检测到
+`modularmachinery` 时通过隔离入口启用。`ponder-mmce` 子项目继续保留为源码、fixture 和
+harness 边界，不再向用户发布必装的独立运行 jar。
 
-### Ponder-MMCE 0.1：基础桥接（当前 `0.1.0-alpha`）
+### MMCE 基础桥接（当前 Alpha）
 
 - 解析 MMCE 已注册机器，为静态/动态结构请求建立稳定、可重载的结构 ID。
 - 将机器控制器/代表物品解析为已有 Ponder component，处理缺失场景、重复注册和
   可选 MMCE 依赖。
-- 建立 Java 8 单元测试、独立 jar、发布元数据、CI 上传和 SHA-256 清单。
+- 建立 Java 8 单元测试、单 jar 发布内容检查、CI 上传和 SHA-256 清单。
 - 提供可直接安装的 Smoke Pack，覆盖静态结构、Dynamic Pattern、负坐标、preview NBT、
   组件标签和无作者场景蓝图。
 - 使用真实 MMCE 2.3.2 的两阶段 Forge fixture 验证指纹不一致只过滤受影响场景。
-- 提供独立客户端 harness、人工验收报告生成器和只复用既有 Actions 成品的 Alpha 发布工作流。
+- 提供独立验证 harness、人工验收报告生成器和只复用既有 Actions 成品的 Alpha 发布工作流。
+- 未安装 MMCE 时不解析 MMCE 类型；ABI 不兼容时只禁用兼容层。
+- 旧 `ponder_mmce` 外部附属存在时由它接管，避免重复注册。
 
-0.1 Alpha 发布前仍需对同一 Actions 成品完成真实客户端 `W`、鼠标、GUI Scale 1-4、
-全屏往返和资源重载验收，并生成绑定两个运行 jar SHA-256 的最终报告。
+Alpha 可以在自动构建、发布内容检查、标准 Forge 专服和真实 MMCE 服务端 fixture 通过后发布，
+但必须明确标注真实客户端验收未完成。RC 和稳定版仍需完成真实 `W`、鼠标、GUI Scale 1-4、
+全屏往返和资源重载验收。
 
-### Ponder-MMCE 0.2：机器定义与变体
+### 后续：机器定义与变体
 
 - 支撑机器结构、配方或配置变体对应的 Subject 选择和场景覆盖规则。
 - 跟随 MMCE 配置/注册表重载刷新 Provider 缓存，并隔离单台机器定义错误。
 - 增加整合包侧覆盖入口、示例机器和 Ponder/MMCE 兼容矩阵。
 
-### Ponder-MMCE 0.3：扩展与诊断
+### 后续：扩展与诊断
 
 - 向其他 MMCE 附属模组开放稳定扩展点，允许补充 Subject 元数据、场景选择和
   自定义显示组件。
@@ -212,8 +216,8 @@ clean test build compileClientHarnessJava :ponder-mmce:test :ponder-mmce:build
   协议兼容。
 - Provider/Subject：注册顺序、稳定 ID、PASS/NOT_FOUND、同 ID 替换、刷新失效、
   错误隔离、服务端安全和 addon 缺失。
-- Ponder-MMCE：静态/动态结构解析、物品到 component 映射、可选依赖、重载和
-  独立 jar 内容。
+- 内置 MMCE：静态/动态结构解析、物品到 component 映射、可选依赖、重载、无 MMCE
+  类加载隔离和单 jar 内容。
 
 稳定发布候选还必须满足：
 

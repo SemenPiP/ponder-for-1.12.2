@@ -15,13 +15,14 @@ CatServer 完整兼容已经通过。
 
 ## 当前验证状态
 
-`1.3.0-mc1.12.2` 新增可热重载的 JSON 场景包、Draft-07 Schema、离线校验/迁移工具和可安装示例包。
+`1.3.0-alpha.1-mc1.12.2` 新增可热重载的 JSON 场景包、Draft-07 Schema、离线校验/迁移工具和可安装示例包。
 JSON 与 ZenScript 会生成相同的确定性 IR，并继续使用协议 v3、codec 能力协商、服务端脚本元数据、
 统一诊断、结构依赖清单和公开 API 签名门禁。
 运行元数据接受 MixinBooter 9.1 及以上版本，并要求 CraftTweaker 4.1.20 及以上版本。
-八个内置场景在首次启动时生成，全部保持精确 32 秒。当前 1.3.0 成品的 SHA-256 由
-GitHub Actions 的 build job summary 和上传的 release artifact bundle 发布，本文件不为尚未构建的成品
-硬写静态哈希。
+八个内置场景在首次启动时生成，全部保持精确 32 秒。MMCE 2.3.2+ 兼容层已经合入 Ponder
+运行 jar，仅在检测到 Modular Machinery 时启用。当前发布为 Alpha：自动构建、打包检查和标准 Forge
+专服证据属于发布门槛，真实客户端人工验收仍明确标记为待完成。成品 SHA-256 由 GitHub Actions
+的 build job summary 和上传的 release artifact bundle 发布。
 
 当前工作区无法提供可可靠判断 Minecraft 画面的桌面，也无法完成真实鼠标、全屏切换和 GUI scale 1-4 的
 人工观感验收。因此，标准 Forge 客户端视觉验证仍是发布门槛。CatServer 客户端支持为实验性，不阻塞
@@ -42,7 +43,7 @@ GitHub Actions 的 build job summary 和上传的 release artifact bundle 发布
 
 不要把 `-api`、`-sources` 或 `-dev` jar 当作运行模组安装。`-api` jar 只供 addon 编译，
 `-sources` 只供阅读，`build/devlibs` 下的 jar 只供反混淆开发环境使用。当前成品下载后如需核对版本，
-请查看 GitHub Actions job summary 与 release artifact bundle 中记录的 1.3.0 构建结果。
+请查看 GitHub Actions job summary 与 release artifact bundle 中记录的 1.3.0 Alpha 1 构建结果。
 
 ## 构建
 
@@ -56,11 +57,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\verify-release.ps1
 Gradle 8.14.3、MCP stable_39 和 Forge 14.23.5.2847。`build` 已包含测试和发布内容检查，
 并输出 reobf 成品。任何兼容声明发布前，同一组成品还必须通过 [TESTING](docs/TESTING.md) 中的
 标准 Forge 专服检查和真实标准 Forge 客户端门槛。CatServer 服务端回归继续保留，但属于实验性证据，
-不阻塞 1.3.0 发布。
+不阻塞 1.3.0 Alpha 1 发布。
 
-`build/libs/Ponder-1.12.2-1.3.0.jar` 是 reobf 运行时成品。开发 jar 只放在 `build/devlibs`，
+`build/libs/Ponder-1.12.2-1.3.0-alpha.1.jar` 是 reobf 运行时成品。开发 jar 只放在 `build/devlibs`，
 不得安装到正式服务器。`reobfExampleAddonJar` 会生成可单独安装的示例 addon：
-`build/libs/Ponder-Example-Addon-1.12.2-1.3.0.jar`。
+`build/libs/Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar`。
 
 ## 内置演示
 
@@ -118,28 +119,30 @@ JSON 清单，记录 Provider、指纹、引用场景和兼容状态，不泄露
 校验报告和导出文件写入 `logs/ponder/diagnostics`。Java 场景没有可导出的脚本 IR，
 所以 `export ... ir` 只适用于脚本场景；`timeline` 对 Java 场景和脚本场景都可导出。
 
-ZenScript 示例包构建为 `build/distributions/Ponder-ZenScript-Examples-1.3.0.zip`。
-JSON 示例和作者工具分别构建为 `Ponder-JSON-Examples-1.3.0.zip` 与
-`Ponder-JSON-Tools-1.3.0.zip`。
+ZenScript 示例包构建为 `build/distributions/Ponder-ZenScript-Examples-1.3.0-alpha.1.zip`。
+JSON 示例和作者工具分别构建为 `Ponder-JSON-Examples-1.3.0-alpha.1.zip` 与
+`Ponder-JSON-Tools-1.3.0-alpha.1.zip`。
 
 ## 供其他模组调用
 
 其他模组通过 `PonderPlugin` 注册组件、标签、共享文本和 Java 场景脚本。开发接入说明见
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)，示例插件位于 `examples/addon`。
 
-## Ponder-MMCE 附属模组
+## 内置 MMCE 兼容
 
-`ponder-mmce` 是独立构建、按需安装的附属模组，通过公开 SPI 提供 MMCE 静态/动态结构，并把机器
-代表物品解析为 Ponder component。Ponder 本体不依赖 MMCE，未安装附属模组时行为保持不变。当前 addon
-版本为 `0.1.0-alpha`，并单独提供 `mods.ponder.mmce.MMCEStructures` ZenScript 命名空间。使用
-`:ponder-mmce:test :ponder-mmce:build` 单独测试和构建，运行 jar 为
-`ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`，GitHub Actions 会单独上传并记录
-SHA-256。兼容声明必须同时写明实际验证的 Ponder、Ponder-MMCE 与 MMCE 版本。
+Ponder 运行 jar 内置可选的 MMCE 2.3.2+ 兼容层。未安装 `modularmachinery` 时，不会加载任何直接引用
+MMCE 类型的实现类；安装 MMCE 且 ABI 检查通过后，会自动注册结构 Provider、蓝图 Subject Resolver
+以及 `mods.ponder.mmce.MMCEStructures` ZenScript 命名空间。
 
-1.1.2 Alpha/MMCE 发布与验收是冻结记录，只绑定旧的 1.1.2 成品和报告，不会跟着 1.3.0 开发线变化。
+用户不再需要安装独立 Ponder-MMCE 运行 jar。`ponder-mmce` Gradle 子项目继续作为隔离的源码、
+fixture 和 harness 边界，用于测试兼容层而不让 MMCE 类型进入播放器核心。如果同时安装旧
+`ponder_mmce` 外部附属，本体会把兼容层所有权交给旧附属，避免 Provider 和 Resolver 重复注册。
+
+当前支持静态结构、Dynamic Pattern、负坐标归一化、preview NBT、命名结构组、结构指纹和蓝图
+component 映射。不会自动生成通用场景，暂不提供材料清单、配方 Overlay 和已放置控制器入口。
 
 示例 Java addon 另行生成
-`build/distributions/Ponder-Example-Addon-Smoke-1.3.0.zip`，其中包含 reobf addon、结构资源和调用
+`build/distributions/Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip`，其中包含 reobf addon、结构资源和调用
 `ponder_example:pulse` 自定义 codec 的 ZS 场景，用于验证 ServiceLoader、IMC、协议 v3 协商以及
 缺少 codec 时在发送快照正文前拒绝。
 

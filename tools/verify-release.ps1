@@ -150,36 +150,27 @@ function Get-McpMemberSet([string]$MappingPath) {
 
 $libs = Join-Path $ProjectRoot "build\libs"
 $artifacts = [ordered]@{
-    Ponder = Join-Path $libs "Ponder-1.12.2-1.3.0.jar"
-    Sources = Join-Path $libs "Ponder-1.12.2-1.3.0-sources.jar"
-    API = Join-Path $libs "Ponder-1.12.2-1.3.0-api.jar"
-    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.3.0.jar"
+    Ponder = Join-Path $libs "Ponder-1.12.2-1.3.0-alpha.1.jar"
+    Sources = Join-Path $libs "Ponder-1.12.2-1.3.0-alpha.1-sources.jar"
+    API = Join-Path $libs "Ponder-1.12.2-1.3.0-alpha.1-api.jar"
+    Example = Join-Path $libs "Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar"
     "Client Harness" = Join-Path $ProjectRoot `
-        "build\verification\client-harness\Ponder-Client-Harness-1.12.2-1.3.0.jar"
+        "build\verification\client-harness\Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar"
 }
 $zenScriptExamples = Join-Path $ProjectRoot `
-    "build\distributions\Ponder-ZenScript-Examples-1.3.0.zip"
+    "build\distributions\Ponder-ZenScript-Examples-1.3.0-alpha.1.zip"
 $jsonExamples = Join-Path $ProjectRoot `
-    "build\distributions\Ponder-JSON-Examples-1.3.0.zip"
+    "build\distributions\Ponder-JSON-Examples-1.3.0-alpha.1.zip"
 $jsonTools = Join-Path $ProjectRoot `
-    "build\distributions\Ponder-JSON-Tools-1.3.0.zip"
+    "build\distributions\Ponder-JSON-Tools-1.3.0-alpha.1.zip"
 $exampleAddonSmoke = Join-Path $ProjectRoot `
-    "build\distributions\Ponder-Example-Addon-Smoke-1.3.0.zip"
+    "build\distributions\Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip"
 $clientAcceptanceKit = Join-Path $ProjectRoot `
-    "build\distributions\Ponder-Client-Acceptance-Kit-1.3.0.zip"
+    "build\distributions\Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip"
 $apiBaselineSignature = Join-Path $ProjectRoot "api-signatures\ponder-api-1.2.0.sig"
 $apiCurrentSignature = Join-Path $ProjectRoot "api-signatures\ponder-api-1.3.0.sig"
 $apiGeneratedSignature = Join-Path $ProjectRoot "build\reports\api\ponder-api-1.3.0.sig"
 $apiFixtureReport = Join-Path $ProjectRoot "build\reports\api\api-signature-fixture.txt"
-$mmceLibs = Join-Path $ProjectRoot "ponder-mmce\build\libs"
-$mmceArtifacts = @(
-    Get-ChildItem -LiteralPath $mmceLibs -Filter "*.jar" -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -notmatch '-(api|dev|javadoc|sources)\.jar$' }
-)
-if ($mmceArtifacts.Count -ne 1) {
-    throw "Expected exactly one Ponder-MMCE runtime jar in $mmceLibs, found $($mmceArtifacts.Count)"
-}
-$artifacts["Ponder-MMCE"] = $mmceArtifacts[0].FullName
 foreach ($artifact in $artifacts.Values) {
     if (!(Test-Path -LiteralPath $artifact -PathType Leaf)) {
         throw "Missing release artifact: $artifact"
@@ -210,7 +201,6 @@ $classCounts = [ordered]@{
     API = 0
     Example = 0
     "Client Harness" = 0
-    "Ponder-MMCE" = 0
 }
 $languageCount = 0
 $packMetadata = $null
@@ -241,6 +231,13 @@ $requiredBuiltinScripts = @(
     "assets/ponder/scripts/builtin/smelting.zs",
     "assets/ponder/scripts/builtin/storage.zs"
 )
+$requiredMmceCompatibilityClasses = @(
+    "net/createmod/ponder/compat/PonderOptionalCompat.class",
+    "net/createmod/ponder/mmce/PonderMMCEEntrypoint.class",
+    "net/createmod/ponder/mmce/script/MMCEStructures.class",
+    "net/createmod/ponder/mmce/structure/MMCEStructureProvider.class",
+    "net/createmod/ponder/mmce/subject/MMCEBlueprintResolver.class"
+)
 $ponderEntries = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 $forbiddenEntryPrefixes = @(
     "zone/rong/mixinbooter/",
@@ -254,7 +251,9 @@ $forbiddenEntryPrefixes = @(
     "org/joml/",
     "org/lwjgl/glfw/",
     "net/fabricmc/",
-    "net/neoforged/"
+    "net/neoforged/",
+    "hellfirepvp/modularmachinery/",
+    "github/kasuminova/mmce/"
 )
 $forbiddenReferences = @(
     "com/jozufozu/flywheel/",
@@ -459,7 +458,7 @@ try {
 foreach ($required in @(
     "README.md",
     "JSON-EXAMPLE.md",
-    "mods/Ponder-Client-Harness-1.12.2-1.3.0.jar",
+    "mods/Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar",
     "scripts/ponder/packs/ponder_json_demo.ponder.json",
     "scripts/ponder/structures/ponder/demo/basics.nbt",
     "tools/complete-ponder-client-acceptance.ps1"
@@ -478,6 +477,14 @@ foreach ($script in $requiredBuiltinScripts) {
     if (!$ponderEntries.Contains($script)) {
         $errors.Add("required builtin ZenScript is missing from Ponder artifact: $script")
     }
+}
+foreach ($compatClass in $requiredMmceCompatibilityClasses) {
+    if (!$ponderEntries.Contains($compatClass)) {
+        $errors.Add("integrated MMCE compatibility class is missing from Ponder: $compatClass")
+    }
+}
+if ($ponderEntries.Contains("net/createmod/ponder/mmce/PonderMMCEMod.class")) {
+    $errors.Add("legacy standalone ponder_mmce @Mod container was packaged in Ponder")
 }
 
 if ($null -eq $manifestText) {
@@ -531,6 +538,7 @@ if ($null -eq $refmapText) {
 if ($languageCount -lt 34) { $errors.Add("expected at least 34 language files, found $languageCount") }
 $mixinBooterRuntimeDependency = "required-after:mixinbooter@[9.1,)"
 $craftTweakerRuntimeDependency = "required-after:crafttweaker@[4.1.20,)"
+$optionalMmceOrdering = "after:modularmachinery"
 if ($null -eq $mcmodText -or !$mcmodText.Contains('"modid": "ponder_legacy"')) {
     $errors.Add("Ponder mcmod.info does not declare Forge modid ponder_legacy")
 }
@@ -540,8 +548,12 @@ if ($null -eq $mcmodText -or !$mcmodText.Contains($mixinBooterRuntimeDependency)
 if ($null -eq $mcmodText -or !$mcmodText.Contains($craftTweakerRuntimeDependency)) {
     $errors.Add("mcmod.info does not declare CraftTweaker 4.1.20+")
 }
-if ($null -eq $mcmodText -or !$mcmodText.Contains('"version": "1.3.0-mc1.12.2"')) {
-    $errors.Add("Ponder mcmod.info does not declare version 1.3.0-mc1.12.2")
+if ($null -eq $mcmodText -or !$mcmodText.Contains($optionalMmceOrdering)) {
+    $errors.Add("mcmod.info does not declare optional MMCE load ordering")
+}
+if ($null -eq $mcmodText -or
+    !$mcmodText.Contains('"version": "1.3.0-alpha.1-mc1.12.2"')) {
+    $errors.Add("Ponder mcmod.info does not declare version 1.3.0-alpha.1-mc1.12.2")
 }
 
 $exampleSmokeEntries = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
@@ -557,7 +569,7 @@ try {
 }
 foreach ($required in @(
     "README.md",
-    "mods/Ponder-Example-Addon-1.12.2-1.3.0.jar",
+    "mods/Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar",
     "scripts/ponder/scenes/ponder_example_codec.zs"
 )) {
     if (!$exampleSmokeEntries.Contains($required)) {
@@ -574,8 +586,9 @@ $fixtureText = [IO.File]::ReadAllText($apiFixtureReport)
 if (!$fixtureText.Contains("Ponder API signature fixture: PASS")) {
     $errors.Add("API signature compatibility fixture did not report PASS")
 }
-if ($null -eq $ponderConstants -or !$ponderConstants.Contains("1.3.0-mc1.12.2")) {
-    $errors.Add("Ponder.VERSION is not 1.3.0-mc1.12.2")
+if ($null -eq $ponderConstants -or
+    !$ponderConstants.Contains("1.3.0-alpha.1-mc1.12.2")) {
+    $errors.Add("Ponder.VERSION is not 1.3.0-alpha.1-mc1.12.2")
 }
 if ($null -eq $ponderConstants -or !$ponderConstants.Contains("ponder_legacy") -or
     !$ponderConstants.Contains("ponder")) {
@@ -584,16 +597,21 @@ if ($null -eq $ponderConstants -or !$ponderConstants.Contains("ponder_legacy") -
 if ($null -eq $ponderModConstants -or
     !$ponderModConstants.Contains("ponder_legacy") -or
     !$ponderModConstants.Contains($mixinBooterRuntimeDependency) -or
-    !$ponderModConstants.Contains($craftTweakerRuntimeDependency)) {
-    $errors.Add("PonderMod @Mod metadata does not declare ponder_legacy and required runtime dependencies")
+    !$ponderModConstants.Contains($craftTweakerRuntimeDependency) -or
+    !$ponderModConstants.Contains($optionalMmceOrdering)) {
+    $errors.Add("PonderMod @Mod metadata does not declare identity, required dependencies, and optional MMCE ordering")
 }
-if ($null -eq $exampleMcmodText -or !$exampleMcmodText.Contains('"version": "1.3.0"') -or
-    !$exampleMcmodText.Contains("required-after:ponder_legacy@[1.3.0-mc1.12.2]")) {
-    $errors.Add("example mcmod.info does not declare 1.3.0 and require Ponder 1.3.0-mc1.12.2")
+if ($null -eq $exampleMcmodText -or
+    !$exampleMcmodText.Contains('"version": "1.3.0-alpha.1"') -or
+    !$exampleMcmodText.Contains(
+        "required-after:ponder_legacy@[1.3.0-alpha.1-mc1.12.2]")) {
+    $errors.Add("example mcmod.info does not declare and require Ponder 1.3.0-alpha.1")
 }
-if ($null -eq $exampleAddonConstants -or !$exampleAddonConstants.Contains("1.3.0") -or
-    !$exampleAddonConstants.Contains("required-after:ponder_legacy@[1.3.0-mc1.12.2]")) {
-    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.3.0")
+if ($null -eq $exampleAddonConstants -or
+    !$exampleAddonConstants.Contains("1.3.0-alpha.1") -or
+    !$exampleAddonConstants.Contains(
+        "required-after:ponder_legacy@[1.3.0-alpha.1-mc1.12.2]")) {
+    $errors.Add("ExampleAddon @Mod metadata does not declare and require Ponder 1.3.0-alpha.1")
 }
 if ($null -eq $packMetadata) {
     $errors.Add("pack.mcmeta is missing")
@@ -645,7 +663,7 @@ $lines = @(
     "",
     "- Status: $status",
     "- Generated: $([DateTime]::UtcNow.ToString('u')) UTC",
-    "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example), Client Harness $($classCounts['Client Harness']), Ponder-MMCE $($classCounts['Ponder-MMCE']))",
+    "- Java 8 classes checked: $totalClasses (Ponder $($classCounts.Ponder), API $($classCounts.API), Example $($classCounts.Example), Client Harness $($classCounts['Client Harness']))",
     "- Language files: $languageCount",
     "- Supported MixinBooter range: [9.1,)",
     "- Required CraftTweaker range: [4.1.20,)",
@@ -656,7 +674,7 @@ $lines = @(
     "- Sources SHA256: $($hashes.Sources)",
     "- Example addon SHA256: $($hashes.Example)",
     "- Client harness SHA256: $($hashes['Client Harness'])",
-    "- Ponder-MMCE SHA256: $($hashes['Ponder-MMCE'])",
+    "- Integrated MMCE compatibility: present in Ponder jar; external MMCE classes embedded: no",
     "- ZenScript examples SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $zenScriptExamples).Hash)",
     "- JSON examples SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $jsonExamples).Hash)",
     "- JSON tools SHA256: $((Get-FileHash -Algorithm SHA256 -LiteralPath $jsonTools).Hash)",

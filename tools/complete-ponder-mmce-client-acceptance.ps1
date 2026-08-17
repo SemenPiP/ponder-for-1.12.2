@@ -53,7 +53,7 @@ foreach ($screenshot in $automatedScreenshots) {
         throw "Automated screenshot evidence is incomplete: $($screenshot.file)"
     }
 }
-foreach ($modId in @("ponder_legacy", "ponder_mmce")) {
+foreach ($modId in @("ponder_legacy", "modularmachinery")) {
     $value = [string]$harness.sha256.$modId
     if ($value -notmatch '^[0-9A-Fa-f]{64}$') {
         throw "Harness report has no valid SHA-256 for $modId"
@@ -126,4 +126,4 @@ if (!(Test-Path -LiteralPath $parent -PathType Container)) {
 Write-Host "Ponder-MMCE client acceptance completed."
 Write-Host "Report: $Output"
 Write-Host "Ponder SHA256: $($harness.sha256.ponder_legacy)"
-Write-Host "Ponder-MMCE SHA256: $($harness.sha256.ponder_mmce)"
+Write-Host "MMCE SHA256: $($harness.sha256.modularmachinery)"

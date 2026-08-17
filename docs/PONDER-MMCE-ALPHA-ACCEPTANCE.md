@@ -1,13 +1,14 @@
-# Ponder-MMCE 0.1 Alpha 客户端验收
+# Ponder 1.3.0 Alpha 1 内置 MMCE 客户端验收
 
-本清单只适用于同一次 GitHub Actions 构建生成的 Ponder 1.1.2、Ponder-MMCE
-0.1.0-alpha 和 Smoke Pack。重新构建后必须重新验收。
+本清单只适用于同一次 GitHub Actions 构建生成的
+`Ponder-1.12.2-1.3.0-alpha.1.jar`、MMCE harness 和 Smoke Pack。MMCE 兼容代码已经包含在
+Ponder jar 中，不安装独立 Ponder-MMCE 运行 jar。重新构建后必须重新验收。
 
 ## 安装
 
 安装 Forge 14.23.5.2847、Java 8、MixinBooter 11.2、CraftTweaker 4.1.20.698、
-MMCE 2.3.2、Ponder 1.1.2、Ponder-MMCE 0.1.0-alpha，以及同次构建生成的
-Ponder-MMCE client harness。将 Smoke Pack 中的 `config` 和 `scripts` 合并到实例根目录。
+MMCE 2.3.2、Ponder 1.3.0 Alpha 1，以及同次构建生成的 MMCE client harness。将 Smoke Pack
+中的 `config` 和 `scripts` 合并到实例根目录。
 
 为 client harness 设置输出目录：
 
@@ -17,6 +18,7 @@ Ponder-MMCE client harness。将 Smoke Pack 中的 `config` 和 `scripts` 合并
 
 启动后等待生成 `client-mmce-ok.flag` 和 `ponder-mmce-client-report.json`。自动报告必须为
 `PASS`，并包含静态、动态两张非空截图、旧指纹隔离检查及两个运行 jar 的 SHA-256。
+两个运行 jar 指 Ponder 与 MMCE。
 
 ## 人工检查
 
@@ -43,5 +45,6 @@ Ponder-MMCE client harness。将 Smoke Pack 中的 `config` 和 `scripts` 合并
   -Notes "Standard Forge 14.23.5.2847 manual acceptance"
 ```
 
-输出的 `build/reports/ponder-mmce-client-acceptance.json` 是
-`Publish 1.1.2 Alpha` 工作流的 `client_report_url` 输入。该 URL 必须能直接下载 JSON。
+输出的 `build/reports/ponder-mmce-client-acceptance.json` 用于补充 Alpha 的客户端证据。
+Alpha 允许在该报告尚未完成时发布，但 Release 必须明确标记客户端验收为 `NOT_RUN`；RC 和稳定版
+不得跳过这项报告。

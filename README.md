@@ -17,15 +17,17 @@ not establish client rendering or full CatServer compatibility.
 
 ## Current verification status
 
-Version 1.3.0 adds reloadable JSON scene packs, a versioned Draft-07 schema,
+Version 1.3.0 Alpha 1 adds reloadable JSON scene packs, a versioned Draft-07 schema,
 an offline validator/migrator and installable JSON examples. JSON and
 ZenScript compile to the same deterministic IR and continue to use snapshot
 protocol v3, codec capability negotiation, synchronized script metadata,
 diagnostics and structure dependency manifests. Runtime metadata accepts
 MixinBooter 9.1 and newer and requires CraftTweaker 4.1.20 or newer. Every
-generated built-in scene runs for exactly 32 seconds. Historical reports do
-not qualify the current 1.3.0 artifact, and the 1.1.2 Alpha/MMCE release trail
-remains frozen against the older 1.1.2 artifacts.
+generated built-in scene runs for exactly 32 seconds. MMCE 2.3.2+ compatibility
+is included in the Ponder runtime jar and activates only when Modular
+Machinery is installed. This is an Alpha release: automated build, packaging,
+and dedicated-server evidence are required, while real-client acceptance
+remains explicitly pending.
 
 This workspace cannot create a usable hardware OpenGL context for visual
 judgement or real mouse, fullscreen and GUI-scale testing. Standard Forge
@@ -47,7 +49,7 @@ release line. Server-only results are recorded separately in
 - MixinBooter 9.1 or newer
 - CraftTweaker 4.1.20 or newer
 
-Install `Ponder-1.12.2-1.3.0.jar`, a supported MixinBooter jar, and CraftTweaker
+Install `Ponder-1.12.2-1.3.0-alpha.1.jar`, a supported MixinBooter jar, and CraftTweaker
 in the same `mods` directory. When both sides run Ponder, the client and server
 must use the exact same Ponder version. A client with Ponder can still connect
 to a server that does not have Ponder installed. Runtime dependencies are
@@ -56,7 +58,7 @@ deliberately not embedded.
 Do not install the `-api`, `-sources`, or `-dev` jars as runtime mods. The API
 jar is a deobfuscated compile-time dependency for addon development. The
 default build and server qualification baseline remains MixinBooter 11.2. The
-current 1.3.0 artifact hashes are published in the GitHub Actions build job
+current Alpha artifact hashes are published in the GitHub Actions build job
 artifact summary and the uploaded release artifact bundle; this README does not
 pin a static hash for a jar that may be rebuilt.
 
@@ -85,10 +87,10 @@ standard Forge client gate in [docs/TESTING.md](docs/TESTING.md). CatServer
 server regression remains automated experimental evidence, not a 1.3.0 release
 blocker.
 
-`build/libs/Ponder-1.12.2-1.3.0.jar` is the reobfuscated runtime artifact.
+`build/libs/Ponder-1.12.2-1.3.0-alpha.1.jar` is the reobfuscated runtime artifact.
 Developer jars are isolated under `build/devlibs` and must not be installed on
 a production server. `reobfExampleAddonJar` builds the separately installable
-example as `build/libs/Ponder-Example-Addon-1.12.2-1.3.0.jar`.
+example as `build/libs/Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar`.
 
 ## Built-in demonstrations
 
@@ -148,10 +150,10 @@ IR, so `export ... ir` only works for script-backed scenes; timeline exports
 remain available for Java and script scenes.
 
 The checked-in ZenScript examples package is built as
-`build/distributions/Ponder-ZenScript-Examples-1.3.0.zip`.
+`build/distributions/Ponder-ZenScript-Examples-1.3.0-alpha.1.zip`.
 The JSON example and author-tool packages are built as
-`Ponder-JSON-Examples-1.3.0.zip` and `Ponder-JSON-Tools-1.3.0.zip`.
-`Ponder-Client-Acceptance-Kit-1.3.0.zip` contains the reobfuscated client
+`Ponder-JSON-Examples-1.3.0-alpha.1.zip` and `Ponder-JSON-Tools-1.3.0-alpha.1.zip`.
+`Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip` contains the reobfuscated client
 harness, JSON fixture and report generator used to bind real-client evidence
 to one successful main Actions run and its exact Ponder SHA-256.
 
@@ -162,31 +164,34 @@ and register Java storyboards during mod initialization. See
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and the separately built example
 plugin under `examples/addon`.
 
-## Ponder-MMCE addon
+## Integrated MMCE compatibility
 
-`ponder-mmce` is an independently built optional addon that supplies MMCE
-static/dynamic structures and resolves machine items to Ponder components
-through the public SPIs. The Ponder core does not depend on MMCE and behaves
-identically when the addon is absent. The current addon version is
-`0.1.0-alpha`; it also provides the separate
-`mods.ponder.mmce.MMCEStructures` ZenScript namespace. Build and test it with
-`:ponder-mmce:test :ponder-mmce:build`; the runtime artifact is
-`ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar` and is uploaded
-separately with a SHA-256 digest by GitHub Actions. Compatibility claims must
-name the exact Ponder, Ponder-MMCE, and MMCE versions tested together.
+The Ponder runtime jar contains an optional MMCE 2.3.2+ compatibility layer.
+When `modularmachinery` is absent, none of its MMCE-dependent implementation
+classes are loaded. When MMCE is present and its expected ABI is available,
+Ponder registers the structure provider, blueprint subject resolver, and
+`mods.ponder.mmce.MMCEStructures` ZenScript namespace automatically.
 
-The 1.1.2 Alpha/MMCE release and acceptance trail are frozen against the older
-1.1.2 artifacts and reports; they are independent of the 1.3.0 development
-line.
+No separate Ponder-MMCE runtime jar is required. The `ponder-mmce` Gradle
+subproject remains as an isolated source, fixture, and harness boundary. If
+the legacy external `ponder_mmce` addon is also installed, Ponder leaves
+compatibility ownership to it and avoids duplicate provider or resolver
+registration.
 
-The same build produces
+The integrated layer supports static structures, Dynamic Pattern expansion,
+negative-coordinate normalization, preview NBT, named groups, fingerprints,
+and blueprint-to-component mapping. It does not generate generic scenes and
+does not yet provide material lists, recipe overlays, or placed-controller
+entry points.
+
+The same build produces the verification and author example pack
 `ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip`.
 It contains two authored scenes backed by real static/dynamic MMCE machine
 definitions and a third machine with no scene. The pack is both an installable
 author example and the input used by the real Forge fixture.
 
 The example Java addon also produces
-`build/distributions/Ponder-Example-Addon-Smoke-1.3.0.zip`. It contains the
+`build/distributions/Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip`. It contains the
 reobfuscated addon, a structure and a ZS scene that invokes the
 `ponder_example:pulse` custom codec. The pack verifies ServiceLoader and IMC
 plugin discovery, successful protocol-v3 negotiation, and rejection before

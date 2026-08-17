@@ -70,8 +70,8 @@ $harness = [ordered]@{
     forge = "14.23.5.2847"
     mixinBooter = "11.2"
     craftTweaker = "4.1.20.698"
-    ponder = "1.3.0-mc1.12.2"
-    clientHarness = "1.3.0"
+    ponder = "1.3.0-alpha.1-mc1.12.2"
+    clientHarness = "1.3.0-alpha.1"
     checks = $checks
     screenshots = $screenshots
 }
@@ -87,8 +87,8 @@ for ($index = 1; $index -le 8; $index++) {
 [IO.File]::WriteAllText((Join-Path $evidence "latest.log"), "fixture log",
     [Text.UTF8Encoding]::new($false))
 
-$ponderJar = Join-Path $fixtureRoot "Ponder-1.12.2-1.3.0.jar"
-$clientHarnessJar = Join-Path $fixtureRoot "Ponder-Client-Harness-1.12.2-1.3.0.jar"
+$ponderJar = Join-Path $fixtureRoot "Ponder-1.12.2-1.3.0-alpha.1.jar"
+$clientHarnessJar = Join-Path $fixtureRoot "Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar"
 [IO.File]::WriteAllBytes($ponderJar, [byte[]](1, 3, 0))
 [IO.File]::WriteAllBytes($clientHarnessJar, [byte[]](1, 3, 1))
 $output = Join-Path $fixtureRoot "completed.json"

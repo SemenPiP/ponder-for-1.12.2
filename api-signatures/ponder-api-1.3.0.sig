@@ -2364,7 +2364,7 @@ M|net.createmod.ponder.foundation.PonderIndex|public static void setTranslationP
 M|net.createmod.ponder.Ponder|public static final java.lang.String CONTENT_NAMESPACE = "ponder";|Ljava/lang/String;
 M|net.createmod.ponder.Ponder|public static final java.lang.String MOD_ID = "ponder_legacy";|Ljava/lang/String;
 M|net.createmod.ponder.Ponder|public static final java.lang.String MOD_NAME = "Ponder";|Ljava/lang/String;
-M|net.createmod.ponder.Ponder|public static final java.lang.String VERSION = "1.3.0-mc1.12.2";|Ljava/lang/String;
+M|net.createmod.ponder.Ponder|public static final java.lang.String VERSION = "1.3.0-alpha.1-mc1.12.2";|Ljava/lang/String;
 M|net.createmod.ponder.Ponder|public static final java.util.Random RANDOM;|Ljava/util/Random;
 M|net.createmod.ponder.Ponder|public static final org.apache.logging.log4j.Logger LOGGER;|Lorg/apache/logging/log4j/Logger;
 M|net.createmod.ponder.Ponder|public static net.minecraft.util.ResourceLocation asResource(java.lang.String);|(Ljava/lang/String;)Lnet/minecraft/util/ResourceLocation;

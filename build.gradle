@@ -22,10 +22,10 @@ plugins {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = '1.3.0'
+version = '1.3.0-alpha.1'
 group = 'net.createmod.ponder'
 
-def modVersion = '1.3.0-mc1.12.2'
+def modVersion = '1.3.0-alpha.1-mc1.12.2'
 
 base {
     archivesName.set('Ponder-1.12.2')
@@ -46,6 +46,13 @@ minecraft {
 }
 
 repositories {
+    maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+        content {
+            includeGroup 'curse.maven'
+        }
+    }
     mavenCentral()
     maven {
         name = 'Modrinth'
@@ -73,6 +80,18 @@ def knownMixinBooterHashes = [
 ]
 def mixinBooter = "zone.rong:mixinbooter:${mixinBooterVersion}"
 def mixinBooterProcessor = "zone.rong:mixinbooter:${mixinBooterProcessorVersion}"
+def mmceJarOverride = providers.gradleProperty('mmceJar').orNull
+def mmceDependency
+if (mmceJarOverride != null && !mmceJarOverride.trim().isEmpty()) {
+    File localMmce = rootProject.file(mmceJarOverride)
+    if (!localMmce.isFile()) {
+        throw new GradleException("MMCE jar override does not exist: ${localMmce}")
+    }
+    logger.lifecycle("Ponder compiling optional MMCE compatibility against: ${localMmce}")
+    mmceDependency = files(localMmce)
+} else {
+    mmceDependency = 'curse.maven:modularmachinery-community-edition-817377:7372951'
+}
 
 dependencies {
     implementation(mixinBooter) {
@@ -84,11 +103,16 @@ dependencies {
     // Older MixinBooter releases expose the same runtime loader API but do not
     // carry the complete ASM classpath required by their annotation processor.
     annotationProcessor mixinBooterProcessor
+    compileOnly mmceDependency
 
     testImplementation 'junit:junit:4.13.2'
 }
 
 sourceSets {
+    main {
+        java.srcDir 'ponder-mmce/src/main/java'
+        java.exclude 'net/createmod/ponder/mmce/PonderMMCEMod.java'
+    }
     exampleAddon {
         java.srcDir 'examples/addon/src/main/java'
         resources.srcDir 'examples/addon/src/main/resources'
@@ -125,6 +149,9 @@ processResources {
         expand 'version': modVersion,
             'mcversion': '1.12.2',
             'mixinBooterRuntimeRange': mixinBooterRuntimeRange
+    }
+    from(layout.projectDirectory.dir('ponder-mmce/src/main/resources')) {
+        exclude 'mcmod.info'
     }
 }
 
@@ -237,19 +264,19 @@ tasks.register('serverHarnessJar', Jar) {
 }
 
 tasks.register('zenscriptExamplesZip', Zip) {
-    archiveFileName.set('Ponder-ZenScript-Examples-1.3.0.zip')
+    archiveFileName.set('Ponder-ZenScript-Examples-1.3.0-alpha.1.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/zenscript')
 }
 
 tasks.register('jsonExamplesZip', Zip) {
-    archiveFileName.set('Ponder-JSON-Examples-1.3.0.zip')
+    archiveFileName.set('Ponder-JSON-Examples-1.3.0-alpha.1.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/json')
 }
 
 tasks.register('jsonToolsZip', Zip) {
-    archiveFileName.set('Ponder-JSON-Tools-1.3.0.zip')
+    archiveFileName.set('Ponder-JSON-Tools-1.3.0-alpha.1.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from(layout.projectDirectory.file('tools/ponder-json.ps1'))
     from(layout.projectDirectory.dir('schemas')) {
@@ -322,7 +349,7 @@ def reobfExampleAddonJar = tasks.register('reobfExampleAddonJar',
 }
 tasks.register('exampleAddonSmokeZip', Zip) {
     dependsOn reobfExampleAddonJar
-    archiveFileName.set('Ponder-Example-Addon-Smoke-1.3.0.zip')
+    archiveFileName.set('Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from layout.projectDirectory.dir('examples/addon/smoke')
     from(reobfExampleAddonJar.flatMap { it.archiveFile }) {
@@ -369,7 +396,7 @@ def reobfClientHarnessJar = tasks.register('reobfClientHarnessJar',
 }
 tasks.register('clientAcceptanceKitZip', Zip) {
     dependsOn reobfClientHarnessJar
-    archiveFileName.set('Ponder-Client-Acceptance-Kit-1.3.0.zip')
+    archiveFileName.set('Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip')
     destinationDirectory.set(layout.buildDirectory.dir('distributions'))
     from(reobfClientHarnessJar.flatMap { it.archiveFile }) {
         into 'mods'
@@ -444,6 +471,13 @@ tasks.register('verifyReleaseContents') {
             'assets/ponder/scripts/builtin/smelting.zs',
             'assets/ponder/scripts/builtin/storage.zs'
         ]
+        List<String> requiredMmceCompatibilityClasses = [
+            'net/createmod/ponder/compat/PonderOptionalCompat.class',
+            'net/createmod/ponder/mmce/PonderMMCEEntrypoint.class',
+            'net/createmod/ponder/mmce/script/MMCEStructures.class',
+            'net/createmod/ponder/mmce/structure/MMCEStructureProvider.class',
+            'net/createmod/ponder/mmce/subject/MMCEBlueprintResolver.class'
+        ]
         java.util.jar.JarFile releaseJar = new java.util.jar.JarFile(release)
         try {
             def attributes = releaseJar.manifest.mainAttributes
@@ -464,16 +498,30 @@ tasks.register('verifyReleaseContents') {
                     throw new GradleException("Release jar is missing required builtin ZenScript ${path}")
                 }
             }
+            requiredMmceCompatibilityClasses.each { path ->
+                java.util.jar.JarEntry entry = releaseJar.getJarEntry(path)
+                if (entry == null || entry.directory || entry.size <= 0) {
+                    throw new GradleException(
+                        "Release jar is missing integrated MMCE compatibility class ${path}")
+                }
+            }
+            if (releaseJar.getJarEntry(
+                    'net/createmod/ponder/mmce/PonderMMCEMod.class') != null) {
+                throw new GradleException(
+                    'Release jar must not expose the legacy standalone ponder_mmce @Mod container')
+            }
         } finally {
             releaseJar.close()
         }
         String expectedMixinDependency = "required-after:mixinbooter@${mixinBooterRuntimeRange}"
         String expectedCraftTweakerDependency = "required-after:crafttweaker@[4.1.20,)"
+        String expectedMmceOrdering = 'after:modularmachinery'
         File mcmodInfo = zipTree(release).matching { include 'mcmod.info' }.singleFile
         String mcmodText = mcmodInfo.getText('UTF-8')
         if (!mcmodText.contains('"modid": "ponder_legacy"')
             || !mcmodText.contains(expectedMixinDependency)
-            || !mcmodText.contains(expectedCraftTweakerDependency)) {
+            || !mcmodText.contains(expectedCraftTweakerDependency)
+            || !mcmodText.contains(expectedMmceOrdering)) {
             throw new GradleException("Release mcmod.info is missing the expected mod id or a required runtime dependency")
         }
         File ponderModClass = zipTree(release).matching {
@@ -482,7 +530,8 @@ tasks.register('verifyReleaseContents') {
         String ponderModConstants = new String(ponderModClass.bytes, 'ISO-8859-1')
         if (!ponderModConstants.contains('ponder_legacy')
             || !ponderModConstants.contains(expectedMixinDependency)
-            || !ponderModConstants.contains(expectedCraftTweakerDependency)) {
+            || !ponderModConstants.contains(expectedCraftTweakerDependency)
+            || !ponderModConstants.contains(expectedMmceOrdering)) {
             throw new GradleException("Release @Mod metadata is missing the expected mod id or a required runtime dependency")
         }
         File refmap = zipTree(release).matching { include 'mixins.ponder.refmap.json' }.singleFile
@@ -524,7 +573,9 @@ tasks.register('verifyReleaseContents') {
             'org/joml/',
             'org/lwjgl/glfw/',
             'net/fabricmc/',
-            'net/neoforged/'
+            'net/neoforged/',
+            'hellfirepvp/modularmachinery/',
+            'github/kasuminova/mmce/'
         ]
         [release, example, api, sources, clientHarness].each { archive ->
             zipTree(archive).visit { details ->
@@ -581,7 +632,7 @@ tasks.register('verifyReleaseContents') {
             }
         }
         [
-            'mods/Ponder-Example-Addon-1.12.2-1.3.0.jar',
+            'mods/Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar',
             'scripts/ponder/scenes/ponder_example_codec.zs',
             'README.md'
         ].each { path ->
@@ -609,7 +660,7 @@ tasks.register('verifyReleaseContents') {
             }
         }
         [
-            'mods/Ponder-Client-Harness-1.12.2-1.3.0.jar',
+            'mods/Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar',
             'scripts/ponder/packs/ponder_json_demo.ponder.json',
             'scripts/ponder/structures/ponder/demo/basics.nbt',
             'tools/complete-ponder-client-acceptance.ps1',
