@@ -72,7 +72,9 @@ jobs:
             }
           }
 
-          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          gh api `
+            "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" `
+            --silent 2>&1 | Out-Null
           if ($LASTEXITCODE -eq 0) {
             throw "Release $env:RELEASE_TAG already exists"
           }
