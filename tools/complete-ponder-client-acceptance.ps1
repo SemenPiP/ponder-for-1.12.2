@@ -32,7 +32,7 @@ $EvidenceDirectory = (Resolve-Path -LiteralPath $EvidenceDirectory).Path
 $PonderJar = (Resolve-Path -LiteralPath $PonderJar).Path
 $ClientHarnessJar = (Resolve-Path -LiteralPath $ClientHarnessJar).Path
 if ([string]::IsNullOrWhiteSpace($Output)) {
-    $Output = Join-Path $projectRoot "build\reports\ponder-1.3.0-client-acceptance.json"
+    $Output = Join-Path $projectRoot "build\reports\ponder-1.3.0-alpha.1-client-acceptance.json"
 } else {
     $Output = [IO.Path]::GetFullPath($Output)
 }
@@ -44,12 +44,12 @@ $SourceCommit = $SourceCommit.Trim().ToLowerInvariant()
 if ($SourceCommit -notmatch '^[0-9a-f]{40}$') {
     throw "SourceCommit must be a full 40-character Git commit"
 }
-if ([IO.Path]::GetFileName($PonderJar) -ne "Ponder-1.12.2-1.3.0.jar") {
-    throw "PonderJar must be Ponder-1.12.2-1.3.0.jar"
+if ([IO.Path]::GetFileName($PonderJar) -ne "Ponder-1.12.2-1.3.0-alpha.1.jar") {
+    throw "PonderJar must be Ponder-1.12.2-1.3.0-alpha.1.jar"
 }
 if ([IO.Path]::GetFileName($ClientHarnessJar) -ne
-    "Ponder-Client-Harness-1.12.2-1.3.0.jar") {
-    throw "ClientHarnessJar must be Ponder-Client-Harness-1.12.2-1.3.0.jar"
+    "Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar") {
+    throw "ClientHarnessJar must be Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar"
 }
 
 $harness = Get-Content -LiteralPath $HarnessReport -Raw | ConvertFrom-Json
@@ -78,10 +78,10 @@ if ([string]$harness.minecraft -ne "1.12.2") {
 if ([string]$harness.forge -ne "14.23.5.2847") {
     throw "Automated harness used unexpected Forge version: $($harness.forge)"
 }
-if ([string]$harness.ponder -ne "1.3.0-mc1.12.2") {
+if ([string]$harness.ponder -ne "1.3.0-alpha.1-mc1.12.2") {
     throw "Automated harness used unexpected Ponder version: $($harness.ponder)"
 }
-if ([string]$harness.clientHarness -ne "1.3.0") {
+if ([string]$harness.clientHarness -ne "1.3.0-alpha.1") {
     throw "Automated harness used unexpected client harness version: $($harness.clientHarness)"
 }
 if ([string]$harness.mixinBooter -ne "11.2") {
@@ -173,7 +173,7 @@ foreach ($file in @($manualScreenshots + $logs | Sort-Object FullName)) {
 
 $result = [ordered]@{
     schemaVersion = 1
-    scope = "ponder_legacy_1.3.0_client_acceptance"
+    scope = "ponder_legacy_1.3.0_alpha.1_client_acceptance"
     status = "PASS"
     generatedAtUtc = [DateTime]::UtcNow.ToString("o")
     source = [ordered]@{
@@ -223,7 +223,7 @@ if (!(Test-Path -LiteralPath $parent -PathType Container)) {
 [IO.File]::WriteAllText($Output, ($result | ConvertTo-Json -Depth 16),
     [Text.UTF8Encoding]::new($false))
 
-Write-Host "Ponder 1.3.0 client acceptance completed."
+Write-Host "Ponder 1.3.0-alpha.1 client acceptance completed."
 Write-Host "Report: $Output"
 Write-Host "Actions run: $ActionsRunId"
 Write-Host "Source commit: $SourceCommit"

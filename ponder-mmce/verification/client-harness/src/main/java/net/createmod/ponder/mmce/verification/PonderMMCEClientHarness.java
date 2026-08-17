@@ -12,7 +12,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
     name = "Ponder-MMCE Client Harness",
     version = "0.1.0-alpha",
     acceptedMinecraftVersions = "[1.12.2]",
-    dependencies = "required-after:ponder_legacy@[1.1.2,);required-after:ponder_mmce@[0.1.0-alpha,);"
+    dependencies = "required-after:ponder_legacy@[1.3.0-alpha.1-mc1.12.2];"
         + "required-after:modularmachinery@[2.3.2,)",
     acceptableRemoteVersions = "*",
     clientSideOnly = true

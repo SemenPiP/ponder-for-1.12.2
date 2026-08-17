@@ -93,35 +93,33 @@ jobs:
       - name: Write artifact summary
         shell: powershell
         run: |
-          "## Ponder 1.3.0 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "## Ponder 1.3.0-alpha.1 artifacts" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| Project | File | SHA-256 |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "| --- | --- | --- |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           $artifacts = [Collections.Generic.List[object]]::new()
           Get-ChildItem -LiteralPath "build\libs" -Filter "*.jar" -File |
             ForEach-Object { $artifacts.Add([PSCustomObject]@{ Project = "Ponder"; File = $_ }) }
-          Get-ChildItem -LiteralPath "ponder-mmce\build\libs" -Filter "*.jar" -File |
-            ForEach-Object { $artifacts.Add([PSCustomObject]@{ Project = "Ponder-MMCE"; File = $_ }) }
           $smoke = Get-Item -LiteralPath `
             "ponder-mmce\build\distributions\Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip"
-          $artifacts.Add([PSCustomObject]@{ Project = "Smoke Pack"; File = $smoke })
+          $artifacts.Add([PSCustomObject]@{ Project = "Integrated MMCE Smoke Pack"; File = $smoke })
           $examples = Get-Item -LiteralPath `
-            "build\distributions\Ponder-ZenScript-Examples-1.3.0.zip"
+            "build\distributions\Ponder-ZenScript-Examples-1.3.0-alpha.1.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "ZenScript Examples"; File = $examples })
           $addonSmoke = Get-Item -LiteralPath `
-            "build\distributions\Ponder-Example-Addon-Smoke-1.3.0.zip"
+            "build\distributions\Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "Example Addon Smoke"; File = $addonSmoke })
           $jsonExamples = Get-Item -LiteralPath `
-            "build\distributions\Ponder-JSON-Examples-1.3.0.zip"
+            "build\distributions\Ponder-JSON-Examples-1.3.0-alpha.1.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "JSON Examples"; File = $jsonExamples })
           $jsonTools = Get-Item -LiteralPath `
-            "build\distributions\Ponder-JSON-Tools-1.3.0.zip"
+            "build\distributions\Ponder-JSON-Tools-1.3.0-alpha.1.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "JSON Tools"; File = $jsonTools })
           $clientHarness = Get-Item -LiteralPath `
-            "build\verification\client-harness\Ponder-Client-Harness-1.12.2-1.3.0.jar"
+            "build\verification\client-harness\Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar"
           $artifacts.Add([PSCustomObject]@{ Project = "Client Harness"; File = $clientHarness })
           $acceptanceKit = Get-Item -LiteralPath `
-            "build\distributions\Ponder-Client-Acceptance-Kit-1.3.0.zip"
+            "build\distributions\Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip"
           $artifacts.Add([PSCustomObject]@{ Project = "Client Acceptance Kit"; File = $acceptanceKit })
 
           $checksumLines = [Collections.Generic.List[string]]::new()
@@ -138,16 +136,8 @@ jobs:
       - name: Upload release jars
         uses: actions/upload-artifact@v7
         with:
-          name: ponder-1.3.0-${{ github.sha }}
+          name: ponder-1.3.0-alpha.1-${{ github.sha }}
           path: build/libs/*.jar
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload Ponder-MMCE jar
-        uses: actions/upload-artifact@v7
-        with:
-          name: ponder-mmce-${{ github.sha }}
-          path: ponder-mmce/build/libs/*.jar
           if-no-files-found: error
           retention-days: 30
 
@@ -163,7 +153,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-zenscript-examples-${{ github.sha }}
-          path: build/distributions/Ponder-ZenScript-Examples-1.3.0.zip
+          path: build/distributions/Ponder-ZenScript-Examples-1.3.0-alpha.1.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -171,7 +161,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-json-examples-${{ github.sha }}
-          path: build/distributions/Ponder-JSON-Examples-1.3.0.zip
+          path: build/distributions/Ponder-JSON-Examples-1.3.0-alpha.1.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -180,7 +170,7 @@ jobs:
         with:
           name: ponder-json-tools-${{ github.sha }}
           path: |
-            build/distributions/Ponder-JSON-Tools-1.3.0.zip
+            build/distributions/Ponder-JSON-Tools-1.3.0-alpha.1.zip
             schemas/*.json
           if-no-files-found: error
           retention-days: 30
@@ -189,7 +179,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-example-addon-smoke-${{ github.sha }}
-          path: build/distributions/Ponder-Example-Addon-Smoke-1.3.0.zip
+          path: build/distributions/Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -242,7 +232,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ponder-client-acceptance-kit-${{ github.sha }}
-          path: build/distributions/Ponder-Client-Acceptance-Kit-1.3.0.zip
+          path: build/distributions/Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -285,7 +275,7 @@ jobs:
       - name: Download release jars
         uses: actions/download-artifact@v8
         with:
-          name: ponder-1.3.0-${{ github.sha }}
+          name: ponder-1.3.0-alpha.1-${{ github.sha }}
           path: build/libs
 
       - name: Download server fixture harness
@@ -293,12 +283,6 @@ jobs:
         with:
           name: ponder-server-harness-${{ github.sha }}
           path: build/verification/server-harness
-
-      - name: Download Ponder-MMCE jars
-        uses: actions/download-artifact@v8
-        with:
-          name: ponder-mmce-${{ github.sha }}
-          path: ponder-mmce/build/libs
 
       - name: Download Ponder-MMCE Smoke Pack
         uses: actions/download-artifact@v8

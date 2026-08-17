@@ -10,19 +10,11 @@ on:
       tag:
         description: Release tag
         required: true
-        default: v1.3.0-rc.1
+        default: v1.3.0-alpha.1
         type: string
-      release_kind:
-        description: Candidate creates a prerelease; stable requires v1.3.0
-        required: true
-        default: candidate
-        type: choice
-        options:
-          - candidate
-          - stable
       client_report_url:
-        description: Direct HTTPS URL to completed Ponder 1.3.0 client report
-        required: true
+        description: Direct HTTPS URL to completed client report; optional for alpha only
+        required: false
         type: string
 
 permissions:
@@ -49,17 +41,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
           RELEASE_TAG: ${{ inputs.tag }}
-          RELEASE_KIND: ${{ inputs.release_kind }}
         run: |
           if ($env:RUN_ID -notmatch '^[1-9][0-9]*$') {
             throw "run_id must be a positive GitHub Actions run id"
           }
-          if ($env:RELEASE_KIND -eq "stable") {
-            if ($env:RELEASE_TAG -ne "v1.3.0") {
-              throw "Stable publication requires tag v1.3.0"
-            }
-          } elseif ($env:RELEASE_TAG -notmatch '^v1\.3\.0-(?:alpha|beta|rc)\.[1-9][0-9]*$') {
-            throw "Candidate tag must match v1.3.0-alpha.N, beta.N, or rc.N"
+          if ($env:RELEASE_TAG -ne "v1.3.0-alpha.1") {
+            throw "This workflow only publishes v1.3.0-alpha.1"
           }
 
           $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:RUN_ID" |
@@ -101,7 +88,7 @@ jobs:
           $root = Join-Path $env:RUNNER_TEMP "ponder-1.3.0-release-input"
           $null = New-Item -ItemType Directory -Path $root -Force
           $names = @(
-            "ponder-1.3.0-$env:SOURCE_SHA",
+            "ponder-1.3.0-alpha.1-$env:SOURCE_SHA",
             "ponder-zenscript-examples-$env:SOURCE_SHA",
             "ponder-json-examples-$env:SOURCE_SHA",
             "ponder-json-tools-$env:SOURCE_SHA",
@@ -127,56 +114,68 @@ jobs:
           CLIENT_REPORT_URL: ${{ inputs.client_report_url }}
           RUN_ID: ${{ inputs.run_id }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          if ($env:CLIENT_REPORT_URL -notmatch '^https://') {
+          $isAlpha = $env:RELEASE_TAG -match '^v1\.3\.0-alpha\.[1-9][0-9]*$'
+          $hasClientReport = ![string]::IsNullOrWhiteSpace($env:CLIENT_REPORT_URL)
+          if (!$hasClientReport -and !$isAlpha) {
+            throw "client_report_url is required for beta, rc, and stable releases"
+          }
+          if ($hasClientReport -and $env:CLIENT_REPORT_URL -notmatch '^https://') {
             throw "client_report_url must be a direct HTTPS URL"
           }
           $releaseRoot = Join-Path $env:RUNNER_TEMP "ponder-1.3.0-release-assets"
           $null = New-Item -ItemType Directory -Path $releaseRoot -Force
-          $clientReport = Join-Path $releaseRoot "ponder-1.3.0-client-acceptance.json"
-          Invoke-WebRequest -UseBasicParsing -Uri $env:CLIENT_REPORT_URL -OutFile $clientReport
-          if ((Get-Item -LiteralPath $clientReport).Length -gt 4MB) {
-            throw "Client acceptance report exceeds 4 MiB"
-          }
-          $report = Get-Content -LiteralPath $clientReport -Raw | ConvertFrom-Json
-          if ($report.schemaVersion -ne 1 -or
-              $report.scope -ne "ponder_legacy_1.3.0_client_acceptance" -or
-              $report.status -ne "PASS") {
-            throw "Client report is not a completed Ponder 1.3.0 PASS report"
-          }
-          if ([string]$report.source.runId -ne $env:RUN_ID -or
-              ([string]$report.source.commit).ToLowerInvariant() -ne
-                $env:SOURCE_SHA.ToLowerInvariant()) {
-            throw "Client report is not bound to the selected Actions run and commit"
-          }
-          if ([string]$report.source.repository -ne $env:GITHUB_REPOSITORY -or
-              [string]$report.source.workflow -ne "Build and Verify" -or
-              [string]$report.automatedHarness.status -ne "PASS") {
-            throw "Client report source metadata is invalid"
-          }
-          if ([string]$report.versions.ponder_legacy -ne "1.3.0-mc1.12.2" -or
-              [string]$report.versions.minecraft -ne "1.12.2" -or
-              [string]$report.versions.forge -ne "14.23.5.2847" -or
-              [string]$report.versions.mixinbooter -ne "11.2" -or
-              [string]$report.versions.client_harness -ne "1.3.0" -or
-              [string]$report.versions.crafttweaker -notmatch '^4\.1\.20(?:\.698)?$') {
-            throw "Client report contains an unexpected runtime version"
-          }
-          if ($report.manualAcceptance.status -ne "PASS") {
-            throw "Client report manual acceptance is incomplete"
-          }
-          foreach ($confirmation in @(
-              "eightBuiltinScenes",
-              "jsonReloadCommand",
-              "wEntry",
-              "realMouse",
-              "guiScales1To4",
-              "fullscreenRoundTrip",
-              "resourceReload",
-              "ordinaryWorldAfterClose"
-          )) {
-            if ($report.manualAcceptance.$confirmation -ne $true) {
-              throw "Client report is missing manual confirmation: $confirmation"
+          $clientReport = Join-Path $releaseRoot `
+            "ponder-1.3.0-alpha.1-client-acceptance.json"
+          $report = $null
+          if ($hasClientReport) {
+            Invoke-WebRequest -UseBasicParsing -Uri $env:CLIENT_REPORT_URL -OutFile $clientReport
+            if ((Get-Item -LiteralPath $clientReport).Length -gt 4MB) {
+              throw "Client acceptance report exceeds 4 MiB"
+            }
+            $report = Get-Content -LiteralPath $clientReport -Raw | ConvertFrom-Json
+            if ($report.schemaVersion -ne 1 -or
+                $report.scope -ne "ponder_legacy_1.3.0_alpha.1_client_acceptance" -or
+                $report.status -ne "PASS") {
+              throw "Client report is not a completed Ponder 1.3.0-alpha.1 PASS report"
+            }
+            if ([string]$report.source.runId -ne $env:RUN_ID -or
+                ([string]$report.source.commit).ToLowerInvariant() -ne
+                  $env:SOURCE_SHA.ToLowerInvariant()) {
+              throw "Client report is not bound to the selected Actions run and commit"
+            }
+            if ([string]$report.source.repository -ne $env:GITHUB_REPOSITORY -or
+                [string]$report.source.workflow -ne "Build and Verify" -or
+                [string]$report.automatedHarness.status -ne "PASS") {
+              throw "Client report source metadata is invalid"
+            }
+            if ([string]$report.versions.ponder_legacy -ne
+                  "1.3.0-alpha.1-mc1.12.2" -or
+                [string]$report.versions.minecraft -ne "1.12.2" -or
+                [string]$report.versions.forge -ne "14.23.5.2847" -or
+                [string]$report.versions.mixinbooter -ne "11.2" -or
+                [string]$report.versions.client_harness -ne "1.3.0-alpha.1" -or
+                [string]$report.versions.crafttweaker -notmatch
+                  '^4\.1\.20(?:\.698)?$') {
+              throw "Client report contains an unexpected runtime version"
+            }
+            if ($report.manualAcceptance.status -ne "PASS") {
+              throw "Client report manual acceptance is incomplete"
+            }
+            foreach ($confirmation in @(
+                "eightBuiltinScenes",
+                "jsonReloadCommand",
+                "wEntry",
+                "realMouse",
+                "guiScales1To4",
+                "fullscreenRoundTrip",
+                "resourceReload",
+                "ordinaryWorldAfterClose"
+            )) {
+              if ($report.manualAcceptance.$confirmation -ne $true) {
+                throw "Client report is missing manual confirmation: $confirmation"
+              }
             }
           }
 
@@ -188,34 +187,72 @@ jobs:
             }
             return $matches[0]
           }
-          $ponder = Find-One "Ponder-1.12.2-1.3.0.jar"
-          $harness = Find-One "Ponder-Client-Harness-1.12.2-1.3.0.jar"
+          $ponder = Find-One "Ponder-1.12.2-1.3.0-alpha.1.jar"
+          $harness = Find-One "Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar"
           $ponderHash = (Get-FileHash -LiteralPath $ponder.FullName -Algorithm SHA256).Hash
           $harnessHash = (Get-FileHash -LiteralPath $harness.FullName -Algorithm SHA256).Hash
-          if ([string]$report.sha256.ponder_legacy -ne $ponderHash) {
-            throw "Client report Ponder SHA does not match selected run"
-          }
-          if ([string]$report.sha256.client_harness -ne $harnessHash) {
-            throw "Client report harness SHA does not match selected run"
+          if ($hasClientReport) {
+            if ([string]$report.sha256.ponder_legacy -ne $ponderHash) {
+              throw "Client report Ponder SHA does not match selected run"
+            }
+            if ([string]$report.sha256.client_harness -ne $harnessHash) {
+              throw "Client report harness SHA does not match selected run"
+            }
+            "CLIENT_EVIDENCE_STATUS=PASS" >> $env:GITHUB_ENV
+            "CLIENT_EVIDENCE_NOTE=$env:CLIENT_REPORT_URL" >> $env:GITHUB_ENV
+          } else {
+            $alphaReport = [ordered]@{
+              schemaVersion = 1
+              scope = "ponder_legacy_1.3.0_alpha.1_client_acceptance"
+              status = "NOT_RUN"
+              releaseQualification = "ALPHA_AUTOMATED_AND_SERVER_ONLY"
+              generatedAtUtc = [DateTime]::UtcNow.ToString("o")
+              source = [ordered]@{
+                repository = $env:GITHUB_REPOSITORY
+                workflow = "Build and Verify"
+                runId = [long]$env:RUN_ID
+                commit = $env:SOURCE_SHA
+              }
+              versions = [ordered]@{
+                minecraft = "1.12.2"
+                forge = "14.23.5.2847"
+                ponder_legacy = "1.3.0-alpha.1-mc1.12.2"
+                client_harness = "1.3.0-alpha.1"
+                crafttweaker = "4.1.20.698"
+                mixinbooter = "11.2"
+              }
+              sha256 = [ordered]@{
+                ponder_legacy = $ponderHash
+                client_harness = $harnessHash
+              }
+              automatedHarness = [ordered]@{ status = "NOT_RUN" }
+              manualAcceptance = [ordered]@{ status = "NOT_RUN" }
+              note = "Alpha release: build, tests, release checks, standard Forge server, and integrated MMCE fixture passed; real client acceptance remains pending."
+            }
+            [IO.File]::WriteAllText($clientReport,
+              ($alphaReport | ConvertTo-Json -Depth 12),
+              [Text.UTF8Encoding]::new($false))
+            "CLIENT_EVIDENCE_STATUS=NOT_RUN" >> $env:GITHUB_ENV
+            "CLIENT_EVIDENCE_NOTE=Not supplied; Alpha is automated/server verified only." >> $env:GITHUB_ENV
           }
 
           $releaseFiles = @(
-            "Ponder-1.12.2-1.3.0.jar",
-            "Ponder-1.12.2-1.3.0-api.jar",
-            "Ponder-1.12.2-1.3.0-sources.jar",
-            "Ponder-Example-Addon-1.12.2-1.3.0.jar",
-            "Ponder-ZenScript-Examples-1.3.0.zip",
-            "Ponder-JSON-Examples-1.3.0.zip",
-            "Ponder-JSON-Tools-1.3.0.zip",
-            "Ponder-Example-Addon-Smoke-1.3.0.zip",
-            "Ponder-Client-Acceptance-Kit-1.3.0.zip"
+            "Ponder-1.12.2-1.3.0-alpha.1.jar",
+            "Ponder-1.12.2-1.3.0-alpha.1-api.jar",
+            "Ponder-1.12.2-1.3.0-alpha.1-sources.jar",
+            "Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar",
+            "Ponder-ZenScript-Examples-1.3.0-alpha.1.zip",
+            "Ponder-JSON-Examples-1.3.0-alpha.1.zip",
+            "Ponder-JSON-Tools-1.3.0-alpha.1.zip",
+            "Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip",
+            "Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip"
           )
           foreach ($name in $releaseFiles) {
             $file = Find-One $name
             Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $releaseRoot $name)
           }
 
-          $reports = Join-Path $releaseRoot "Ponder-1.3.0-verification-reports.zip"
+          $reports = Join-Path $releaseRoot "Ponder-1.3.0-alpha.1-verification-reports.zip"
           $reportInputs = @(Get-ChildItem -LiteralPath $env:RELEASE_INPUT -Directory |
             Where-Object {
               $_.Name -like "build-reports-*" -or
@@ -239,25 +276,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
-          RELEASE_KIND: ${{ inputs.release_kind }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
           CLIENT_REPORT_URL: ${{ inputs.client_report_url }}
         run: |
           $notes = Join-Path $env:RUNNER_TEMP "ponder-1.3.0-release-notes.md"
           @"
-          # Ponder Legacy 1.3.0
+          # Ponder Legacy 1.3.0 Alpha 1
 
-          This release adds the reloadable JSON scene-pack frontend on the same validated,
+          This Alpha adds the reloadable JSON scene-pack frontend on the same validated,
           deterministic IR used by ZenScript. It includes per-file last-known-good behavior,
           deletion handling, ZenScript conflict isolation, Draft-07 schema, offline validation
           and migration tools, protocol v3 metadata sync, diagnostics, and API compatibility gates.
+
+          MMCE 2.3.2+ compatibility is now built into the Ponder jar and activates only when
+          Modular Machinery is installed. The release provides static structures, Dynamic Pattern
+          structures, named structure groups, preview NBT, fingerprints, and blueprint subjects
+          without requiring a separate Ponder-MMCE runtime jar.
+
+          MMCE support remains author-scene based. This Alpha does not generate generic scenes and
+          does not yet include material lists, recipe overlays, or placed-controller entry points.
 
           The visual editor remains planned for a later version. Servers still do not distribute
           JSON/ZenScript source files or structure NBT. CatServer client compatibility remains
           experimental and is not part of the standard Forge release claim.
 
           Build and dedicated-server evidence is bound to commit ``$env:SOURCE_SHA``.
-          Client acceptance report: $env:CLIENT_REPORT_URL
+          Client acceptance status: $env:CLIENT_EVIDENCE_STATUS
+          Client acceptance evidence: $env:CLIENT_EVIDENCE_NOTE
           "@ | Set-Content -LiteralPath $notes -Encoding UTF8
 
           $assets = Get-ChildItem -LiteralPath $env:RELEASE_ASSETS -File |
@@ -268,12 +313,10 @@ jobs:
           ) + $assets + @(
             "--repo", $env:GITHUB_REPOSITORY,
             "--target", $env:SOURCE_SHA,
-            "--title", "Ponder Legacy 1.3.0",
+            "--title", "Ponder Legacy 1.3.0 Alpha 1",
             "--notes-file", $notes
           )
-          if ($env:RELEASE_KIND -eq "candidate") {
-            $arguments += "--prerelease"
-          }
+          $arguments += "--prerelease"
           & gh @arguments
           if ($LASTEXITCODE -ne 0) {
             throw "GitHub release creation failed"

@@ -1,7 +1,6 @@
 param(
     [string]$ForgeDirectory = "",
     [string]$PonderJar = "",
-    [string]$PonderMMCEJar = "",
     [string]$SmokePack = "",
     [string]$ServerHarnessJar = "",
     [string]$MixinBooterJar = "",
@@ -268,10 +267,7 @@ try {
     }
 
     $PonderJar = Resolve-FirstFile -Preferred $PonderJar -SearchRoot (Join-Path $buildRoot "libs") `
-        -Filter "Ponder-1.12.2-1.3.0.jar" -Label "Ponder jar"
-    $PonderMMCEJar = Resolve-FirstFile -Preferred $PonderMMCEJar `
-        -SearchRoot (Join-Path $addonBuild "libs") -Filter "Ponder-MMCE-1.12.2-0.1.0-alpha.jar" `
-        -Label "Ponder-MMCE jar"
+        -Filter "Ponder-1.12.2-1.3.0-alpha.1.jar" -Label "Ponder jar"
     $SmokePack = Resolve-FirstFile -Preferred $SmokePack `
         -SearchRoot (Join-Path $addonBuild "distributions") -Filter "Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip" `
         -Label "Ponder-MMCE Smoke Pack"
@@ -295,7 +291,7 @@ try {
     $null = New-Item -ItemType Directory -Path $reportRoot -Force
     Copy-ForgeRuntime -Source $ForgeDirectory -Destination $runtimeRoot
     Expand-Archive -LiteralPath $SmokePack -DestinationPath $runtimeRoot
-    foreach ($mod in @($PonderJar, $PonderMMCEJar, $MixinBooterJar, $CraftTweakerJar,
+    foreach ($mod in @($PonderJar, $MixinBooterJar, $CraftTweakerJar,
             $MMCEJar, $ServerHarnessJar)) {
         Copy-Item -LiteralPath $mod -Destination (Join-Path $runtimeRoot "mods")
         $hashes[[IO.Path]::GetFileName($mod)] = (Get-FileHash -LiteralPath $mod -Algorithm SHA256).Hash

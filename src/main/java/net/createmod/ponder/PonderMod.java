@@ -2,6 +2,7 @@ package net.createmod.ponder;
 
 import java.util.Map;
 
+import net.createmod.ponder.compat.PonderOptionalCompat;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -19,7 +20,7 @@ import net.minecraftforge.fml.relauncher.Side;
     version = Ponder.VERSION,
     acceptedMinecraftVersions = "[1.12.2]",
     dependencies = "required-after:forge@[14.23.5.2847,);required-after:mixinbooter@[9.1,);"
-        + "required-after:crafttweaker@[4.1.20,)",
+        + "required-after:crafttweaker@[4.1.20,);after:modularmachinery",
     guiFactory = "net.createmod.ponder.client.PonderGuiFactory",
     acceptableRemoteVersions = "*"
 )
@@ -38,6 +39,7 @@ public final class PonderMod {
     public void preInit(FMLPreInitializationEvent event) {
         Ponder.LOGGER.info("Starting {} {} for Minecraft 1.12.2", Ponder.MOD_NAME, Ponder.VERSION);
         proxy.preInit(event);
+        PonderOptionalCompat.preInit();
     }
 
     @Mod.EventHandler
@@ -48,6 +50,7 @@ public final class PonderMod {
     @Mod.EventHandler
     public void postInit(FMLPostInitializationEvent event) {
         proxy.postInit(event);
+        PonderOptionalCompat.postInit();
     }
 
     @Mod.EventHandler

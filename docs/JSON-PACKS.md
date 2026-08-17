@@ -1,6 +1,6 @@
 # Ponder JSON scene packs
 
-Ponder Legacy 1.3.0 adds a reloadable JSON authoring frontend. JSON and
+Ponder Legacy 1.3.0 Alpha 1 adds a reloadable JSON authoring frontend. JSON and
 ZenScript compile to the same immutable scene IR, use the same validator and
 use snapshot protocol v3.
 
@@ -98,6 +98,6 @@ full SNBT syntax, block states, enum values, handle lifecycles and custom
 instruction codecs.
 
 The installable example is built as
-`build/distributions/Ponder-JSON-Examples-1.3.0.zip`. The standalone schema and
+`build/distributions/Ponder-JSON-Examples-1.3.0-alpha.1.zip`. The standalone schema and
 PowerShell author tools are built as
-`build/distributions/Ponder-JSON-Tools-1.3.0.zip`.
+`build/distributions/Ponder-JSON-Tools-1.3.0-alpha.1.zip`.

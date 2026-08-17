@@ -304,7 +304,7 @@ public final class PonderMMCEClientSmokeController {
         JsonObject versions = new JsonObject();
         versions.addProperty("minecraft", "1.12.2");
         versions.addProperty("forge", ForgeVersion.getVersion());
-        for (String modId : new String[] {"ponder_legacy", "ponder_mmce", "modularmachinery",
+        for (String modId : new String[] {"ponder_legacy", "modularmachinery",
                 "crafttweaker", "mixinbooter"}) {
             ModContainer mod = Loader.instance().getIndexedModList().get(modId);
             versions.addProperty(modId, mod == null ? "missing" : mod.getVersion());
@@ -313,7 +313,7 @@ public final class PonderMMCEClientSmokeController {
 
         JsonObject hashes = new JsonObject();
         addModHash(hashes, "ponder_legacy");
-        addModHash(hashes, "ponder_mmce");
+        addModHash(hashes, "modularmachinery");
         report.add("sha256", hashes);
 
         JsonArray checkData = new JsonArray();

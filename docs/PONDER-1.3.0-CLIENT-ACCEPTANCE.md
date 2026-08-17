@@ -1,8 +1,8 @@
-# Ponder Legacy 1.3.0 客户端验收
+# Ponder Legacy 1.3.0 Alpha 1 客户端验收
 
 本验收只适用于同一次 `Build and Verify` 主分支运行产生的
-`Ponder-1.12.2-1.3.0.jar` 和
-`Ponder-Client-Harness-1.12.2-1.3.0.jar`。重新构建后必须重新验收。
+`Ponder-1.12.2-1.3.0-alpha.1.jar` 和
+`Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar`。重新构建后必须重新验收。
 
 ## 环境
 
@@ -13,8 +13,8 @@
 - CraftTweaker 4.1.20.698
 - 独立、可丢弃的标准 Forge 客户端实例
 
-从 `Ponder-Client-Acceptance-Kit-1.3.0.zip` 合并 `scripts` 目录，并把
-`mods/Ponder-Client-Harness-1.12.2-1.3.0.jar` 安装到实例。另行安装同一次 Actions
+从 `Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip` 合并 `scripts` 目录，并把
+`mods/Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar` 安装到实例。另行安装同一次 Actions
 运行下载的 Ponder 主包，以及上表中的 CraftTweaker 和 MixinBooter。
 
 ## 自动阶段
@@ -68,8 +68,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\complete-ponder-client-acceptance.ps1 `
   -HarnessReport <自动证据目录>\report.json `
   -EvidenceDirectory <人工证据目录> `
-  -PonderJar <Actions成品>\Ponder-1.12.2-1.3.0.jar `
-  -ClientHarnessJar <Actions成品>\Ponder-Client-Harness-1.12.2-1.3.0.jar `
+  -PonderJar <Actions成品>\Ponder-1.12.2-1.3.0-alpha.1.jar `
+  -ClientHarnessJar <Actions成品>\Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar `
   -ActionsRunId <主分支Build-and-Verify运行ID> `
   -SourceCommit <完整40位提交SHA> `
   -ConfirmedEightBuiltinScenes `
@@ -82,8 +82,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -ConfirmedOrdinaryWorldAfterClose
 ```
 
-输出 `build/reports/ponder-1.3.0-client-acceptance.json`。任何确认项缺失、自动检查失败、
+输出 `build/reports/ponder-1.3.0-alpha.1-client-acceptance.json`。任何确认项缺失、自动检查失败、
 版本不符、证据不足或 jar 文件名错误都会拒绝生成 `PASS` 报告。
 
-在最终报告完成前，1.3.0 只能发布为候选或预发布版本。CatServer 客户端兼容仍属于
-实验线，不阻塞标准 Forge 1.3.0 发布。
+Alpha 1 可以在该报告尚未完成时作为 GitHub Pre-release 发布，但 Release 必须附带
+`NOT_RUN` 客户端证据文件并明确说明只通过自动化和专服验证。Beta、RC 和稳定版必须完成本报告。
+CatServer 客户端兼容仍属于实验线。

@@ -32,10 +32,10 @@ $forgeInstallerUri = "https://maven.minecraftforge.net/net/minecraftforge/forge/
 $expectedForgeInstallerHash = "3A74473FC62DCF13BAA4130E6EA31A80C6A872B6B25F1A4C9195C8E878415BD0"
 $minecraftServerFileName = "minecraft_server.1.12.2.jar"
 $expectedMinecraftServerHash = "FE1F9274E6DAD9191BF6E6E8E36EE6EBC737F373603DF0946AAFCDED0D53167E"
-$ponderVersion = "1.3.0-mc1.12.2"
-$ponderFileName = "Ponder-1.12.2-1.3.0.jar"
+$ponderVersion = "1.3.0-alpha.1-mc1.12.2"
+$ponderFileName = "Ponder-1.12.2-1.3.0-alpha.1.jar"
 $ponderJar = Join-Path $buildRoot "libs\$ponderFileName"
-$serverHarnessFileName = "Ponder-Server-Harness-1.12.2-1.3.0.jar"
+$serverHarnessFileName = "Ponder-Server-Harness-1.12.2-1.3.0-alpha.1.jar"
 if ([string]::IsNullOrWhiteSpace($ServerHarnessJar)) {
     $ServerHarnessJar = Join-Path $buildRoot "verification\server-harness\$serverHarnessFileName"
 }
@@ -736,7 +736,7 @@ try {
     }
 
     if (!(Test-Path -LiteralPath $ponderJar -PathType Leaf)) {
-        throw "Build the final 1.3.0 reobf artifact before this test. Required: $ponderJar"
+        throw "Build the final 1.3.0-alpha.1 reobf artifact before this test. Required: $ponderJar"
     }
     if ([IO.Path]::GetFileName($ponderJar) -ne $ponderFileName) {
         throw "Only the final $ponderFileName artifact may be tested."

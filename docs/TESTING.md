@@ -31,17 +31,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-release.p
 `build` 已依赖 reobf 主包、reobf 示例 addon、API jar、sources jar 和发布内容检查。不要用
 `jar` 任务的 `build/devlibs/*-dev.jar` 代替发布成品。成功后应存在：
 
-- `build/libs/Ponder-1.12.2-1.3.0.jar`
-- `build/libs/Ponder-Example-Addon-1.12.2-1.3.0.jar`
-- `build/libs/Ponder-1.12.2-1.3.0-api.jar`
-- `build/libs/Ponder-1.12.2-1.3.0-sources.jar`
-- `build/distributions/Ponder-ZenScript-Examples-1.3.0.zip`
-- `build/distributions/Ponder-JSON-Examples-1.3.0.zip`
-- `build/distributions/Ponder-JSON-Tools-1.3.0.zip`
-- `build/distributions/Ponder-Example-Addon-Smoke-1.3.0.zip`
-- `build/distributions/Ponder-Client-Acceptance-Kit-1.3.0.zip`
-- `build/verification/client-harness/Ponder-Client-Harness-1.12.2-1.3.0.jar`
-- `ponder-mmce/build/libs/Ponder-MMCE-1.12.2-0.1.0-alpha.jar`
+- `build/libs/Ponder-1.12.2-1.3.0-alpha.1.jar`
+- `build/libs/Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar`
+- `build/libs/Ponder-1.12.2-1.3.0-alpha.1-api.jar`
+- `build/libs/Ponder-1.12.2-1.3.0-alpha.1-sources.jar`
+- `build/distributions/Ponder-ZenScript-Examples-1.3.0-alpha.1.zip`
+- `build/distributions/Ponder-JSON-Examples-1.3.0-alpha.1.zip`
+- `build/distributions/Ponder-JSON-Tools-1.3.0-alpha.1.zip`
+- `build/distributions/Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip`
+- `build/distributions/Ponder-Client-Acceptance-Kit-1.3.0-alpha.1.zip`
+- `build/verification/client-harness/Ponder-Client-Harness-1.12.2-1.3.0-alpha.1.jar`
 - `ponder-mmce/build/distributions/Ponder-MMCE-Smoke-Pack-0.1.0-alpha.zip`
 - `ponder-mmce/build/verification/server-harness/Ponder-MMCE-Server-Harness-1.12.2-0.1.0-alpha.jar`
 - `ponder-mmce/build/verification/client-harness/Ponder-MMCE-Client-Harness-1.12.2-0.1.0-alpha.jar`
@@ -52,7 +51,7 @@ Gradle 门槛检查以下内容：
 - 主包有有效 `mixins.ponder.refmap.json`，四个必要客户端 mixin 都有 SRG 映射；
 - manifest 使用 `PonderMixinLoader`、`ForceLoadAsMod=true` 和 `FMLCorePluginContainsFMLMod=true`；
 - 主包和示例包抽样类不含 MCP 字段/方法名，证明发布包经过 reobf；
-- 不嵌入 MixinBooter、CraftTweaker、ZenScript、Mixin、MixinExtras、Cleanroom、Flywheel、JOML、GLFW、Fabric 或 NeoForge；
+- 不嵌入 MixinBooter、CraftTweaker、ZenScript、Mixin、MixinExtras、Cleanroom、Flywheel、JOML、GLFW、Fabric、NeoForge 或 MMCE 类；
 - 不把示例 addon 或 `assets/ponder/ponder/debug` 九个开发结构打进主包；
 - 主包必须包含 `assets/ponder/ponder/demo` 下八个正式演示结构，并按发布清单逐项检查；
 - 主包必须包含 `assets/ponder/scripts/builtin` 下八个内置 ZenScript，并按发布清单逐项检查；
@@ -63,42 +62,43 @@ Gradle 门槛检查以下内容：
   ZS 冲突、服务器覆盖和 SNBT 实际播放；
 - 客户端验收报告生成工具 fixture 通过，报告必须绑定 Actions run、commit 和运行 jar 哈希；
 - API 门禁 fixture 放行新增类型、重载、default/static 方法，拒绝删除、改描述符、改继承和新增抽象成员；
-- Ponder-MMCE 子项目测试和构建通过，运行 jar 内 class 为 Java 8 major 52。
+- 主包包含内置 MMCE 兼容入口、Provider、Resolver 和 ZenClass，但不包含旧独立 `ponder_mmce`
+  `@Mod` 入口；MMCE 子项目测试、Smoke Pack 和 harness 构建通过。
 
 `verify-release.ps1` 会再次遍历主包、API、sources 和示例包：对两个可运行成品解析 class 常量池，
 检查 Minecraft 成员是否仍是 MCP 名；API classifier 是供开发编译的反混淆包，不作为运行 jar 检查。
 脚本还验证 sources 不含 class 或开发 debug NBT，主包包含八个正式演示结构和八个内置 ZenScript，
-并复核 refmap、manifest、禁用引用、语言数和 `pack_format=3`。它把四个 Ponder 成品、
-Ponder-MMCE 运行 jar 与 CatServer 的 SHA-256 写入
+并复核 refmap、manifest、禁用引用、语言数和 `pack_format=3`。它把四个 Ponder 成品与
+CatServer 的 SHA-256 写入
 `build/reports/release-verification.md`。单元测试报告位于 `build/reports/tests/test/index.html`。
 Ponder 的作者诊断报告和导出文件则写入 `logs/ponder/diagnostics`。
 
-## 1.3.0 当前发布记录
+## 1.3.0 Alpha 1 当前发布记录
 
-当前 1.3.0 成品的 SHA-256 不在本文硬编码。请到 GitHub Actions 的 build job summary
-和上传的 Ponder/Ponder-MMCE artifact bundle 中读取同一次构建的成品哈希。
+当前 1.3.0 Alpha 1 成品的 SHA-256 不在本文硬编码。请到 GitHub Actions 的 build job summary
+和上传的 Ponder artifact bundle 中读取同一次构建的成品哈希。
 
 同一次构建应同时产出：
 
-- `Ponder-1.12.2-1.3.0.jar`
-- `Ponder-Example-Addon-1.12.2-1.3.0.jar`
-- `Ponder-1.12.2-1.3.0-api.jar`
-- `Ponder-1.12.2-1.3.0-sources.jar`
-- `Ponder-ZenScript-Examples-1.3.0.zip`
-- `Ponder-JSON-Examples-1.3.0.zip`
-- `Ponder-JSON-Tools-1.3.0.zip`
-- `Ponder-Example-Addon-Smoke-1.3.0.zip`
-- `Ponder-MMCE-1.12.2-0.1.0-alpha.jar`
+- `Ponder-1.12.2-1.3.0-alpha.1.jar`
+- `Ponder-Example-Addon-1.12.2-1.3.0-alpha.1.jar`
+- `Ponder-1.12.2-1.3.0-alpha.1-api.jar`
+- `Ponder-1.12.2-1.3.0-alpha.1-sources.jar`
+- `Ponder-ZenScript-Examples-1.3.0-alpha.1.zip`
+- `Ponder-JSON-Examples-1.3.0-alpha.1.zip`
+- `Ponder-JSON-Tools-1.3.0-alpha.1.zip`
+- `Ponder-Example-Addon-Smoke-1.3.0-alpha.1.zip`
 
-这些成品、`build/reports/release-verification.md`、主项目与 Ponder-MMCE 测试报告
-以及标准 Forge 专服报告必须指向同一次 1.3.0 构建。CatServer 服务端回归报告也应记录对应成品，
-但 CatServer 客户端支持只算实验线，不阻塞发布。标准 Forge 真实客户端仍是 1.3.0 的发布门槛。
+这些成品、`build/reports/release-verification.md`、主项目与 MMCE 兼容测试报告
+以及标准 Forge 专服报告必须指向同一次 Alpha 构建。Alpha 可以在真实客户端报告尚未完成时作为
+GitHub Pre-release 发布，但必须附带状态为 `NOT_RUN` 的客户端证据文件，并明确声明只取得自动化和
+专服证据。Beta、RC 和稳定版仍以标准 Forge 真实客户端验收为发布门槛。
 
-Ponder-MMCE 验收还必须覆盖静态/动态结构解析、稳定结构 ID 与指纹、物品到 component 映射、
-PASS/NOT_FOUND、重复注册、刷新失效、单机错误隔离和未安装 addon/MMCE 时的可选依赖边界。
-任何兼容声明都必须写明实际测试的 Ponder、Ponder-MMCE 与 MMCE 版本组合。
+内置 MMCE 验收还必须覆盖静态/动态结构解析、稳定结构 ID 与指纹、物品到 component 映射、
+PASS/NOT_FOUND、重复注册、刷新失效、单机错误隔离，以及未安装 MMCE 时的可选类加载边界。
+任何兼容声明都必须写明实际测试的 Ponder 与 MMCE 版本组合。
 
-1.3.0 还必须核对协议 v3：codec ID、精确版本、能力要求、服务器脚本标签/共享文本、结构依赖清单和
+1.3.0 Alpha 1 还必须核对协议 v3：codec ID、精确版本、能力要求、服务器脚本标签/共享文本、结构依赖清单和
 三层事务回滚。JSON 验收还应覆盖 `/ponder reload`、逐文件 last-known-good、删除包、ZS 冲突、
 本地/服务器覆盖和 SNBT。Example Addon Smoke Pack 用于验证有 codec 客户端正常同步，以及无 codec
 客户端在 Begin/Chunk 前收到兼容拒绝。API 签名报告位于 `build/reports/api`。
@@ -107,7 +107,7 @@ PASS/NOT_FOUND、重复注册、刷新失效、单机错误隔离和未安装 ad
 [PONDER-1.3.0-CLIENT-ACCEPTANCE.md](PONDER-1.3.0-CLIENT-ACCEPTANCE.md)
 执行。最终报告必须由 `tools/complete-ponder-client-acceptance.ps1` 生成；1.3.0 发布工作流会
 重新下载指定成功 `main` 运行的既有成品，并核对报告中的 run ID、commit 和 Ponder SHA-256。
-未完成人工项时只能保留候选或预发布状态。
+Alpha 未完成人工项时保持 Pre-release；Beta、RC 和稳定版不得跳过。
 
 真实 MMCE 专服 fixture 使用同一个可安装 Smoke Pack：
 
@@ -118,15 +118,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\test-ponder-mmce
 
 脚本第一轮启动加载三台 MMCE 机器、两个作者场景、命名组、preview NBT 和蓝图 Resolver。
 随后冻结静态结构 ID、修改本地机器配置并再次启动；Provider 必须明确拒绝旧指纹，动态场景必须保留，
-且日志必须包含明确的 `fingerprint mismatch`。第三轮模拟 MMCE ABI 不兼容，附属必须停止注册
+且日志必须包含明确的 `fingerprint mismatch`。第三轮模拟 MMCE ABI 不兼容，内置兼容层必须停止注册
 Provider/Resolver，Ponder 与专服仍正常启动。客户端 harness 另行确认旧指纹拒绝不会移除其他有效场景。
 报告写入
 `build/reports/ponder-mmce-forge-verification-*.md`。
 
-客户端安装 Smoke Pack、运行独立 Ponder-MMCE client harness 后，按照
+客户端安装 Smoke Pack、运行 MMCE client harness 后，按照
 [PONDER-MMCE-ALPHA-ACCEPTANCE.md](PONDER-MMCE-ALPHA-ACCEPTANCE.md) 完成人工项。
-最终验收 JSON 必须由 `tools/complete-ponder-mmce-client-acceptance.ps1` 生成；Alpha 发布工作流会
-重新核对其中的 Ponder 与 Ponder-MMCE SHA-256。
+最终验收 JSON 必须由 `tools/complete-ponder-mmce-client-acceptance.ps1` 生成，并绑定 Ponder 与
+MMCE 两个运行 jar 的 SHA-256。
 
 1.1.2 Alpha/MMCE 发布与验收记录是冻结线，只绑定旧的 1.1.2 成品、旧的报告和旧的验收 JSON，
 不随着 1.3.0 的主线构建刷新。

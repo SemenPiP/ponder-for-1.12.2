@@ -1,6 +1,6 @@
 # Ponder Legacy ZenScript API
 
-本文档对应 `1.3.0-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
+本文档对应 `1.3.0-alpha.1-mc1.12.2` 的实际 `@ZenClass` 和 `@ZenMethod`。脚本由
 CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes`。修改脚本后必须重启；
 `/ponder reload` 会重新读取 JSON 场景包，但只重新应用当前进程中已经编译的 ZS 定义。
 
@@ -25,7 +25,7 @@ CraftTweaker 4.1.20+ 在启动阶段执行，推荐放在 `scripts/ponder/scenes
 诊断报告和导出文件写入 `logs/ponder/diagnostics`。
 Java storyboard 场景没有可导出的脚本 IR，所以 `export ... ir` 只适用于脚本场景；`timeline`
 对 Java 场景和脚本场景都可导出。ZenScript 示例包打包为
-`build/distributions/Ponder-ZenScript-Examples-1.3.0.zip`。
+`build/distributions/Ponder-ZenScript-Examples-1.3.0-alpha.1.zip`。
 JSON 前端使用相同 IR，但其格式与工具单独记录在 [JSON-PACKS.md](JSON-PACKS.md)。
 
 1.3.0 快照协议为 v3。服务器可以同步经过验证的 ZS 标签、标签 component 关联和共享文本；同 ID
@@ -33,8 +33,9 @@ JSON 前端使用相同 IR，但其格式与工具单独记录在 [JSON-PACKS.md
 拒绝整个候选快照并保留旧层。自定义 `scene.custom(...)` 指令还会协商 codec 精确协议版本与实际能力，
 缺少或不兼容时在发送快照正文前拒绝。
 
-Ponder-MMCE 是独立子项目，通过 Java 结构 Provider 与物品 Subject Resolver 接入动态机器。它在
-addon 内单独注册 `mods.ponder.mmce.MMCEStructures` 和 `mods.ponder.mmce.MMCEStructureRef`：
+MMCE 2.3.2+ 兼容实现已经包含在 Ponder 运行 jar 中。检测到 `modularmachinery` 且 ABI 检查通过后，
+Ponder 会自动注册 Java 结构 Provider、物品 Subject Resolver，以及
+`mods.ponder.mmce.MMCEStructures` 和 `mods.ponder.mmce.MMCEStructureRef`：
 
 ```zenscript
 MMCEStructures.machine(machineId)
@@ -44,8 +45,8 @@ MMCEStructures.dynamic(machineId, dynamicPattern, repetitions, patternOffset, fa
 ```
 
 返回对象公开 `component`、`structure`、尺寸、控制器坐标、建议底板大小和 `fingerprint`；
-`structure` 是可传给场景结构参数的稳定 `ponder_mmce:` 结构 ID。上述类型只在安装
-Ponder-MMCE 时存在；Ponder 主模组本页列出的 ZenClass、场景注册、同步与结构规则保持不变。
+`structure` 是可传给场景结构参数的稳定 `ponder_mmce:` 结构 ID。未安装 MMCE 时兼容实现不会启用；
+脚本不应在没有 MMCE 的整合包中调用这些入口。不需要安装独立 Ponder-MMCE 运行 jar。
 
 ## 最小场景
 
@@ -316,7 +317,7 @@ scripts/ponder/
 
 ## 快照限制
 
-- 协议：v2，双方都安装 Ponder 时必须使用完全相同的模组版本。
+- 协议：v3，双方都安装 Ponder 时必须使用完全相同的模组版本。
 - 每个快照最多 2048 个场景。
 - 每个场景最多 4096 条指令。
 - 每个场景未压缩数据最多 1 MiB。
