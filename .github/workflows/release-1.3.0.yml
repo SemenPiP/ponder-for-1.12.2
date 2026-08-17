@@ -72,10 +72,12 @@ jobs:
             }
           }
 
-          gh api `
-            "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" `
-            --silent 2>&1 | Out-Null
-          if ($LASTEXITCODE -eq 0) {
+          $releaseEndpoint =
+            "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG"
+          cmd.exe /d /c `
+            "gh api $releaseEndpoint --silent >nul 2>nul"
+          $releaseCheckCode = $LASTEXITCODE
+          if ($releaseCheckCode -eq 0) {
             throw "Release $env:RELEASE_TAG already exists"
           }
           "sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
